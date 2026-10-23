@@ -1,0 +1,139 @@
+/* İlk Tapu — görsel dil: Anadolu toprağı, buğday, kilim kökboyası kırmızısı, çini mavisi.
+   Akılda kalan tek öğe: resmi evrak gibi duran olay kartı ve tapu mührü. Gerisi sakin. */
+:root {
+  --soil: #2a2117;        /* koyu toprak: arka plan */
+  --soil-2: #362b1e;      /* paneller */
+  --soil-3: #46392a;      /* çizgiler, seçili */
+  --straw: #e6d6a6;       /* metin */
+  --straw-dim: #b5a57c;   /* ikincil metin */
+  --wheat: #d9a441;       /* para, vurgu */
+  --madder: #a3322a;      /* kökboya kırmızısı: tehlike, mühür */
+  --cini: #3f86a6;        /* çini mavisi: bilgi */
+  --leaf: #7f9a4a;        /* sağlık, iyi */
+  --paper: #efe4c8;       /* evrak kâğıdı (yalnızca kartlar) */
+  --ink: #2d2318;         /* evrak mürekkebi */
+  --serif: 'Alegreya', Georgia, serif;
+  --sans: 'Alegreya Sans', 'Segoe UI', system-ui, sans-serif;
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; background: var(--soil); color: var(--straw); font: 16px/1.4 var(--sans); overscroll-behavior: none; }
+body { -webkit-user-select: none; user-select: none; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--wheat); outline-offset: 2px; }
+#app { height: 100%; }
+
+/* ---------- Açılış ---------- */
+.start { min-height: 100%; display: grid; place-items: center; padding: calc(24px + var(--safe-t)) 20px calc(24px + var(--safe-b)); }
+.start-inner { width: 100%; max-width: 420px; }
+.start h1 { font: 800 clamp(52px, 16vw, 84px)/0.9 var(--serif); margin: 0 0 6px; color: var(--straw); letter-spacing: -0.01em; }
+.start h1 span { display: block; color: var(--wheat); }
+.start .lede { font: 500 18px/1.45 var(--serif); color: var(--straw-dim); margin: 14px 0 28px; max-width: 34ch; }
+.field { display: block; margin-bottom: 14px; }
+.field > span { display: block; font-size: 14px; color: var(--straw-dim); margin-bottom: 5px; }
+.field input { width: 100%; background: var(--soil-2); border: 1px solid var(--soil-3); border-radius: 6px; color: var(--straw); font: 500 18px var(--sans); padding: 11px 12px; }
+.seg { display: flex; gap: 8px; }
+.seg button { flex: 1; background: var(--soil-2); border: 1px solid var(--soil-3); border-radius: 6px; padding: 10px; }
+.seg button[aria-pressed='true'] { border-color: var(--wheat); color: var(--wheat); }
+.primary { display: block; width: 100%; background: var(--wheat); color: var(--soil); border: 0; border-radius: 6px; padding: 14px; font: 700 18px var(--sans); margin-top: 22px; }
+.ghost { display: block; width: 100%; background: none; border: 1px solid var(--soil-3); border-radius: 6px; padding: 13px; margin-top: 10px; color: var(--straw); }
+
+/* ---------- Oyun düzeni ---------- */
+.game { height: 100%; display: grid; grid-template-rows: auto minmax(180px, 46%) auto 1fr; }
+.top { padding: calc(8px + var(--safe-t)) calc(14px + var(--safe-r)) 8px calc(14px + var(--safe-l)); display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; background: var(--soil); }
+.top { align-items: center; row-gap: 6px; }
+.top .date { font: 700 22px/1 var(--serif); margin-right: auto; }
+.top .stats { display: flex; gap: 14px; flex-wrap: wrap; width: 100%; }
+@media (min-width: 820px) { .top .stats { width: auto; order: -1; margin-left: auto; } .top .date { order: -2; margin-right: 0; } }
+.stat { font-size: 15px; color: var(--straw-dim); white-space: nowrap; }
+.stat b { color: var(--straw); font-weight: 700; }
+.stat.money b { color: var(--wheat); }
+.stat.debt b { color: #e0806f; }
+
+.mapwrap { position: relative; overflow: hidden; background: #1f2a20; }
+.mapwrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+.clock { position: absolute; right: 10px; bottom: 10px; display: flex; gap: 6px; }
+.clock button { min-width: 44px; height: 40px; border-radius: 6px; border: 1px solid rgba(230, 214, 166, .25); background: rgba(42, 33, 23, .82); font-weight: 700; }
+.clock button[aria-pressed='true'] { background: var(--wheat); color: var(--soil); border-color: var(--wheat); }
+.who { position: absolute; left: 10px; top: 10px; background: rgba(42, 33, 23, .82); border-radius: 6px; padding: 6px 10px; font-size: 14px; max-width: 60%; }
+.who b { font-family: var(--serif); font-size: 16px; }
+
+.tabs { display: flex; background: var(--soil-2); border-top: 1px solid var(--soil-3); padding: 0 calc(6px + var(--safe-r)) 0 calc(6px + var(--safe-l)); }
+.tabs button { flex: 1; background: none; border: 0; border-bottom: 3px solid transparent; padding: 11px 4px 9px; color: var(--straw-dim); font-weight: 500; }
+.tabs button[aria-selected='true'] { color: var(--straw); border-bottom-color: var(--wheat); }
+.panel { overflow-y: auto; -webkit-overflow-scrolling: touch; background: var(--soil-2); padding: 6px calc(14px + var(--safe-r)) calc(18px + var(--safe-b)) calc(14px + var(--safe-l)); }
+
+@media (min-width: 820px) and (orientation: landscape) {
+  .game { grid-template-columns: 1fr minmax(360px, 34%); grid-template-rows: auto auto 1fr; }
+  .top { grid-column: 1 / -1; }
+  .mapwrap { grid-row: 2 / 4; }
+  .tabs { grid-column: 2; }
+  .panel { grid-column: 2; }
+}
+
+/* ---------- Aile listesi ---------- */
+.group { font: 700 15px var(--serif); color: var(--straw-dim); margin: 16px 0 6px; }
+.person { padding: 10px 0; border-bottom: 1px solid var(--soil-3); }
+.person:last-child { border-bottom: 0; }
+.prow { display: flex; align-items: baseline; gap: 8px; }
+.pname { font: 700 17px var(--serif); }
+.pname.dead { color: var(--straw-dim); font-weight: 500; }
+.prel { color: var(--straw-dim); font-size: 14px; }
+.badge { font-size: 12px; font-weight: 700; padding: 1px 7px; border-radius: 99px; border: 1px solid currentColor; }
+.badge.sen { color: var(--wheat); }
+.badge.varis { color: var(--cini); }
+.badge.gurbet { color: var(--straw-dim); }
+.badge.hasta { color: #e0806f; }
+.pmeta { display: flex; align-items: center; gap: 10px; margin-top: 6px; flex-wrap: wrap; font-size: 14px; color: var(--straw-dim); }
+.hp { width: 64px; height: 6px; background: var(--soil-3); border-radius: 3px; overflow: hidden; }
+.hp i { display: block; height: 100%; background: var(--leaf); }
+.hp.low i { background: var(--madder); }
+.pmeta select { background: var(--soil); color: var(--straw); border: 1px solid var(--soil-3); border-radius: 5px; padding: 6px 8px; font: inherit; max-width: 190px; }
+.small { background: none; border: 1px solid var(--soil-3); border-radius: 5px; padding: 6px 10px; font-size: 14px; }
+.small:disabled { opacity: .45; }
+.skills { font-size: 13px; color: var(--straw-dim); margin-top: 4px; }
+
+/* ---------- Hane ---------- */
+.ledger { width: 100%; border-collapse: collapse; margin: 8px 0 4px; font-size: 16px; }
+.ledger td { padding: 7px 0; border-bottom: 1px solid var(--soil-3); }
+.ledger td:last-child { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
+.note { font-size: 14px; color: var(--straw-dim); margin: 8px 0; }
+.btnrow { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.warn { border-left: 3px solid var(--madder); padding: 6px 10px; margin: 10px 0; font-size: 15px; background: rgba(163, 50, 42, .12); }
+
+/* ---------- Kronik ---------- */
+.chron { list-style: none; margin: 0; padding: 0; }
+.chron li { padding: 9px 0 9px 14px; border-bottom: 1px solid var(--soil-3); position: relative; font: 500 16px/1.45 var(--serif); }
+.chron li::before { content: ''; position: absolute; left: 0; top: 15px; width: 6px; height: 6px; border-radius: 50%; background: var(--straw-dim); }
+.chron li.olum::before { background: var(--madder); }
+.chron li.dogum::before, .chron li.evlilik::before { background: var(--leaf); }
+.chron li.tapu::before, .chron li.para::before { background: var(--wheat); }
+.chron li.miras::before { background: var(--cini); }
+.chron li.tapu { color: var(--wheat); font-weight: 700; }
+.chron time { display: block; font: 500 13px var(--sans); color: var(--straw-dim); }
+
+/* ---------- Olay kartı: resmi evrak ---------- */
+.veil { position: fixed; inset: 0; background: rgba(20, 15, 10, .72); display: grid; place-items: center; padding: calc(16px + var(--safe-t)) 16px calc(16px + var(--safe-b)); z-index: 10; }
+.doc { width: 100%; max-width: 440px; background: var(--paper); color: var(--ink); border-radius: 3px; padding: 0 0 18px; box-shadow: 0 18px 50px rgba(0, 0, 0, .45); position: relative; overflow: hidden; }
+.doc .kilim { height: 12px; background:
+  linear-gradient(135deg, var(--madder) 25%, transparent 25%) 0 0 / 12px 12px,
+  linear-gradient(225deg, var(--madder) 25%, transparent 25%) 0 0 / 12px 12px,
+  linear-gradient(315deg, var(--madder) 25%, transparent 25%) 0 0 / 12px 12px,
+  linear-gradient(45deg, var(--madder) 25%, transparent 25%) 0 0 / 12px 12px,
+  #6b2a1f; }
+.doc .head { padding: 16px 20px 0; font: 500 14px var(--sans); color: #6a5a43; }
+.doc p { padding: 6px 20px 0; margin: 0; font: 500 19px/1.5 var(--serif); }
+.doc .opts { padding: 16px 20px 0; display: grid; gap: 8px; }
+.doc .opts button { background: transparent; border: 1.5px solid var(--ink); border-radius: 4px; padding: 12px; font: 700 16px var(--sans); color: var(--ink); text-align: left; }
+.doc .opts button:first-child { background: var(--ink); color: var(--paper); }
+.stamp { position: absolute; right: 14px; top: 26px; width: 92px; height: 92px; border: 3px solid var(--madder); border-radius: 50%; color: var(--madder); display: grid; place-items: center; text-align: center; font: 800 15px/1.05 var(--serif); transform: rotate(-14deg); opacity: .82; }
+
+/* ---------- Son ---------- */
+.end { min-height: 100%; padding: calc(28px + var(--safe-t)) 20px calc(28px + var(--safe-b)); max-width: 620px; margin: 0 auto; }
+.end h1 { font: 800 44px/1 var(--serif); margin: 0 0 10px; }
+.end .lede { font: 500 19px/1.5 var(--serif); color: var(--straw-dim); }
+
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
