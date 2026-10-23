@@ -4,12 +4,12 @@
 
 export type Sex = 'E' | 'K';
 export type SkillId = 'tarim' | 'insaat' | 'zanaat' | 'ticaret';
-export type JobId = 'tarla' | 'kendi' | 'isletme' | 'sofor' | 'lab' | 'univ' | 'avukat' | 'doktor' | 'muhendis' | 'coban' | 'insaat' | 'cirak' | 'usta' | 'tuccar' | 'ev' | 'okul' | 'yok';
+export type JobId = 'tarla' | 'kendi' | 'isletme' | 'sofor' | 'lab' | 'univ' | 'avukat' | 'doktor' | 'muhendis' | 'ogretmen' | 'coban' | 'insaat' | 'cirak' | 'usta' | 'tuccar' | 'ev' | 'okul' | 'yok';
 export type VehicleId = 'esek' | 'araba' | 'traktor' | 'otomobil' | 'kamyon';
 export type BizId = 'bakkal' | 'kahve' | 'degirmen';
 export type RoomId = 'oda' | 'ahir' | 'samanlik' | 'misafir' | 'bodrum';
 export type LabSite = 'bodrum' | 'degirmen' | 'agil';
-export type TechId = 'radyo' | 'elektrik' | 'telefon' | 'buzdolabi' | 'tv' | 'telsiz' | 'bicer' | 'asfalt' | 'sulama' | 'bilgisayar' | 'cep' | 'kamera' | 'dinleme' | 'kripto' | 'dron' | 'uydu';
+export type TechId = 'pulluk' | 'gramofon' | 'dikis' | 'kinin' | 'penisilin' | 'bisiklet' | 'koyyolu' | 'radyo' | 'elektrik' | 'telefon' | 'buzdolabi' | 'tv' | 'telsiz' | 'bicer' | 'asfalt' | 'sulama' | 'bilgisayar' | 'cep' | 'kamera' | 'dinleme' | 'kripto' | 'dron' | 'uydu';
 export type DistId = 'liman' | 'carsi' | 'sanayi' | 'gecekondu' | 'yenisehir' | 'kordon';
 export type DInv = 'kahvehane' | 'galeri' | 'otel' | 'pavyon' | 'site';
 export type FacId = 'un' | 'nakliye' | 'tekstil' | 'gazino' | 'insaat';
@@ -27,7 +27,7 @@ export interface Person {
   first: string;
   last: string;
   sex: Sex;
-  b: number;            // doğum ayı (1965 Ocak = 0)
+  b: number;            // doğum ayı (kampanya başı Ocak = 0)
   d?: number;           // ölüm ayı
   cause?: string;       // ölüm nedeni
   fa?: string;          // baba
@@ -36,8 +36,8 @@ export interface Person {
   kids: string[];
   blood: boolean;       // hanedanın kan bağı
   inHH: boolean;        // oyuncunun hanesinde mi yaşıyor
-  away?: 'gurbet' | 'hapis' | 'asker' | 'rehin';
-  dip?: 'hukuk' | 'tip' | 'muh'; // üniversite diploması
+  away?: 'gurbet' | 'hapis' | 'asker' | 'rehin' | 'okul';
+  dip?: 'hukuk' | 'tip' | 'muh' | 'ogret'; // diploma (üniversite ya da köy enstitüsü)
   awayUntil?: number;
   hp: number;           // sağlık 0-100
   sick?: number;        // kalan hastalık ayı
@@ -85,6 +85,7 @@ export interface Parcel {
   careN: number;
   lastNeed: number;     // geçen ayki iş gücü ihtiyacı
   lastGot: number;      // geçen ay gelen iş gücü
+  plan?: CropId | null; // ekim planı: boş kalınca kendiliğinden ekilir
   hist: { m: number; crop: CropId; v: number; t: string }[];
 }
 
@@ -101,6 +102,7 @@ export interface Household {
   biz: Partial<Record<BizId, number>>; // sahip olunan işletmeler: alındığı ay
   rooms: Partial<Record<RoomId, number>>; // evdeki ek odalar
   agil: boolean;        // dağdaki ağıl
+  ambar?: Partial<Record<CropId, number>>; // ambardaki ürün (temel değer birimi)
 }
 
 /** Gizli atölye: soyut bir üretim zinciri (ham mal → paket → hap). */
@@ -168,7 +170,8 @@ export interface PlotState {
   pid?: string;         // bizimse parsel kimliği
   ask: number;          // sahibinin fiyat çarpanı
   sale: boolean;        // satışta mı
-  mad: number;          // bu yıla kadar teklif dinlemez
+  mad: number;          // (eski) bu yıla kadar teklif dinlemez
+  madM?: number;        // bu aya kadar teklif dinlemez
 }
 
 export interface LedgerLine {
@@ -180,7 +183,9 @@ export interface World {
   v: number;
   seed: number;
   rng: number;          // rastgele sayı üretecinin durumu
-  m: number;            // şu anki ay (1965 Ocak = 0)
+  m: number;            // şu anki ay (kampanya başı Ocak = 0)
+  y0?: number;          // takvim tabanı: 1925 (yeni) ya da 1965 (eski kayıt)
+  mk?: Partial<Record<CropId | 'hayvan', number>>; // bu yılın piyasa fiyat çarpanları
   nextId: number;
   nextCard: number;
   surname: string;

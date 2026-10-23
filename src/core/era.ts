@@ -6,10 +6,15 @@ import { clamp } from './rng';
 import { infl, year } from './calendar';
 import { log } from './people';
 import { pushCard } from './cards';
+import { hhMembers } from './people';
+import { age } from './people';
 
 export interface EraDef { from: number; ad: string; desc: string; }
 export const ERAS: EraDef[] = [
-  { from: 1965, ad: 'Toprak Yılları', desc: 'Kağnı, gaz lambası, gurbete giden trenler. Toprak her şeydir.' },
+  { from: 1925, ad: 'Kuruluş Yılları', desc: 'Cumhuriyet yeni kuruldu. Aşar kalktı, okullar açılıyor; ama köyde hâlâ kağnı, kara saban ve ağanın sözü geçiyor.' },
+  { from: 1939, ad: 'Savaş Yılları', desc: 'Dünya savaşta. Ülke savaşa girmedi ama erkekler silah altında, ekmek karneyle, karaborsa her yerde.' },
+  { from: 1946, ad: 'Toprak Yılları', desc: 'Çok partili hayat başladı. Devlet topraksız köylüye toprak dağıtıyor, köylere yol geliyor, ağaların gücü sarsılıyor.' },
+  { from: 1961, ad: 'Gurbet Yılları', desc: 'Almanya işçi istiyor. Trenler köyün gençleriyle dolu; gelen marklar köylerin yüzünü değiştiriyor.' },
   { from: 1975, ad: 'Kargaşa Yılları', desc: 'Sokaklar karışık, kontroller sıkı. Jandarma her yerde; kaçakçılık hem tehlikeli hem kârlı.' },
   { from: 1983, ad: 'Açılım', desc: 'Serbest piyasa, ithal mallar, kredi. Şehirler büyüyor, para el değiştiriyor.' },
   { from: 1995, ad: 'Kriz Yılları', desc: 'Enflasyon, batan bankalar, ucuza düşen mülkler. Nakit olan kral.' },
@@ -26,6 +31,13 @@ export function eraOf(w: World): EraDef {
 
 export interface TechDef { id: TechId; ad: string; from: number; price: number; auto: boolean; desc: string; }
 export const TECHS: Record<TechId, TechDef> = {
+  kinin: { id: 'kinin', ad: 'Sıtma savaşı', from: 1926, price: 0, auto: true, desc: 'Devlet köylere kinin dağıtıyor, bataklıklar kurutuluyor. Sıtma eskisi kadar öldürmüyor.' },
+  pulluk: { id: 'pulluk', ad: 'Demir pulluk', from: 1928, price: 650, auto: false, desc: 'Kara sabanın yerine demir pulluk: toprak derin sürülür, bütün hasatlar %6 artar.' },
+  gramofon: { id: 'gramofon', ad: 'Gramofon', from: 1931, price: 900, auto: false, desc: 'Taş plaklar, İstanbul şarkıları. Akşamları misafir eksik olmaz: nam +2.' },
+  dikis: { id: 'dikis', ad: 'Dikiş makinesi', from: 1934, price: 1400, auto: false, desc: 'Evdeki kadınlar köye elbise, çeyiz diker: ev işlerine bakan her kadın aylık ek kazanç getirir.' },
+  penisilin: { id: 'penisilin', ad: 'Penisilin', from: 1950, price: 0, auto: true, desc: 'Antibiyotik eczanelere geldi. Ağır hastalıklar artık çoğu zaman iyileşiyor.' },
+  bisiklet: { id: 'bisiklet', ad: 'Bisikletler', from: 1952, price: 750, auto: false, desc: 'Gündeliğe gidenler uzak tarlalara da yetişir: gündelikçi ve inşaat kazancı %8 artar.' },
+  koyyolu: { id: 'koyyolu', ad: 'Köy yolu', from: 1955, price: 0, auto: true, desc: 'Köye stabilize yol yapıldı. Hasat pazara kolay gider: satışlar %3 artar.' },
   radyo: { id: 'radyo', ad: 'Radyo', from: 1966, price: 300, auto: false, desc: 'Akşam haberleri, türküler. Evdekilerin keyfi yerinde: bağlılık yavaşça artar.' },
   elektrik: { id: 'elektrik', ad: 'Köye elektrik', from: 1969, price: 0, auto: true, desc: 'Direkler dikildi, ampuller yandı. Atölyeler gece de çalışır: kapasite +1.' },
   telefon: { id: 'telefon', ad: 'Ev telefonu', from: 1972, price: 2500, auto: false, desc: 'Santrale bağlı bir hat. Baskın haberi önceden gelir: baskın ihtimali %20 düşer.' },
@@ -57,6 +69,7 @@ export function buyTech(w: World, t: TechId): { ok: boolean; msg: string } {
   w.hh.cash -= p;
   w.tech[t] = w.m;
   if (t === 'tv') w.flags.namBonus = Number(w.flags.namBonus || 0) + 4;
+  if (t === 'gramofon') w.flags.namBonus = Number(w.flags.namBonus || 0) + 2;
   log(w, `${d.ad} alındı (${p.toLocaleString('tr-TR')} lira).`, 'tapu');
   return { ok: true, msg: `${d.ad} geldi.` };
 }
@@ -91,6 +104,7 @@ export function policeFactor(w: World): number {
   let f = 1;
   const y = year(w.m);
   if (y >= 1975 && y < 1983) f *= 1.35;
+  if (y >= 1940 && y <= 1946) f *= 1.15; // karaborsaya karşı sıkı denetim
   if (has(w, 'telsiz')) f *= 1.15;
   if (has(w, 'dinleme')) f *= 1.2;
   if (has(w, 'telefon')) f *= 0.8;
@@ -98,4 +112,16 @@ export function policeFactor(w: World): number {
   else if (w.pol?.seat === 'belediye') f *= 0.75;
   else if (w.pol?.seat === 'muhtar') f *= 0.9;
   return f;
+}
+
+/** Aylık: teknolojilerin getirdiği ek kazanç (dikiş makinesi). */
+export function techIncome(w: World, lines: { t: string; v: number }[]) {
+  if (has(w, 'dikis')) {
+    const n = hhMembers(w).filter((p) => p.sex === 'K' && p.job === 'ev' && !p.away && age(w, p) >= 14 && age(w, p) <= 65).length;
+    if (n) {
+      const v = Math.round(n * 48 * infl(w.m));
+      w.hh.cash += v;
+      lines.push({ t: `Dikiş makinesi (${n} kadın dikiyor)`, v });
+    }
+  }
 }

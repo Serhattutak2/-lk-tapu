@@ -1,6 +1,6 @@
 // Meslekler. Ücretler 1965 Türk lirası, aylık. Denge ayarı otomatik testlerle yapılır.
 import type { JobId, Person, SkillId, World } from './types';
-import { infl, isWorkSeason } from './calendar';
+import { infl, isWorkSeason, year } from './calendar';
 import { age } from './people';
 
 export interface JobDef {
@@ -28,6 +28,7 @@ export const JOBS: Record<JobId, JobDef> = {
   avukat: { id: 'avukat', ad: 'Avukat', skill: 'ticaret', minAge: 22, maxAge: 75, summer: 950, winter: 950, physical: false, risk: 0, gain: 0.4, desc: 'Ailenin hukuk işlerine bakar: hapis cezaları kısalır.', unlock: (_w, p) => p.dip === 'hukuk' },
   doktor: { id: 'doktor', ad: 'Doktor', skill: 'ticaret', minAge: 23, maxAge: 75, summer: 1150, winter: 1150, physical: false, risk: 0, gain: 0.3, desc: 'Ailenin sağlığına bakar: hastalıklar kısa sürer, ölüm riski düşer.', unlock: (_w, p) => p.dip === 'tip' },
   muhendis: { id: 'muhendis', ad: 'Mühendis', skill: 'zanaat', minAge: 22, maxAge: 70, summer: 850, winter: 850, physical: false, risk: 0, gain: 0.5, desc: 'Fabrikalar ve atölye daha verimli çalışır.', unlock: (_w, p) => p.dip === 'muh' },
+  ogretmen: { id: 'ogretmen', ad: 'Köy öğretmeni', skill: 'ticaret', minAge: 18, maxAge: 70, summer: 420, winter: 420, physical: false, risk: 0, gain: 0.5, desc: 'Köy okulunda ders verir. Düzenli maaş; köyde sözü dinlenir, çocukları okumaya meraklı olur.', unlock: (_w, p) => p.dip === 'ogret' },
   coban: { id: 'coban', ad: 'Çoban', skill: 'tarim', minAge: 10, maxAge: 70, summer: 130, winter: 110, physical: true, risk: 0.0003, gain: 0.8, desc: 'Köyün sürüsünü otlatır. Az ama her ay kazanç.' },
   insaat: { id: 'insaat', ad: 'İnşaat işçisi', skill: 'insaat', minAge: 15, maxAge: 60, summer: 300, winter: 80, physical: true, risk: 0.0014, gain: 1.6, desc: 'İlçedeki şantiyelerde iş. İyi para, ama kaza riski yüksek.' },
   cirak: { id: 'cirak', ad: 'Demirci çırağı', skill: 'zanaat', minAge: 11, maxAge: 30, summer: 80, winter: 80, physical: false, risk: 0.0002, gain: 2.6, desc: 'Az kazanır ama hızlı öğrenir. Yeterince ustalaşınca usta olur.' },
@@ -63,6 +64,8 @@ export function wage(w: World, p: Person): number {
   if (a < 15) f *= 0.6;
   if (a > 60) f *= 0.75;
   if (p.sick) f *= 0.3;
+  if ((p.job === 'tarla' || p.job === 'insaat') && w.tech?.bisiklet) f *= 1.08;
+  if (p.job === 'ogretmen' && year(w.m) < 1960) f *= 1.15; // köy öğretmeni o yıllarda baş tacı
   return Math.round(base * f * infl(w.m));
 }
 

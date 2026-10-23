@@ -1,5 +1,7 @@
 # İlk Tapu — Devir Notu (Faz 0)
 
+0.7: Oyun Mart 1925'te başlar. Ekim planı (`Parcel.plan`, `autoSow`), ambar (`hh.ambar`), değişen fiyatlar, çağa göre sağlık. Ağa kirası `RENT_CAP` ile sınırlı.
+
 Bu dosya projeyi başka bir yapay zekâ ya da geliştiriciyle sürdürmek için yazıldı. Kod TypeScript; `tools/build.mjs` esbuild ile her şeyi tek dosyalık `dist/index.html`'e paketler. Oyun metinleri Türkçe.
 
 ## Altın kurallar
@@ -30,6 +32,10 @@ Bu dosya projeyi başka bir yapay zekâ ya da geliştiriciyle sürdürmek için 
 | `core/events.ts` | ~40 olay kartı (`ev:<id>`): askerlik, üniversite, sel, deprem, kriz, seçimler (muhtar/belediye/vekil), muhbir, rehine, kurşunlama, soygun, düğün, imece... `monthlyStories` (terhis, mezuniyet, kredi taksidi, koltuk süresi), `monthlyHostility` (rakip ve çete kendiliğinden saldırganlaşır) |
 | `core/district.ts` | Çukurkent'in 6 mahallesi (`DISTS`), mahalle yatırımları (`INVS`), mahalle alma `takeDistrict`, aylık kara gelir ve aklama kapasitesi, mahalle kartları |
 | `core/goals.ts` | Sonsuz oyun için 29 hanedan hedefi (`GOALS`) ve hanedan puanı (`flags.puan`) |
+| `core/calendar.ts` | Takvim tabanı `World.y0` (yeni oyun 1925, eski kayıt 1965); `setBase` advance/newWorld/migrate içinde çağrılır. `kurbanMonth` kameri takvime göre bayram ayı |
+| `core/market.ts` | Yıllık ürün ve hayvan fiyat çarpanları (`w.mk`), tarihî şoklar (`SHOCKS`: buhran, savaş, kriz), `mk()` |
+| `core/health.ts` | Çağa göre hastalık adları ve tedavi seçenekleri (`cures`): ev, hoca, sağlıkçı/sağlık ocağı, hekim, hastane, özel hastane; rastgele fiyat; `eraMortality` |
+| `core/history.ts` | 1925 sonrası tarihî olaylar (`hi:<id>`): harf devrimi, soyadı, eşkıya, kaçak tütün, buhran tarlası, seferberlik, karne, köy enstitüsü (öğretmen mesleği), topraklandırma, 1950 seçimi, ağanın traktörü, 1960, Almanya; hac, kurt, yangın, piyango, muhtarın tarla haberi |
 | `core/sim.ts` | Aylık adım `advance`: ekonomi, beceri ve sağlık, yaşam, kartlar. Oyuncu eylemleri: `setJob`, `setHeir`, `payDebt`, `resolveCard`. Test botu `botTurn` |
 | `ui/app.ts` | Açılış, oyun ekranı, Aile/Hane/Kronik panelleri, olay kartı (evrak görünümü), ilk tapu töreni, son ekranı. Kayıt anahtarı `ilktapu_v1` |
 | `ui/map.ts` | İzometrik piksel köy; 320×196 tampona çizilir, ekrana büyütülür. `SLOTS` oyuncunun parselleri |

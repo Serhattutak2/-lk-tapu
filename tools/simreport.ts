@@ -29,7 +29,7 @@ for (let i = 0; i < N; i++) {
   });
 }
 const avg = (k: string) => (rows.reduce((s, r) => s + r[k], 0) / rows.length).toFixed(1);
-console.table(rows.slice(0, 12));
+console.log(rows.map((r) => [r.tapuYili, r.donum, Math.round(r.nakit/1e6), Math.round(r.borc/1e6), r.borcluYil, r.kanOlu, r.lab, r.fab, r.sehir, r.kart].join(" ")).join("\n"));
 console.log('ORTALAMA', Object.fromEntries(Object.keys(rows[0]).map((k) => [k, avg(k)])));
 console.log('Tapu alan kampanya:', rows.filter((r) => r.tapuYili).length, '/', N, ' Hanedanı sönen:', rows.filter((r) => r.bitti).length);
 const ty = rows.filter((r) => r.tapuYili).map((r) => r.tapuYili).sort();

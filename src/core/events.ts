@@ -3,7 +3,8 @@
 import type { DistId, Person, World } from './types';
 import { chance, clamp, pick, rint } from './rng';
 import { age, alive, fullName, hhMembers, log, P, removeFromHH } from './people';
-import { infl, monthOf, year } from './calendar';
+import { infl, kurbanMonth, monthOf, year } from './calendar';
+import { mk } from './market';
 import { pushCard } from './cards';
 import { die, makeSpouseFor, marry } from './life';
 import { has } from './era';
@@ -41,15 +42,20 @@ const EVENTS: Ev[] = [
   {
     id: 'borc_iste',
     p: 0.012,
-    make: (w) => ({
-      text: `Komşu ${pick(w, ['Topal Osman', 'Dul Hatice', 'Berber Sami', 'Bekçi Nuri'])} kapıya geldi: kızını evlendirecek, ${fmt(L(w, 1500))} lira borç istiyor. "Hasatta öderim" diyor.`,
-      opts: [{ t: 'Ver', k: 'ver' }, { t: 'Elimde yok de', k: 'yok' }],
-    }),
-    res: (w, k) => {
+    make: (w) => {
+      const v = Math.round((L(w, 600 + rint(w, 0, 1400))) / 50) * 50;
+      return {
+        data: { v },
+        text: `Komşu ${pick(w, ['Topal Osman', 'Dul Hatice', 'Berber Sami', 'Bekçi Nuri'])} kapıya geldi: ${pick(w, ['kızını evlendirecek', 'oğlu hasta', 'tohumluk alacak', 'ağaya borcu var'])}, ${fmt(v)} lira borç istiyor. "Hasatta öderim" diyor.`,
+        opts: [{ t: `Ver (${fmt(v)} lira)`, k: 'ver' }, { t: 'Elimde yok de', k: 'yok' }],
+      };
+    },
+    res: (w, k, _p, d) => {
       if (k !== 'ver') return;
-      w.hh.cash -= L(w, 1500);
+      const v = Number(d.v || L(w, 1500));
+      w.hh.cash -= v;
       if (chance(w, 0.7)) {
-        w.flags.alacak = Number(w.flags.alacak || 0) + L(w, 1650);
+        w.flags.alacak = Number(w.flags.alacak || 0) + Math.round(v * 1.1);
         w.flags.namBonus = Number(w.flags.namBonus || 0) + 1;
         log(w, `Komşuya borç verildi; köyde "eli açık aile" dendi.`, 'olay');
       } else log(w, `Komşuya verilen borç bir daha geri gelmedi.`, 'olay');
@@ -58,33 +64,54 @@ const EVENTS: Ev[] = [
   {
     id: 'dugun',
     p: 0.012,
-    make: (w) => ({
-      text: `${pick(w, ['Muhtarın oğlu', 'Ağanın yeğeni', 'Hacı Ömer\'in kızı', 'Köyün öğretmeni'])} evleniyor; bütün köy düğünde. Takı takmak lazım.`,
-      opts: [{ t: `Altın tak (${fmt(L(w, 900))} lira)`, k: 'altin' }, { t: 'Gidip halay çek, yeter', k: 'git' }, { t: 'Gitme', k: 'gitme' }],
-    }),
-    res: (w, k) => {
+    make: (w) => {
+      const v = Math.round((L(w, 900) * (0.8 + rint(w, 0, 45) / 100)) / 10) * 10;
+      return {
+        data: { v },
+        text: `${pick(w, ['Muhtarın oğlu', 'Ağanın yeğeni', 'Hacı Ömer\'in kızı', 'Köyün öğretmeni'])} evleniyor; bütün köy düğünde. Takı takmak lazım; kuyumcuda altın ${v > L(w, 1000) ? 'pahalanmış' : 'bu ay makul'}.`,
+        opts: [{ t: `Altın tak (${fmt(v)} lira)`, k: 'altin' }, { t: 'Gidip halay çek, yeter', k: 'git' }, { t: 'Gitme', k: 'gitme' }],
+      };
+    },
+    res: (w, k, _p, d) => {
       if (k === 'altin') {
-        w.hh.cash -= L(w, 900);
+        w.hh.cash -= Number(d.v || L(w, 900));
         w.flags.namBonus = Number(w.flags.namBonus || 0) + 1;
       } else if (k === 'gitme') w.flags.namBonus = Number(w.flags.namBonus || 0) - 1;
     },
   },
   {
     id: 'kurban',
-    p: (w) => (monthOf(w.m) === 6 && !w.flags['kurban' + year(w.m)] ? 0.5 : 0),
+    p: (w) => (monthOf(w.m) === kurbanMonth(year(w.m)) && !w.flags['kurban' + year(w.m)] ? 0.9 : 0),
     make: (w) => {
       w.flags['kurban' + year(w.m)] = true;
+      // Kurbanlık fiyatı: hayvan piyasası, pazarlık ve bayram kalabalığı
+      const h = mk(w, 'hayvan') * (0.85 + rint(w, 0, 35) / 100);
+      const dana = Math.round((L(w, 2200) * h) / 10) * 10;
+      const koc = Math.round((L(w, 600) * h) / 10) * 10;
+      const own = !!w.hh.rooms.ahir && Number(w.flags.ahirKapali || 0) < w.m;
+      const pct = Math.round(h * 100);
       return {
-        text: `Kurban Bayramı. Köyde kimin ne kestiğine bakılır.`,
-        opts: [{ t: `Dana kes, etini dağıt (${fmt(L(w, 2200))} lira)`, k: 'dana' }, { t: `Koç kes (${fmt(L(w, 600))} lira)`, k: 'koc' }, { t: 'Bu yıl gücümüz yok', k: 'yok' }],
+        data: { dana, koc },
+        text: `Kurban Bayramı. Köyde kimin ne kestiğine bakılır. Hayvan pazarında fiyatlar ${pct >= 112 ? 'tavan yapmış' : pct <= 88 ? 'bu yıl ucuz; kuraklıkta herkes hayvanını satıyor' : 'geçen yılki gibi'} (normalin %${pct}'i).`,
+        opts: [
+          { t: `Dana kes, etini dağıt (${fmt(dana)} lira)`, k: 'dana' },
+          { t: `Koç kes (${fmt(koc)} lira)`, k: 'koc' },
+          ...(own ? [{ t: 'Ahırdan kendi koçumuzu kes', k: 'ahir' }] : []),
+          { t: 'Bu yıl gücümüz yok', k: 'yok' },
+        ],
       };
     },
-    res: (w, k) => {
+    res: (w, k, _p, d) => {
       if (k === 'dana') {
-        w.hh.cash -= L(w, 2200);
+        w.hh.cash -= Number(d.dana || L(w, 2200));
         w.flags.namBonus = Number(w.flags.namBonus || 0) + 2;
         for (const id of w.hh.members) w.people[id].rel = clamp(w.people[id].rel + 3, -100, 100);
-      } else if (k === 'koc') w.hh.cash -= L(w, 600);
+      } else if (k === 'koc') w.hh.cash -= Number(d.koc || L(w, 600));
+      else if (k === 'ahir') w.flags.ahirKapali = Math.max(Number(w.flags.ahirKapali || 0), w.m + 1);
+      else if (k === 'yok' && w.hh.cash > L(w, 3000)) {
+        w.flags.namBonus = Number(w.flags.namBonus || 0) - 1;
+        log(w, `Kasası dolu ailenin kurban kesmemesi köyde dedikodu oldu.`, 'olay');
+      }
     },
   },
   {
@@ -228,7 +255,7 @@ const EVENTS: Ev[] = [
   },
   {
     id: 'univ',
-    from: 1967,
+    from: 1955,
     p: 0.04,
     make: (w) => {
       const c = kids(w).find((p) => age(w, p) >= 16 && age(w, p) <= 18 && p.tr.zeka >= 7 && !p.dip && !w.flags['univ' + p.id]);
@@ -301,14 +328,14 @@ const EVENTS: Ev[] = [
     id: 'secim_muhtar',
     p: (w) => (!w.city.moved && !w.pol.seat && w.m - w.pol.tried > 48 && monthOf(w.m) === 9 && year(w.m) % 5 === 0 ? 0.9 : 0),
     make: (w) => ({
-      text: `Muhtarlık seçimi yaklaşıyor. Köyde "${w.surname} olsun" diyenler var. Kahve masraflarıyla, düğünlere giderek, söz vererek kampanya ${fmt(L(w, 6000))} lira tutar. Nam: ${nam(w)}.`,
+      text: `Muhtarlık seçimi yaklaşıyor. Köyde "${w.surname} olsun" diyenler var. Kahve masraflarıyla, düğünlere giderek, söz vererek kampanya ${fmt(L(w, 3500))} lira tutar. Nam: ${nam(w)}; kazanma şansın aşağı yukarı %${Math.round(clamp(0.35 + nam(w) / 80, 0.35, 0.9) * 100)}.`,
       opts: [{ t: 'Aday ol', k: 'evet' }, { t: 'Bu iş bize göre değil', k: 'hayir' }],
     }),
     res: (w, k) => {
       w.pol.tried = w.m;
       if (k !== 'evet') return;
-      w.hh.cash -= L(w, 6000);
-      if (chance(w, clamp(0.2 + nam(w) / 100, 0.2, 0.85))) {
+      w.hh.cash -= L(w, 3500);
+      if (chance(w, clamp(0.35 + nam(w) / 80, 0.35, 0.9))) {
         w.pol.seat = 'muhtar';
         w.pol.until = w.m + 60;
         w.flags.namBonus = Number(w.flags.namBonus || 0) + 5;

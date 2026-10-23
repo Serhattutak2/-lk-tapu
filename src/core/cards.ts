@@ -16,6 +16,8 @@ import { homeCards, resolveHome } from './home';
 import { crewCards, netCards, resolveBaron } from './baron';
 import { eventCards, resolveEvent } from './events';
 import { districtCards, resolveDistrict } from './district';
+import { resolveSick, sickCard } from './health';
+import { historyCards, resolveHistory } from './history';
 
 export function pushCard(w: World, c: Omit<Card, 'uid' | 'm'>) {
   w.flags.kartSay = Number(w.flags.kartSay || 0) + 1;
@@ -46,7 +48,7 @@ const RESOLVE: Record<string, Resolver> = {
     s.sk.tarim = clamp(Math.round(d.ageY * 1.4 + gauss(w, 0, 6)), 0, 70);
     s.rel = clamp(Math.round(gauss(w, 50, 15)), 0, 95);
     marry(w, p, s);
-    const cost = 300;
+    const cost = Number(c.data?.cost || Math.round(300 * infl(w.m)));
     w.hh.cash -= cost;
     log(w, `${fullName(p)} ile ${fullName(s)} evlendi. Düğün ${cost} liraya mal oldu.`, 'evlilik');
   },
@@ -54,14 +56,15 @@ const RESOLVE: Record<string, Resolver> = {
   hastalik: (w, c, k) => {
     const p = P(w, c.pid);
     if (!alive(p)) return;
-    if (k === 'doktor') {
-      w.hh.cash -= 150;
-      p.sick = 0;
-      p.hp = clamp(p.hp + 10, 0, 100);
-      log(w, `${fullName(p)} ilçedeki doktora götürüldü ve iyileşti (150 lira).`, 'olay');
-    } else {
-      log(w, `${fullName(p)} evde, ninelerin ilaçlarıyla yatıyor.`, 'olay');
+    if (!c.data?.cures) {
+      // 0.6 öncesi kart
+      if (k === 'doktor') {
+        w.hh.cash -= Math.round(150 * infl(w.m));
+        p.sick = 0;
+      }
+      return;
     }
+    resolveSick(w, p, k, c.data);
   },
 
   gurbet: (w, c, k) => {
@@ -71,12 +74,15 @@ const RESOLVE: Record<string, Resolver> = {
       log(w, `${fullName(p)} gurbete gitmedi.`, 'olay');
       return;
     }
-    w.hh.cash -= 250;
+    const de = year(w.m) >= 1961;
+    const yol = Math.round((de ? 250 : 60) * infl(w.m));
+    w.hh.cash -= yol;
     p.away = 'gurbet';
-    p.awayUntil = w.m + 12 * rint(w, 4, 9);
+    p.awayUntil = w.m + 12 * (de ? rint(w, 4, 9) : rint(w, 2, 5));
     p.job = 'yok';
     p.parcel = undefined;
-    log(w, `${fullName(p)} Almanya'ya işçi olarak gitti. Yol parası 250 lira.`, 'olay');
+    w.flags['gyer' + p.id] = de ? 'de' : 'ist';
+    log(w, de ? `${fullName(p)} Almanya'ya işçi olarak gitti. Yol parası ${yol} lira.` : `${fullName(p)} İstanbul'a, inşaatlarda çalışmaya gitti. Yol parası ${yol} lira.`, 'olay');
   },
 
   tuccar: (w, _c, k) => {
@@ -106,7 +112,7 @@ export function resolveCard(w: World, uid: number, k: string) {
   if (i < 0) return;
   const [c] = w.cards.splice(i, 1);
   if (RESOLVE[c.id]) RESOLVE[c.id](w, c, k);
-  else if (!resolveCrime(w, c, k) && !resolveLab(w, c.id, k) && !resolveFeud(w, c.id, c.pid, k, c.data) && !resolveBaron(w, c.id, k) && !resolveEvent(w, c.id, k, c.pid, c.data) && !resolveDistrict(w, c.id, k, c.data)) resolveHome(w, c.id, c.pid, k, c.data);
+  else if (!resolveCrime(w, c, k) && !resolveLab(w, c.id, k) && !resolveFeud(w, c.id, c.pid, k, c.data) && !resolveBaron(w, c.id, k) && !resolveEvent(w, c.id, k, c.pid, c.data) && !resolveHistory(w, c.id, k, c.pid, c.data) && !resolveDistrict(w, c.id, k, c.data)) resolveHome(w, c.id, c.pid, k, c.data);
   if (w.hh.cash < 0) {
     // Kasada olmayan para ağadan borç alınır
     w.hh.debt += -w.hh.cash;
@@ -127,6 +133,7 @@ export function generateCards(w: World) {
   if (labCards(w)) return;
   if (netCards(w) || crewCards(w)) return;
   if (districtCards(w)) return;
+  if (historyCards(w) || w.over) return;
   if (eventCards(w) || w.over) return;
   if (homeCards(w)) return;
 
@@ -137,11 +144,12 @@ export function generateCards(w: World) {
     const first = pick(w, sex === 'E' ? MALE : FEMALE);
     const last = pick(w, SURNAMES);
     const koy = pick(w, ['Yukarıdere', 'Kızılca', 'Aşağıova', 'Çamlıbel', 'Gökpınar', 'Karaçam']);
+    const cost = Math.round((300 * infl(w.m) * (0.75 + rint(w, 0, 50) / 100)) / 10) * 10;
     pushCard(w, {
       id: 'gorucu',
-      text: `${koy} köyünden ${last} ailesi görücü yolladı: ${first} (${ageY}) ile evlenmen isteniyor. Düğün yaklaşık 300 liraya mal olur.`,
-      opts: [{ t: 'Kabul et', k: 'evet' }, { t: 'Geri çevir', k: 'hayir' }],
-      data: { first, last, ageY, sex },
+      text: `${koy} köyünden ${last} ailesi görücü yolladı: ${first} (${ageY}) ile evlenmen isteniyor. Düğün, takı ve ${year(w.m) < 1960 ? 'başlık' : 'çeyiz'} derken yaklaşık ${cost.toLocaleString('tr-TR')} liraya mal olur.`,
+      opts: [{ t: `Kabul et (${cost.toLocaleString('tr-TR')} lira)`, k: 'evet' }, { t: 'Geri çevir', k: 'hayir' }],
+      data: { first, last, ageY, sex, cost },
     });
     return;
   }
@@ -171,26 +179,26 @@ export function generateCards(w: World) {
     const p = pick(w, mem);
     p.sick = rint(w, 2, 4);
     p.hp = clamp(p.hp - rint(w, 10, 20), 5, 100);
-    pushCard(w, {
-      id: 'hastalik',
-      pid: p.id,
-      text: `${fullName(p)} (${age(w, p)}) ağır hastalandı. İlçedeki doktora götürmek 150 liraya mal olur.`,
-      opts: [{ t: 'Doktora götür (150 lira)', k: 'doktor' }, { t: 'Evde bakalım', k: 'bekle' }],
-    });
+    const sc = sickCard(w, p);
+    pushCard(w, { id: 'hastalik', pid: p.id, text: sc.text, opts: sc.opts, data: sc.data });
     return;
   }
 
-  // Gurbet: 1965–1975 arası Almanya'ya işçi göçü
+  // Gurbet: 1961–1975 Almanya; öncesinde İstanbul'un inşaatları
   if (yr <= 1975) {
     const cand = hhMembers(w).filter((p) => p.id !== w.playerId && !p.away && age(w, p) >= 20 && age(w, p) <= 40 && !w.flags['g' + p.id]);
     if (cand.length && chance(w, 0.015)) {
       const p = pick(w, cand);
       w.flags['g' + p.id] = true;
+      const de = yr >= 1961;
+      const yol = Math.round((de ? 250 : 60) * infl(w.m));
       pushCard(w, {
         id: 'gurbet',
         pid: p.id,
-        text: `Almanya'ya işçi alınıyor. ${fullName(p)} (${age(w, p)}) gitmek istiyor. Yıllarca uzakta kalır ama her ay mark gönderir; dönerse birikimiyle döner. Ya hiç dönmezse?`,
-        opts: [{ t: 'Gönder (250 lira yol parası)', k: 'gonder' }, { t: 'Gitmesin', k: 'kalsin' }],
+        text: de
+          ? `Almanya'ya işçi alınıyor. ${fullName(p)} (${age(w, p)}) gitmek istiyor. Yıllarca uzakta kalır ama her ay mark gönderir; dönerse birikimiyle döner. Ya hiç dönmezse?`
+          : `İstanbul'da inşaatlar adam istiyor. ${fullName(p)} (${age(w, p)}) gurbete çıkmak istiyor; birkaç yıl uzakta kalır, ayda bir havale yollar.`,
+        opts: [{ t: `Gönder (${yol} lira yol parası)`, k: 'gonder' }, { t: 'Gitmesin', k: 'kalsin' }],
       });
       return;
     }
@@ -228,17 +236,18 @@ export function gurbetReturns(w: World) {
     if (!alive(p) || p.away !== 'gurbet' || (p.awayUntil ?? 0) > w.m) continue;
     p.away = undefined;
     p.awayUntil = undefined;
-    if (chance(w, 0.85)) {
-      const sav = Math.round(rint(w, 30, 60) * 100 * infl(w.m));
+    const ist = w.flags['gyer' + p.id] === 'ist';
+    if (chance(w, ist ? 0.93 : 0.85)) {
+      const sav = Math.round(rint(w, 30, 60) * (ist ? 35 : 100) * infl(w.m));
       w.hh.cash += sav;
       p.job = 'tarla';
       p.parcel = undefined;
-      log(w, `${fullName(p)} Almanya'dan döndü; yanında ${sav} lira birikim getirdi.`, 'para');
+      log(w, `${fullName(p)} ${ist ? 'İstanbul' : 'Almanya'}'dan döndü; yanında ${sav} lira birikim getirdi.`, 'para');
     } else {
       removeFromHH(w, p);
       const sp = P(w, p.sp);
       if (alive(sp) && sp.inHH && sp.id !== w.playerId) removeFromHH(w, sp);
-      log(w, `${fullName(p)} Almanya'da kalmaya karar verdi. Ailenin gurbette bir kolu oluştu.`, 'olay');
+      log(w, `${fullName(p)} ${ist ? 'İstanbul' : 'Almanya'}'da kalmaya karar verdi. Ailenin gurbette bir kolu oluştu.`, 'olay');
     }
   }
 }

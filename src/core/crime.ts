@@ -12,6 +12,9 @@ import { has, policeFactor } from './era';
 import { jailYears } from './events';
 import { makeSpouseFor, marry } from './life';
 
+/** Ağanın kira evi için üst sınır (temel lira). */
+export const RENT_CAP = 110;
+
 export const heatLabel = (h: number) => (h < 15 ? 'Kimse bakmıyor' : h < 35 ? 'Adın geçiyor' : h < 60 ? 'Jandarma soruyor' : 'Gözetim altındasın');
 
 /** Ay başında: Isı azalır, zula Isı üretir, hapistekiler çıkar, tarihsel duyurular. */
@@ -121,8 +124,8 @@ export function crimeCards(w: World): boolean {
   }
 
   // Ağa kirayı artırıyor
-  if (w.hh.parcels.length === 0 && mo === 9 && chance(w, 0.18)) {
-    const nr = Math.round(w.hh.rent * 1.25);
+  if (w.hh.parcels.length === 0 && w.hh.house === 0 && w.hh.rent < RENT_CAP && mo === 9 && chance(w, 0.15)) {
+    const nr = Math.min(RENT_CAP, Math.round(w.hh.rent * 1.2));
     pushCard(w, {
       id: 'aga_kira',
       text: `Ağa, oturduğunuz evin kirasını ${fmt(Math.round(w.hh.rent * infl(w.m)))} liradan ${fmt(Math.round(nr * infl(w.m)))} liraya çıkarıyor. "Beğenmeyen başka köye gitsin" diye haber yolladı.`,
@@ -221,13 +224,13 @@ export function resolveCrime(w: World, c: Card, k: string): boolean {
       if (k === 'kabul') {
         w.hh.rent = nr;
         log(w, `Ağa kirayı ${fmt(Math.round(nr * infl(w.m)))} liraya çıkardı.`, 'para');
-      } else if (chance(w, 0.5)) {
-        log(w, `Muhtarın araya girmesiyle kira aynı kaldı. Ağa bunu unutmayacak.`, 'olay');
-        w.flags.agaKin = year(w.m) + 3;
+      } else if (chance(w, w.pol.seat === 'muhtar' ? 0.9 : 0.65)) {
+        w.flags.namBonus = Number(w.flags.namBonus || 0) + 1;
+        log(w, `Muhtarın araya girmesiyle kira aynı kaldı. Köyde "ağaya kafa tuttular" deniyor.`, 'olay');
       } else {
-        w.hh.rent = Math.round(nr * 1.1);
-        w.flags.agaKin = year(w.m) + 3;
-        log(w, `İtiraz ağayı kızdırdı; kira ${fmt(Math.round(w.hh.rent * infl(w.m)))} liraya çıktı ve köyde toprak satanlara "o aileye satmayın" haberi gönderildi.`, 'olay');
+        w.hh.rent = Math.min(RENT_CAP, Math.round(nr * 1.05));
+        w.flags.agaKin = Math.max(Number(w.flags.agaKin || 0), year(w.m));
+        log(w, `İtiraz tutmadı; kira ${fmt(Math.round(w.hh.rent * infl(w.m)))} liraya çıktı. Ağa bu yılın sonuna kadar köyde kimseye sana toprak sattırmayacak.`, 'olay');
       }
       return true;
     }
@@ -245,7 +248,7 @@ export function resolveCrime(w: World, c: Card, k: string): boolean {
         log(w, `${g.first}, ağanın oğlu ${s.first} Bozbey ile evlendirildi. Borcun ${fmt(cut)} lirası silindi. ${g.first} gelin giderken kimseye bakmadı.`, 'evlilik');
       } else {
         w.hh.rent = Math.round(w.hh.rent * 1.3);
-        w.flags.agaKin = year(w.m) + 4;
+        w.flags.agaKin = year(w.m) + 2;
         g.rel = clamp(g.rel + 25, -100, 100);
         log(w, `Ağanın isteği geri çevrildi. Ertesi hafta kira ${fmt(Math.round(w.hh.rent * infl(w.m)))} liraya çıktı.`, 'olay');
       }

@@ -5,14 +5,18 @@ import { age, alive, fullName, hhMembers, log, P } from './people';
 import { JOBS, jobAllowed, wage } from './jobs';
 import { monthlyLife } from './life';
 import { generateCards, gurbetReturns, resolveCard, seasonalNotes } from './cards';
-import { infl, monthOf, year } from './calendar';
-import { assignWorker, CROPS, hasRuhsat, idleWage, laborNeed, monthlyFields, sow, sowableNow, staffAll, workersOf } from './fields';
-import { monthlyCrime } from './crime';
+import { infl, monthOf, setBase, year } from './calendar';
+import { yearlyPrices } from './market';
+import { monthlyHealth } from './health';
+import { monthlyHistory } from './history';
+import { ambarValue, assignWorker, CROPS, hasRuhsat, idleWage, laborNeed, monthlyAmbar, monthlyFields, sellAmbar, sow, sowableNow, staffAll, STORABLE, workersOf } from './fields';
+import { monthlyCrime, RENT_CAP } from './crime';
 import { monthlyLab } from './lab';
 import { attackRival, lockedOut, monthlyFeud, setLock } from './feud';
 import { buyCityHome, buyFac, cityEvents, FACS, facPrice, hire, homePrice, monthlyBaron, moveToCity, setFacMgr } from './baron';
 import type { FacId, TechId } from './types';
-import { monthlyEra, buyTech, TECHS, techPrice } from './era';
+import { monthlyEra, buyTech, techIncome, TECHS, techPrice } from './era';
+import { mk } from './market';
 import { monthlyHostility, monthlyStories } from './events';
 import { monthlyGoals } from './goals';
 import { DISTS, menNeeded, monthlyDistricts, takeDistrict } from './district';
@@ -30,14 +34,19 @@ export const canAdvance = (w: World) => !w.over && w.cards.length === 0;
 /** Bir ay ilerletir. Bekleyen kart varsa ilerlemez. */
 export function advance(w: World): boolean {
   if (!canAdvance(w)) return false;
+  setBase(w.y0);
   w.m++;
   if (monthOf(w.m) === 2) w.rain = clamp(gauss(w, 1, 0.2), 0.5, 1.4);
 
   gurbetReturns(w);
   monthlyEra(w);
+  monthlyHistory(w);
   monthlyCrime(w);
   monthlyHostility(w);
-  if (monthOf(w.m) === 0) yearlyMarket(w, nam(w));
+  if (monthOf(w.m) === 0) {
+    yearlyPrices(w);
+    yearlyMarket(w, nam(w));
+  }
   const harvestBonus = seasonalNotes(w);
   economy(w, harvestBonus);
   growth(w);
@@ -60,9 +69,10 @@ function economy(w: World, harvestBonus: number) {
   const cash0 = w.hh.cash;
   for (const p of mem) {
     if (p.away === 'gurbet') {
-      const v = Math.round(rint(w, 25, 40) * 10 * infl(w.m)); // her ay gelen mark
+      const ist = w.flags['gyer' + p.id] === 'ist';
+      const v = Math.round(rint(w, 25, 40) * (ist ? 4 : 10) * infl(w.m)); // her ay gelen mark ya da havale
       w.hh.cash += v;
-      lines.push({ t: `${p.first}: Almanya'dan gelen para`, v });
+      lines.push({ t: `${p.first}: ${ist ? 'İstanbul' : 'Almanya'}'dan gelen para`, v });
       continue;
     }
     if (p.away) continue;
@@ -76,6 +86,9 @@ function economy(w: World, harvestBonus: number) {
   }
 
   monthlyFields(w, lines);
+  monthlyAmbar(w);
+  techIncome(w, lines);
+  monthlyHealth(w);
   monthlyAssets(w, lines);
   monthlyHome(w, lines);
   monthlyLab(w, lines);
@@ -102,7 +115,7 @@ function economy(w: World, harvestBonus: number) {
   const exp: LedgerLine[] = [
     { t: `Mutfak ve ev (${mem.filter((p) => !p.away).length} boğaz)${housework ? ', ev işleriyle' : ''}`, v: -Math.round(food * k) },
   ];
-  if (w.hh.house === 0 && w.hh.rent > 0) exp.push({ t: 'Ağaya ev kirası', v: -Math.round(w.hh.rent * infl(w.m)) });
+  if (w.hh.house === 0 && w.hh.rent > 0) exp.push({ t: 'Ağaya ev kirası', v: -Math.round(Math.min(w.hh.rent, RENT_CAP) * infl(w.m)) });
   if (school) exp.push({ t: 'Okul masrafı', v: -Math.round(school * k) });
   if (sick) exp.push({ t: 'Hasta bakımı', v: -Math.round(sick * k) });
   // Borç büyüdükçe ağa haciz yapar; tefeci faizi yine de sonsuz büyümez
@@ -242,12 +255,15 @@ export function botTurn(w: World) {
   while (w.cards.length && guard++ < 10) {
     const c = w.cards[0];
     let k = c.opts[0].k;
-    if (c.id === 'hastalik') k = w.hh.cash > 250 ? 'doktor' : 'bekle';
+    if (c.id === 'hastalik' && c.data?.cures) {
+      const cs = (c.data.cures as [string, number, number][]).filter((x) => x[1] <= Math.max(0, w.hh.cash) * 0.4).sort((a, b) => b[2] - a[2]);
+      k = cs[0]?.[0] ?? 'ev';
+    }
     if (c.id === 'gurbet') k = chance(w, 0.5) ? 'gonder' : 'kalsin';
     if (c.id === 'kacakci') k = chance(w, 0.5) ? 'evet' : 'hayir';
     if (c.id === 'hashas_hasat') k = c.opts[Math.min(c.opts.length - 1, chance(w, 0.6) ? 0 : 1)].k;
     if (c.id === 'aga_kiz') k = chance(w, 0.5) ? 'ver' : 'ret';
-    if (c.id.startsWith('ev:')) {
+    if (c.id.startsWith('ev:') || c.id.startsWith('hi:')) {
       const cheap = c.opts.filter((o) => !/\(\d/.test(o.t) && !/lira\)/.test(o.t));
       const pool = w.hh.cash > 20000 * infl(w.m) ? c.opts : cheap.length ? cheap : c.opts;
       k = pool[Math.floor(rint(w, 0, pool.length - 1))].k;
@@ -265,6 +281,11 @@ export function botTurn(w: World) {
 }
 
 function botFields(w: World) {
+  if (w.hh.parcels.length >= 2) w.flags.ambarla = true;
+  for (const c of STORABLE) {
+    const v = ambarValue(w, c);
+    if (v > 0 && (mk(w, c) >= 1.1 || w.hh.cash < 300 * infl(w.m) || monthOf(w.m) === 11 && mk(w, c) >= 0.95)) sellAmbar(w, c);
+  }
   const now = sowableNow(w);
   for (const f of w.hh.parcels) {
     if (!f.crop && now.length) {

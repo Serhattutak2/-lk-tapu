@@ -257,3 +257,12 @@ details summary.group { cursor: pointer; }
 .asset.dist.biz { border-left: 3px solid var(--wheat); padding-left: 10px; }
 .asset.dist.cete { border-left: 3px solid var(--madder); padding-left: 10px; }
 .asset.tech.got .pname { color: var(--wheat); }
+/* 0.7: ekim planı, piyasa, ambar */
+.planrow { margin: 8px 0; }
+.planrow label { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--straw); font-size: 15px; }
+.planrow select { background: var(--soil); color: var(--straw); border: 1px solid var(--soil-3); border-radius: 5px; padding: 7px 8px; font: inherit; font-size: 15px; max-width: 100%; }
+.small.on { border-color: var(--wheat); color: var(--wheat); }
+.prices td:last-child { text-align: right; }
+.prices td.pos { color: var(--wheat); }
+.prices td.neg { color: #d98a7a; }
+.warnline { color: var(--wheat); }

@@ -1,4 +1,4 @@
-// Yeni kampanya: Mart 1965, topraksız ve fakir bir köylü ailesi.
+// Yeni kampanya: Mart 1925, Cumhuriyetin ilk yılları; topraksız ve fakir bir köylü ailesi.
 import type { World } from './types';
 import { gauss, pick, rint, clamp } from './rng';
 import { SURNAMES } from './names';
@@ -6,9 +6,11 @@ import { log, makePerson, seedSkills } from './people';
 import { defaultJob } from './jobs';
 import { initPlots, PLOTS } from './plots';
 import { initDistricts, syncTurf } from './district';
+import { setBase, START_YEAR } from './calendar';
+import { initMarket } from './market';
 
-export const VERSION = 6;
-export const START_M = 2; // Mart 1965
+export const VERSION = 7;
+export const START_M = 2; // Mart 1925
 
 export interface NewGameOpts {
   seed?: number;
@@ -19,16 +21,19 @@ export interface NewGameOpts {
 
 export function newWorld(o: NewGameOpts = {}): World {
   const seed = (o.seed ?? Math.floor(Math.random() * 2 ** 31)) | 0;
+  setBase(START_YEAR);
   const w: World = {
     v: VERSION,
     seed,
     rng: seed,
     m: START_M,
+    y0: START_YEAR,
+    mk: {},
     nextId: 1,
     nextCard: 1,
     surname: '',
     people: {},
-    hh: { cash: 0, debt: 0, rent: 50, land: 0, members: [], parcels: [], stash: 0, house: 0, veh: {}, biz: {}, rooms: {}, agil: false },
+    hh: { cash: 0, debt: 0, rent: 50, land: 0, members: [], parcels: [], stash: 0, house: 0, veh: {}, biz: {}, rooms: {}, agil: false, ambar: {} },
     playerId: '',
     heirId: null,
     cards: [],
@@ -87,7 +92,9 @@ export function newWorld(o: NewGameOpts = {}): World {
   }
   nine.job = 'ev';
   initPlots(w);
+  initMarket(w);
 
+  log(w, `Savaş yılları geride kaldı, Cumhuriyet yeni kuruldu. Şubat'ta aşar vergisi kaldırıldı; köylü artık ürününün onda birini devlete vermiyor.`, 'olay');
   log(w, `${surname} ailesi, Karaçam köyünde kirada oturdukları eski evde yaşıyor. Kendilerine ait bir karış toprakları yok; ağaya ${w.hh.debt} lira borçlular.`, 'olay');
   return w;
 }
@@ -102,6 +109,11 @@ export function newCity() {
 
 /** Eski kayıtları güncel veri modeline taşır. */
 export function migrate(w: World): World {
+  w.y0 ??= 1965;
+  setBase(w.y0);
+  w.mk ??= {};
+  if (!Object.keys(w.mk).length) initMarket(w);
+  w.hh.ambar ??= {};
   if (!w.hh.parcels) {
     w.hh.parcels = [];
     const n = Math.floor((w.hh.land || 0) / 5);
@@ -138,6 +150,7 @@ export function migrate(w: World): World {
   for (const f of w.hh.parcels) {
     f.mode ??= 'kendi';
     f.trac ??= 0;
+    if (f.plan === undefined) f.plan = f.crop ?? f.hist[0]?.crop ?? 'bugday';
   }
   if (!w.plots || !w.plots.length) {
     initPlots(w);

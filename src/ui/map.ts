@@ -1,6 +1,6 @@
 // İzometrik piksel köy: Karaçam. Düşük çözünürlükte çizilir, tam sayı katıyla büyütülür.
 import type { FacId, World } from '../core/types';
-import { monthOf } from '../core/calendar';
+import { monthOf, year } from '../core/calendar';
 import { hhMembers } from '../core/people';
 import { CROPS } from '../core/fields';
 import { PLOTS } from '../core/plots';
@@ -112,7 +112,7 @@ function building(g: CanvasRenderingContext2D, b: Bld, p: Palette, t: number, w:
   const Y = sy(b.x, b.y);
   switch (b.k) {
     case 'ev': {
-      const y = 1965 + Math.floor(w.m / 12);
+      const y = year(w.m);
       const brick = y >= 1985;
       block(g, b.x, b.y, brick ? 9 : 7, brick ? '#d9b8a0' : '#c9a876', brick ? '#b89880' : '#a8885a', p.snow ? '#eef1f1' : brick ? '#a3322a' : '#8a6a45', 2);
       g.fillStyle = '#4b3a28';
@@ -673,7 +673,7 @@ export class VillageMap {
         }
       }
     }
-    if (w.m >= (1985 - 1965) * 12) {
+    if (year(w.m) >= 1985) {
       for (let k = 0; k < 3; k++) {
         const along = (this.t * 0.25 + k * 7) % N;
         const horiz = k % 2 === 0;

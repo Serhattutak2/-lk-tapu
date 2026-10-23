@@ -18,25 +18,28 @@ import { buyTech, eraOf, TECHS, techPrice } from '../core/era';
 import { DISTS, distIncome, invest, invPrice, INVS, menNeeded, takeDistrict } from '../core/district';
 import { doneGoals, GOALS } from '../core/goals';
 import type { LabSite, RoomId } from '../core/types';
+import { ambarCap, ambarUsed, ambarValue, nextSowText, sellAmbar, setPlan, setPlanAll, STORABLE } from '../core/fields';
+import { MK_AD, mk, shockOf, trend } from '../core/market';
+import type { MkId } from '../core/market';
 import { assignWorker, CROPS, careOf, expectedValue, harvestMonth, hasRuhsat, hireAll, idleWage, irgatWage, isBanYear, kacakPrice, laborNeed, personFieldLabel, qualityOf, recallAll, seedCost, sellStash, setHired, setMode, sow, sowAll, sowableNow, staffAll, workersOf } from '../core/fields';
-import { heatLabel } from '../core/crime';
+import { heatLabel, RENT_CAP } from '../core/crime';
 import type { CropId, Parcel } from '../core/types';
-import { dateText, year } from '../core/calendar';
+import { dateText, infl, year } from '../core/calendar';
 import { VillageMap } from './map';
 
 const SAVE_KEY = 'ilktapu_v1';
 const NEWS_KEY = 'ilktapu_haber';
 export const NEWS = {
-  v: '0.6',
+  v: '0.7',
   items: [
-    ['Çağlar ve teknoloji', 'Yıllar geçtikçe çağ değişiyor: Toprak Yılları, Kargaşa, Açılım, Kriz Yılları, Dijital Çağ, Yeni Dünya. Radyodan biçerdövere, cep telefonundan drona 16 yenilik zamanı gelince çıkıyor. Devletin telsizi, dinlemesi ve uydusu da geliyor.'],
-    ['Düşman artık bekliyor', 'Büyüdükçe rakip aile kızışıyor: evine kurşun, ahırına zehir, aileden rehine, yolda pusu. Şehirde çete mahallelerini geri almaya, malını soymaya geliyor.'],
-    ['30\'dan fazla yeni olay', 'Askerlik, üniversite, kumar borcu, sevda, muhbir, gazeteci, kredi, kriz, deprem, turist, maden şirketi, kurban, kız isteme, sel, çekirge ve daha fazlası.'],
-    ['Siyaset', 'Muhtar, belediye başkanı ve milletvekili seçimlerine gir. Makam baskınları azaltır, ihaleler getirir, milletvekilinin dokunulmazlığı vardır.'],
-    ['Okumuş torunlar', 'Zeki çocukları üniversiteye gönder: avukat hapis cezalarını kısaltır, doktor aileyi yaşatır, mühendis fabrikaları büyütür.'],
-    ['Çukurkent mahalleleri', 'Liman, Eski Çarşı, Sanayi, Gecekondu, Yenişehir ve Kordon. Her birinde esnaf bağlılığı, polis, yatırım ve kendi olayları var: isyan, karakol, kentsel dönüşüm.'],
-    ['Hanedan hedefleri', 'Kronik sekmesinin başında 29 hedef ve hanedan puanı. Oyunun sonu yok; ocak sönmedikçe sürer.'],
-    ['Daha yavaş zaman', 'Normal hız artık daha sakin; acele edene ▶▶▶ var.'],
+    ['Oyun artık 1925\'te başlıyor', 'Cumhuriyetin ilk yıllarından başlıyorsun: kara saban, gaz lambası, eşkıya, kaçak tütün. Teknolojiler yine kendi yıllarında gelir; ama ailen onlara kadar kırk yıl büyür, ilk tapuyu, ilk evi, ilk dükkânı çok önceden alır.'],
+    ['Dört yeni çağ', 'Kuruluş Yılları (1925), Savaş Yılları (1939), Toprak Yılları (1946), Gurbet Yılları (1961). Yeni eski teknolojiler: demir pulluk, gramofon, dikiş makinesi, bisiklet; kendiliğinden gelen sıtma savaşı, penisilin, köy yolu.'],
+    ['Tarihin içinden 18 yeni olay', 'Yeni harfler, Soyadı Kanunu, eşkıya haracı, kaçak tütün katırcıları, Büyük Buhran\'da yok pahasına satılan tarlalar, seferberlik, ekmek karnesi ve karaborsa, Köy Enstitüsü, Çiftçiyi Topraklandırma, ilk gerçek seçim, ağanın traktörü, 1960, Almanya anlaşması, hac, kurtlar, harman yangını, piyango.'],
+    ['Ekim planı', 'Her tarlaya bir kez ne ekeceğini söyle; sen değiştirmedikçe her yıl o ay kendiliğinden ekilir. İstersen işçileri de her ay kendiliğinden dağıtır.'],
+    ['Değişen fiyatlar ve ambar', 'Buğday, arpa, nohut, pancar ve hayvan fiyatı her yıl değişir: kuraklık, buhran, savaş, kriz. Tahılı ambara koyup fiyat yükselince satabilirsin.'],
+    ['Sağlık çağa göre', 'Hastalık artık adıyla gelir: sıtma, verem, tifo, kalp. 1925\'te ninelerin otu, hoca, sağlıkçı ya da kasabadaki hekim; sonra sağlık ocağı, devlet hastanesi, özel hastane. Fiyat her seferinde değişir, iyileşme garanti değildir.'],
+    ['Kurban, düğün, borç', 'Kurban Bayramı her yıl takvimde kayar; kurbanlık fiyatı hayvan piyasasına göre oynar, ahırın varsa kendi koçunu kesersin. Düğün takısı ve komşunun istediği borç da her seferinde farklı.'],
+    ['Muhtar artık yardım ediyor', 'Köylüler tarlalarını daha kolay satıyor, reddeden üç ay sonra yeniden dinliyor. Muhtar satılık tarla haberini sana getiriyor; muhtarlık seçimi de daha ucuz ve kazanması daha kolay.'],
   ] as [string, string][],
 };
 const SPEEDS = [0, 3000, 1100, 380];
@@ -95,7 +98,7 @@ export class App {
     this.root.innerHTML = `
       <main class="start"><div class="start-inner">
         <h1>İlk<span>Tapu</span></h1>
-        <p class="lede">Mart 1965, Karaçam köyü. Kendine ait bir karış toprağı olmayan bir ailenin on altı yaşındaki çocuğusun. Ailen ağaya borçlu, başkasının tarlasında gündelik çalışıyor.</p>
+        <p class="lede">Mart 1925, Karaçam köyü. Savaşlar bitti, Cumhuriyet yeni kuruldu. Kendine ait bir karış toprağı olmayan bir ailenin on altı yaşındaki çocuğusun. Ailen ağaya borçlu, başkasının tarlasında gündelik çalışıyor. Önünde yüz yıl var: kara sabandan drona.</p>
         ${saved && !saved.over ? `<button class="primary" id="cont">${esc(saved.surname)} ailesiyle devam et, ${dateText(saved.m)}</button><div class="group">ya da yeni bir hayat</div>` : ''}
         <label class="field"><span>Soyadı</span><input id="sur" maxlength="20" placeholder="Boş bırakırsan rastgele seçilir" autocomplete="off"></label>
         <label class="field"><span>Adın</span><input id="first" maxlength="20" placeholder="Boş bırakırsan rastgele seçilir" autocomplete="off"></label>
@@ -306,7 +309,9 @@ export class App {
       p.away === 'hapis' ? '<span class="badge hasta">Cezaevinde</span>' : '',
       p.away === 'asker' ? '<span class="badge gurbet">Askerde</span>' : '',
       p.away === 'rehin' ? '<span class="badge hasta">Rehin</span>' : '',
-      p.dip ? `<span class="badge varis">${p.dip === 'tip' ? 'Doktor' : p.dip === 'hukuk' ? 'Avukat' : 'Mühendis'}</span>` : '',
+      p.away === 'okul' ? '<span class="badge gurbet">Yatılı okulda</span>' : '',
+      w.flags['haci' + p.id] ? '<span class="badge sen">Hacı</span>' : '',
+      p.dip ? `<span class="badge varis">${p.dip === 'tip' ? 'Doktor' : p.dip === 'hukuk' ? 'Avukat' : p.dip === 'ogret' ? 'Öğretmen' : 'Mühendis'}</span>` : '',
       p.sick ? '<span class="badge hasta">Hasta</span>' : '',
     ].join('');
     const hp = Math.round(p.hp);
@@ -316,7 +321,11 @@ export class App {
       const opts = jobsFor(w, p).filter((j) => j.id !== 'yok' || p.job === 'yok');
       jobCtl = `<select data-job="${p.id}" aria-label="${esc(p.first)} ne iş yapsın">${opts.map((j) => `<option value="${j.id}"${j.id === p.job ? ' selected' : ''}>${j.ad}</option>`).join('')}</select>`;
     } else if (p.away === 'gurbet') {
-      jobCtl = `<span>Almanya'da işçi</span>`;
+      jobCtl = `<span>${w.flags['gyer' + p.id] === 'ist' ? "İstanbul'da inşaatta" : "Almanya'da işçi"}, dönüşü ${dateText(p.awayUntil ?? w.m)}</span>`;
+    } else if (p.away === 'okul') {
+      jobCtl = `<span>Köy Enstitüsü'nde, mezuniyet ${dateText(p.awayUntil ?? w.m)}</span>`;
+    } else if (p.away === 'asker') {
+      jobCtl = `<span>Askerde, dönüşü ${dateText(p.awayUntil ?? w.m)}</span>`;
     } else if (p.away === 'hapis') {
       jobCtl = `<span>Çıkışı ${dateText(p.awayUntil ?? w.m)}</span>`;
     } else if (!inHouse) {
@@ -365,7 +374,8 @@ export class App {
         <div class="meter"><i style="width:${pct}%"></i></div>
         <p class="note">Birikim: ${lira(w.hh.cash)} / ${lira(price)}</p>
         ${blk.length ? `<ul class="blockers">${blk.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>` : ''}
-        ${this.marketHTML()}`;
+        ${this.marketHTML()}
+        ${this.pricesHTML()}`;
     }
     const now = sowableNow(w);
     const empty = w.hh.parcels.filter((f) => !f.crop && f.mode === 'kendi').length;
@@ -375,12 +385,18 @@ export class App {
     const rows = w.hh.parcels.map((f) => {
       const i = w.plots.findIndex((x) => x.pid === f.id);
       const ws = workersOf(w, f).length;
-      return `<tr data-goto="${f.id}"><td>${f.no}. ${esc(i >= 0 ? PLOTS[i].yer : '')}</td><td>${f.mode === 'yarici' ? 'Yarıcıda' : f.crop ? esc(CROPS[f.crop].ad) + (f.illegal ? ' !' : '') : 'Boş'}</td><td>${f.crop ? '%' + Math.round(careOf(f) * 100) : '–'}</td><td>${f.mode === 'yarici' ? '–' : `${ws}${f.hired ? '+' + f.hired : ''}${f.trac ? '+T' : ''}`}</td></tr>`;
+      return `<tr data-goto="${f.id}"><td>${f.no}. ${esc(i >= 0 ? PLOTS[i].yer : '')}</td><td>${f.mode === 'yarici' ? 'Yarıcıda' : f.crop ? esc(CROPS[f.crop].ad) + (f.illegal ? ' !' : '') : 'Boş'}${f.mode === 'kendi' ? `<br><span class="note">plan: ${f.plan ? esc(CROPS[f.plan].ad.toLowerCase()) : 'yok'}</span>` : ''}</td><td>${f.crop ? '%' + Math.round(careOf(f) * 100) : '–'}</td><td>${f.mode === 'yarici' ? '–' : `${ws}${f.hired ? '+' + f.hired : ''}${f.trac ? '+T' : ''}`}</td></tr>`;
     }).join('');
     return `<div class="bulk">
         <div class="group">Bütün tarlalar</div>
         <table class="ftable"><tr><th>Parsel</th><th>Ekin</th><th>Bakım</th><th>İşçi</th></tr>${rows}</table>
         <p class="note">${w.hh.parcels.length} parsel, ${w.hh.land} dönüm. ${short ? `${short} parselde iş gücü eksik. ` : ''}${trac ? `${trac} traktör, ayda ${fmt1(trac * TRACTOR_POWER)} işçi gücü; eksik parsellere kendiliğinden gider.` : ''}</p>
+        <div class="planrow"><label>Bütün tarlaların ekim planı <select data-planall="1" aria-label="Bütün tarlaların ekim planı"><option value="">Seç…</option>${(Object.keys(CROPS) as CropId[]).map((c) => `<option value="${c}">${esc(CROPS[c].ad)} (${nextSowText(c)})</option>`).join('')}<option value="-">Plan yok, elle ekeceğim</option></select></label></div>
+        <p class="note">Planlı tarlalar ekim ayı gelince kendiliğinden ekilir; sen değiştirmedikçe her yıl aynı ekin. Haşhaş planı yalnızca ruhsat varsa ekilir.</p>
+        <div class="btnrow">
+          <button class="small${w.flags.autoStaff ? ' on' : ''}" data-toggle="autoStaff" aria-pressed="${!!w.flags.autoStaff}">İşçileri her ay kendiliğinden dağıt: ${w.flags.autoStaff ? 'açık' : 'kapalı'}</button>
+          <button class="small${w.flags.ambarla ? ' on' : ''}" data-toggle="ambarla" aria-pressed="${!!w.flags.ambarla}">Tahılı satma, ambara koy: ${w.flags.ambarla ? 'açık' : 'kapalı'}</button>
+        </div>
         ${empty && now.filter((c) => c !== 'hashas' || hasRuhsat(w)).length ? `<div class="btnrow">${now.map((c) => `<button class="small" data-sowall="${c}">Boş ${empty} parsele ${esc(CROPS[c].ad.toLowerCase())} ek</button>`).join('')}</div>` : ''}
         <div class="btnrow">
           <button class="small" data-bulk="staff"${idle ? '' : ' disabled'}>Gündelikçileri tarlalara dağıt (${idle})</button>
@@ -389,9 +405,25 @@ export class App {
           <button class="small" data-bulk="recall">Herkesi geri çağır</button>
         </div>
       </div>
+      ${this.pricesHTML()}
       ${w.hh.parcels.map((f) => this.parcelHTML(f, now)).join('')}
       ${this.marketHTML()}
       <p class="note">Ekim ayları: buğday, arpa ve haşhaş Ekim–Kasım; nohut Mart–Nisan; şeker pancarı Nisan. Ruhsat her yıl Ağustos'ta alınır. Haritada bir tarlaya dokunursan sahibini ve fiyatını görürsün.</p>`;
+  }
+
+  private pricesHTML(): string {
+    const w = this.w!;
+    const ks: MkId[] = ['bugday', 'arpa', 'nohut', 'pancar', 'hayvan'];
+    const sh = shockOf(year(w.m));
+    const arrow = (k: MkId) => (trend(w, k) > 0 ? '▲' : trend(w, k) < 0 ? '▼' : '•');
+    const used = ambarUsed(w);
+    const amb = STORABLE.filter((c) => (w.hh.ambar?.[c] || 0) > 0);
+    return `<div class="group">${year(w.m)} piyasası</div>
+      ${sh ? `<p class="note warnline">${esc(sh.ad)}.</p>` : ''}
+      <table class="ftable prices">${ks.map((k) => `<tr><td>${esc(MK_AD[k])}</td><td class="${mk(w, k) >= 1.1 ? 'pos' : mk(w, k) <= 0.9 ? 'neg' : ''}">%${Math.round(mk(w, k) * 100)} ${arrow(k)}</td></tr>`).join('')}</table>
+      <p class="note">Normal fiyata göre. Fiyatlar her Ocak değişir: kurak yılın ardından tahıl pahalanır, hayvan ucuzlar.</p>
+      ${w.hh.parcels.length || amb.length ? `<div class="group">Ambar: %${Math.round((used / ambarCap(w)) * 100)} dolu</div>
+      ${amb.length ? amb.map((c) => `<div class="prow"><span class="pname">${esc(CROPS[c].ad)}</span><span class="prel">bugün ${lira(ambarValue(w, c))}</span><button class="small" data-sellamb="${c}">Sat</button><button class="small" data-sellamb="${c}:h">Yarısını sat</button></div>`).join('') : '<p class="note">Ambar boş. "Ambara koy" açıkken buğday, arpa ve nohut hasadı satılmaz, burada bekler; ayda %0,7 fireyle. Samanlık ve taş ev ambarı büyütür.</p>'}` : ''}`;
   }
 
   private marketHTML(): string {
@@ -482,7 +514,7 @@ export class App {
         return `<button class="sow${ill ? ' risky' : ''}" data-sow="${f.id}:${c}"><b>${d.ad}</b><span>Tohum ${lira(seedCost(w, c))}</span><span>${esc(note)}</span></button>`;
       }).join('')}</div>`;
     } else {
-      const next = monthsUntilSow(w.m);
+      const next = f.plan ? `${nextSowText(f.plan)} (${CROPS[f.plan].ad.toLowerCase()}, kendiliğinden)` : monthsUntilSow(w.m);
       status = `<div class="crop">Tarla nadasta. Sonraki ekim ${next}.</div>`;
     }
     const pl = w.plots.findIndex((x) => x.pid === f.id);
@@ -502,6 +534,7 @@ export class App {
     return `<section class="parcel" id="pc-${f.id}">
       <div class="prow"><span class="pname">${f.no}. parsel</span><span class="prel">${esc(pl >= 0 ? PLOTS[pl].yer : '')}, verim ${Math.round(qualityOf(w, f) * 100)}${f.price ? `, ${year(f.boughtM)}'de ${lira(f.price)}` : ''}</span></div>
       <div class="seg mode"><button data-mode="${f.id}:kendi" aria-pressed="${f.mode === 'kendi'}">Kendimiz ekiyoruz</button><button data-mode="${f.id}:yarici" aria-pressed="false"${f.crop === 'hashas' ? ' disabled' : ''}>Yarıcıya ver</button></div>
+      <div class="planrow"><label>Ekim planı <select data-plan="${f.id}" aria-label="${f.no}. parselin ekim planı">${(Object.keys(CROPS) as CropId[]).map((c) => `<option value="${c}"${f.plan === c ? ' selected' : ''}>${esc(CROPS[c].ad)} (${nextSowText(c)})</option>`).join('')}<option value="-"${!f.plan ? ' selected' : ''}>Plan yok</option></select></label></div>
       ${status}
       ${f.crop ? needTxt : ''}
       <div class="group">Çalışanlar</div>
@@ -549,7 +582,7 @@ export class App {
         <tr><td>Kasa</td><td>${lira(w.hh.cash)}</td></tr>
         <tr><td>Ağaya borç (aylık %2 faiz)</td><td class="${w.hh.debt ? 'neg' : ''}">${lira(w.hh.debt)}</td></tr>
         <tr><td>Kendi toprağı</td><td>${w.hh.land} dönüm</td></tr>
-        <tr><td>Ev kirası</td><td>${lira(w.hh.rent * Math.pow(1.045, year(w.m) - 1965))}</td></tr>
+        <tr><td>Ev kirası</td><td>${w.hh.house ? 'Yok, ev bizim' : lira(Math.min(w.hh.rent, RENT_CAP) * infl(w.m))}</td></tr>
         <tr><td>Haşhaş ruhsatı</td><td>${hasRuhsat(w) ? year(w.m) + ' için var' : isBanYear(year(w.m)) ? 'Yasak' : 'Yok'}</td></tr>
       </table>
       ${w.hh.debt > 0 ? `<div class="group">Borç öde</div><div class="btnrow">
@@ -646,7 +679,7 @@ export class App {
           </div>
           <p class="note">Paket ${lira(paketPrice(w))}, hap kolisi ${lira(hapPrice(w))} civarı; kalite fiyatı oynatır. Ustalık düşükse kaza riski artar.</p></div>` : ''}
         ${nextL ? `<div class="group">${lab ? 'Büyüt: ' : 'Kur: '}${esc(nextL.ad)} (${lira(labPrice(w, nextL.lvl))}${year(w.m) < nextL.from ? `, ${nextL.from}'den sonra` : ''})</div><p class="note">${esc(nextL.desc)}</p><div class="sowgrid">${sitesHtml}</div>` : ''}
-        ${!w.hh.agil ? `<div class="btnrow"><button class="small" data-agil="1">Dağdaki ağılı satın al (${lira(AGIL_PRICE * Math.pow(1.045, year(w.m) - 1965))})</button></div>` : ''}`;
+        ${!w.hh.agil ? `<div class="btnrow"><button class="small" data-agil="1">Dağdaki ağılı satın al (${lira(AGIL_PRICE * infl(w.m))})</button></div>` : ''}`;
     return `<div class="group">Jandarmanın dikkati</div>
       <div class="labor"><span>${esc(heatLabel(w.heat))}</span><div class="meter heat"><i style="width:${heatPct}%"></i></div></div>
       <div class="group">Zula ve Kara Rıza</div>
@@ -712,6 +745,23 @@ export class App {
       save(w);
       this.renderPanel(true);
     };
+    panel.querySelectorAll<HTMLSelectElement>('[data-plan]').forEach((s) => (s.onchange = act(() => {
+      setPlan(w, s.dataset.plan!, s.value === '-' ? null : (s.value as CropId));
+    })));
+    panel.querySelectorAll<HTMLSelectElement>('[data-planall]').forEach((s) => (s.onchange = act(() => {
+      if (!s.value) return;
+      setPlanAll(w, s.value === '-' ? null : (s.value as CropId));
+      this.toast(s.value === '-' ? 'Planlar kaldırıldı.' : `Bütün tarlalar: ${CROPS[s.value as CropId].ad.toLowerCase()}.`);
+    })));
+    panel.querySelectorAll<HTMLButtonElement>('[data-toggle]').forEach((b) => (b.onclick = act(() => {
+      const k = b.dataset.toggle!;
+      w.flags[k] = !w.flags[k];
+    })));
+    panel.querySelectorAll<HTMLButtonElement>('[data-sellamb]').forEach((b) => (b.onclick = act(() => {
+      const [c, h] = b.dataset.sellamb!.split(':');
+      const v = sellAmbar(w, c as CropId, h ? 0.5 : 1);
+      this.toast(`${lira(v)} kasaya girdi.`);
+    })));
     panel.querySelectorAll<HTMLButtonElement>('[data-sowall]').forEach((b) => (b.onclick = act(() => {
       const r = sowAll(w, b.dataset.sowall as CropId);
       this.toast(r.n ? `${r.n} parsele ekildi.` : r.err ?? 'Ekilecek boş parsel yok.');
@@ -867,7 +917,7 @@ export class App {
       const d = FACS[f];
       const own = !!w.city.facs[f];
       body = `<h3>${esc(d.ad)}${own ? ', bizim' : ''}</h3><p>${esc(d.desc)}</p>
-        <p>${own ? `Bu ay kazancı ${lira(facIncome(w, f))}. Ayda ${lira(d.launder * Math.pow(1.045, year(w.m) - 1965))} kara parayı aklayabilir.` : `Fiyatı ${lira(facPrice(w, f))}. Kara para tapuya geçmez; temiz parayla alınır.`}</p>
+        <p>${own ? `Bu ay kazancı ${lira(facIncome(w, f))}. Ayda ${lira(d.launder * infl(w.m))} kara parayı aklayabilir.` : `Fiyatı ${lira(facPrice(w, f))}. Kara para tapuya geçmez; temiz parayla alınır.`}</p>
         <div class="btnrow">${own ? '' : `<button class="primary sm" data-sheet="fac:${f}"${w.city.open && w.hh.cash >= facPrice(w, f) ? '' : ' disabled'}>Satın al</button>`}<button class="small" data-sheet="tab:sehir">Şehir sekmesi</button></div>`;
     } else if (pk.kind === 'cityhome') {
       body = `<h3>${w.city.home ? esc(HOMES[w.city.home].ad) : 'Şehirde ev'}</h3>
@@ -882,7 +932,7 @@ export class App {
           ${nh ? `<p>Sıradaki: <b>${esc(nh.ad)}</b>. ${esc(nh.desc)}</p><div class="btnrow"><button class="primary sm" data-sheet="house"${w.hh.cash < housePrice(w, nh.lvl) ? ' disabled' : ''}>${w.hh.house === 0 ? 'Satın al' : 'Yaptır'} (${lira(housePrice(w, nh.lvl))})</button><button class="small" data-sheet="tab:mulk">Bütün mülk</button></div>` : ''}`;
       } else if (k === 'agil') {
         body = `<h3>Dağdaki ağıl</h3><p>Köyden görünmeyen, yıkık bir taş ağıl. ${w.hh.agil ? 'Artık senin.' : 'Sahibi gurbette; ucuza satar.'} ${w.lab?.site === 'agil' ? `İçinde ${esc(LAB_LEVELS[w.lab.lvl].ad.toLowerCase())} çalışıyor.` : 'Gizli bir atölye için köydeki en güvenli yer.'}</p>
-          <div class="btnrow">${!w.hh.agil ? `<button class="primary sm" data-sheet="agil">Satın al (${lira(AGIL_PRICE * Math.pow(1.045, year(w.m) - 1965))})</button>` : ''}<button class="small" data-sheet="tab:yeralti">Yeraltı sekmesi</button></div>`;
+          <div class="btnrow">${!w.hh.agil ? `<button class="primary sm" data-sheet="agil">Satın al (${lira(AGIL_PRICE * infl(w.m))})</button>` : ''}<button class="small" data-sheet="tab:yeralti">Yeraltı sekmesi</button></div>`;
       } else if (k === 'konak') {
         body = `<h3>Bozbey Ağa'nın konağı</h3>
           <p>Köyün en iyi topraklarının, ev kiralarının ve borç defterinin sahibi.${w.hh.debt ? ` Ona ${lira(w.hh.debt)} borcun var; ayda %2 işliyor.` : ' Ona borcun yok.'}${Number(w.flags.agaKin || 0) >= year(w.m) ? ` Sana kızgın: ${w.flags.agaKin} yılına kadar köyde kimse sana toprak satmaz.` : ''}</p>
@@ -974,7 +1024,7 @@ export class App {
     }
     ov.innerHTML = `<div class="veil"><article class="doc" role="dialog" aria-labelledby="ct">
       <div class="kilim"></div>
-      <div class="head">${KIND[c.id] ?? 'Haber'}, ${dateText(c.m)}</div>
+      <div class="head">${KIND[c.id] ?? (c.id.startsWith('hi:') ? 'Tarih' : c.id.startsWith('ev:') ? 'Köyden' : 'Haber')}, ${dateText(c.m)}</div>
       <p id="ct">${esc(c.text)}</p>
       <div class="opts">${c.opts.map((o) => `<button data-opt="${esc(o.k)}">${esc(o.t)}</button>`).join('')}</div>
     </article></div>`;
@@ -1002,7 +1052,7 @@ export class App {
     const highlights = w.chronicle.filter((e) => e.k === 'tapu' || e.k === 'miras' || e.k === 'son');
     this.root.innerHTML = `<main class="end">
       <h1>Ocak söndü</h1>
-      <p class="lede">${esc(w.over?.reason ?? '')} ${esc(w.surname)} ailesi ${year(w.m) - 1965} yıl boyunca ${w.flags.nesil ?? 1} nesil sürdü${first ? `, ilk adım ${esc(first.first)} ile atıldı` : ''}.</p>
+      <p class="lede">${esc(w.over?.reason ?? '')} ${esc(w.surname)} ailesi ${year(w.m) - (w.y0 || 1965)} yıl boyunca ${w.flags.nesil ?? 1} nesil sürdü${first ? `, ilk adım ${esc(first.first)} ile atıldı` : ''}.</p>
       <ul class="chron">${highlights.map((e) => `<li class="${e.k}"><time>${dateText(e.m)}</time>${esc(e.t)}</li>`).join('')}</ul>
       <button class="primary" id="again">Yeni bir hayata başla</button></main>`;
     $('#again')!.onclick = () => {

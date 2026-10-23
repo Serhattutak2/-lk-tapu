@@ -21,8 +21,8 @@ export const housePrice = (w: World, lvl: number) => Math.round((HOUSES[lvl].pri
 // ---------- Taşıtlar ----------
 export interface VehicleDef { id: VehicleId; ad: string; price: number; from: number; nam: number; upkeep: number; desc: string; }
 export const VEHICLES: Record<VehicleId, VehicleDef> = {
-  esek: { id: 'esek', ad: 'Eşek', price: 320, from: 1965, nam: 1, upkeep: 8, desc: 'Tarlaya yük taşır. Parsellerde iş gücüne +0,3.' },
-  araba: { id: 'araba', ad: 'At arabası', price: 1900, from: 1965, nam: 3, upkeep: 25, desc: 'Ürünü ilçe pazarına sen götürürsün: bütün hasat satışları %6 daha fazla.' },
+  esek: { id: 'esek', ad: 'Eşek', price: 320, from: 1925, nam: 1, upkeep: 8, desc: 'Tarlaya yük taşır. Parsellerde iş gücüne +0,3.' },
+  araba: { id: 'araba', ad: 'At arabası', price: 1900, from: 1925, nam: 3, upkeep: 25, desc: 'Ürünü ilçe pazarına sen götürürsün: bütün hasat satışları %6 daha fazla.' },
   traktor: { id: 'traktor', ad: 'Traktör', price: 33000, from: 1967, nam: 12, upkeep: 0, desc: 'Her traktör 2,5 işçi gücü verir; işçisi eksik parsellere kendiliğinden gider. Çalıştığı ay mazot yakar.' },
   otomobil: { id: 'otomobil', ad: 'Otomobil', price: 43000, from: 1967, nam: 15, upkeep: 120, desc: 'Hastayı doktora vaktinde yetiştirir; ağır hastalıkta ölüm riski düşer. Köy herkes kimin geldiğini bilir.' },
   kamyon: { id: 'kamyon', ad: 'Kamyon', price: 66000, from: 1970, nam: 10, upkeep: 180, desc: 'Bir aile üyesi şoför olursa nakliyeden aylık kazanç. Kara Rıza\'nın malı da kasada gider: kaçak fiyat %20 artar.' },
@@ -34,9 +34,9 @@ export const tractorFuel = (w: World) => Math.round(140 * infl(w.m));
 // ---------- İşletmeler ----------
 export interface BizDef { id: BizId; ad: string; price: number; income: number; from: number; namReq: number; nam: number; desc: string; }
 export const BIZ: Record<BizId, BizDef> = {
-  bakkal: { id: 'bakkal', ad: 'Köy bakkalı', price: 12000, income: 300, from: 1965, namReq: 0, nam: 6, desc: 'Yaşlı Bakkal Nuri dükkânı devretmek istiyor. Başına aileden biri geçerse tam kazanç; geçmezse çırağı yarısını çalar.' },
-  kahve: { id: 'kahve', ad: 'Kahvehane', price: 18500, income: 360, from: 1967, namReq: 10, nam: 8, desc: 'Köyün bütün sözü burada döner. Sahibi her şeyi duyar: Kara Rıza ile tanışmak kolaylaşır, ihbarlar önceden kulağına gelir.' },
-  degirmen: { id: 'degirmen', ad: 'Değirmen', price: 42000, income: 520, from: 1969, namReq: 30, nam: 18, desc: 'Köyün bütün buğdayı burada öğütülür. Temmuz–Ekim arası kazanç iki katına çıkar.' },
+  bakkal: { id: 'bakkal', ad: 'Köy bakkalı', price: 12000, income: 300, from: 1925, namReq: 0, nam: 6, desc: 'Yaşlı Bakkal Nuri dükkânı devretmek istiyor. Başına aileden biri geçerse tam kazanç; geçmezse çırağı yarısını çalar.' },
+  kahve: { id: 'kahve', ad: 'Kahvehane', price: 18500, income: 360, from: 1928, namReq: 10, nam: 8, desc: 'Köyün bütün sözü burada döner. Sahibi her şeyi duyar: Kara Rıza ile tanışmak kolaylaşır, ihbarlar önceden kulağına gelir.' },
+  degirmen: { id: 'degirmen', ad: 'Değirmen', price: 42000, income: 520, from: 1935, namReq: 30, nam: 18, desc: 'Derenin üstündeki su değirmeni: köyün bütün buğdayı burada öğütülür. Temmuz–Ekim arası kazanç iki katına çıkar.' },
 };
 export const bizPrice = (w: World, b: BizId) => Math.round((BIZ[b].price * infl(w.m)) / 100) * 100;
 
@@ -86,7 +86,7 @@ export function title(w: World): { ad: string; next?: { ad: string; min: number 
 export function landBlockers(w: World): string[] {
   const out: string[] = [];
   if (w.hh.debt > 0) out.push('Ağaya borcun varken kimse sana toprak satmaz; önce borç kapanmalı.');
-  if (((w.flags.agaKin as number) || 0) >= year(w.m)) out.push(`Ağa köyde "o aileye toprak satmayın" dedi; ${w.flags.agaKin} yılına kadar kimse satmaya cesaret edemez.`);
+  if (((w.flags.agaKin as number) || 0) >= year(w.m) && w.pol?.seat !== 'muhtar') out.push(`Ağa köyde "o aileye toprak satmayın" dedi; ${w.flags.agaKin} yılına kadar kimse satmaya cesaret edemez.`);
   return out;
 }
 
@@ -99,13 +99,12 @@ export function buyPlot(w: World, i: number): { ok: boolean; msg: string } {
   const price = offerPrice(w, i);
   if (w.hh.cash < price) return { ok: false, msg: `Bu tarla için ${fmt(price - w.hh.cash)} lira eksik.` };
   const p = offerChance(w, i, nam(w));
-  if (p <= 0) return { ok: false, msg: s.o === 'aga' ? 'Ağa sana toprak satmaz. Önce köyde adın büyümeli.' : `${plotOwnerName(w, i)} bu yıl seninle konuşmuyor.` };
+  if (p <= 0) return { ok: false, msg: s.o === 'aga' ? ((s.madM ?? 0) > w.m ? 'Ağa geçen teklifini daha unutmadı; biraz bekle.' : 'Ağa sana toprak satmaz. Önce köyde adın büyümeli (nam 35).') : `${plotOwnerName(w, i)} şimdilik seninle konuşmuyor; birkaç ay sonra yeniden dene.` };
   const owner = plotOwnerName(w, i);
   if (!chance(w, p)) {
-    s.mad = year(w.m);
-    if (s.o === 'aga') w.flags.agaKin = Math.max(Number(w.flags.agaKin || 0), year(w.m));
+    s.madM = w.m + (s.o === 'aga' ? 6 : 3);
     log(w, `${owner}, ${d.yer} mevkiindeki tarlası için yapılan ${fmt(price)} liralık teklifi geri çevirdi.`, 'tapu');
-    return { ok: false, msg: `${owner} teklifi geri çevirdi. Bu yıl bir daha sorma.` };
+    return { ok: false, msg: `${owner} teklifi geri çevirdi. ${s.o === 'aga' ? 'Altı' : 'Üç'} ay sonra yeniden sorabilirsin.` };
   }
   w.hh.cash -= price;
   const first = w.hh.parcels.length === 0;

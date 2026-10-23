@@ -95,10 +95,12 @@ export function offerChance(w: World, i: number, nam: number): number {
   const s = w.plots[i];
   if (s.o === 'biz') return 0;
   if (s.sale) return 1;
-  if (s.mad >= year(w.m)) return 0;
+  if ((s.madM ?? -1) > w.m) return 0;
   if (s.o === 'rakip') return w.rival.feud < 10 && nam >= 30 ? 0.2 : 0;
-  if (s.o === 'aga') return nam >= 40 ? clamp(0.15 + (nam - 40) / 100, 0, 0.6) : 0;
-  return clamp(0.3 + nam / 250, 0.3, 0.6);
+  if (s.o === 'aga') return nam >= 35 ? clamp(0.2 + (nam - 35) / 90, 0, 0.7) : 0;
+  // Köylüler: adın büyüdükçe, muhtarlık sendeyse ya da muhtarın gözündeysen daha kolay satarlar
+  const muhtar = w.pol?.seat === 'muhtar' ? 0.15 : w.flags.koyTarafi ? 0.08 : 0;
+  return clamp(0.5 + nam / 140 + muhtar, 0.5, 0.9);
 }
 
 export function offerPrice(w: World, i: number): number {

@@ -9,6 +9,7 @@ import { JOBS, wage } from './jobs';
 import { pushCard } from './cards';
 import { PLOTS } from './plots';
 import { lockedOut } from './feud';
+import { mk } from './market';
 
 export interface CropDef {
   id: CropId;
@@ -106,15 +107,16 @@ export function hasRuhsat(w: World): boolean {
 export function expectedValue(w: World, p: Parcel): number {
   if (!p.crop) return 0;
   const share = p.mode === 'yarici' ? YARICI_SHARE : 1;
-  return Math.round(CROPS[p.crop].value * Math.pow(careOf(p), 1.2) * qualityOf(w, p) * infl(w.m) * share * saleBonus(w));
+  return Math.round(CROPS[p.crop].value * Math.pow(careOf(p), 1.2) * qualityOf(w, p) * infl(w.m) * share * saleBonus(w) * mk(w, p.crop) * (w.tech?.pulluk ? 1.06 : 1));
 }
 
 export const YARICI_SHARE = 0.4;
-export const saleBonus = (w: World) => ((w.hh.veh?.araba || 0) > 0 || (w.hh.veh?.kamyon || 0) > 0 ? 1.06 : 1) * (w.tech?.asfalt ? 1.05 : 1) * (w.tech?.dron ? 1.08 : 1);
+export const saleBonus = (w: World) => ((w.hh.veh?.araba || 0) > 0 || (w.hh.veh?.kamyon || 0) > 0 ? 1.06 : 1) * (w.tech?.koyyolu ? 1.03 : 1) * (w.tech?.asfalt ? 1.05 : 1) * (w.tech?.dron ? 1.08 : 1);
 
 export function newParcel(w: World, price: number): Parcel {
   const no = w.hh.parcels.length + 1;
-  const p: Parcel = { id: 'f' + w.nextId++, no, boughtM: w.m, price, crop: null, sownM: 0, illegal: false, hired: 0, mode: 'kendi', trac: 0, careSum: 0, careN: 0, lastNeed: 0, lastGot: 0, hist: [] };
+  const prev = w.hh.parcels.find((x) => x.mode === 'kendi' && x.plan && x.plan !== 'hashas')?.plan;
+  const p: Parcel = { id: 'f' + w.nextId++, no, boughtM: w.m, price, crop: null, sownM: 0, illegal: false, hired: 0, mode: 'kendi', trac: 0, careSum: 0, careN: 0, lastNeed: 0, lastGot: 0, hist: [], plan: prev ?? 'bugday' };
   w.hh.parcels.push(p);
   w.hh.land = w.hh.parcels.length * 5;
   return p;
@@ -131,6 +133,7 @@ export function sow(w: World, pid: string, c: CropId): string | null {
   if (w.hh.cash < cost) return `Tohum için ${cost} lira gerekiyor.`;
   w.hh.cash -= cost;
   p.crop = c;
+  p.plan = c;
   p.sownM = w.m;
   p.careSum = 0;
   p.careN = 0;
@@ -201,6 +204,8 @@ export function monthlyFields(w: World, lines: LedgerLine[]) {
       p.illegal = false;
     }
   }
+  autoSow(w);
+  if (w.flags.autoStaff) staffAll(w);
   // Önce aile ve ırgat, sonra eksik kalan parsellere traktör ve eşek
   let pool = (w.hh.veh?.traktor || 0) * TRACTOR_POWER + (w.tech?.bicer && w.hh.parcels.some((x) => x.crop && w.m - x.sownM >= CROPS[x.crop].grow - 2) ? 6 : 0);
   let donkey = (w.hh.veh?.esek || 0) * 0.3;
@@ -264,7 +269,7 @@ function harvest(w: World, p: Parcel, lines: LedgerLine[]) {
   const d = CROPS[c];
   const best = Math.max(0, ...workersOf(w, p).map((q) => q.sk.tarim));
   const rainF = 1 + (w.rain - 1) * d.rainSens * (w.tech?.sulama ? 0.5 : 1);
-  const mult = qualityOf(w, p) * Math.pow(careOf(p), 1.2) * clamp(rainF, 0.3, 1.5) * (p.mode === 'yarici' ? 0.95 : 0.88 + best / 400) * clamp(gauss(w, 1, 0.08), 0.75, 1.25) * (w.flags.dolu === p.id ? 0.55 : 1);
+  const mult = (w.tech?.pulluk ? 1.06 : 1) * qualityOf(w, p) * Math.pow(careOf(p), 1.2) * clamp(rainF, 0.3, 1.5) * (p.mode === 'yarici' ? 0.95 : 0.88 + best / 400) * clamp(gauss(w, 1, 0.08), 0.75, 1.25) * (w.flags.dolu === p.id ? 0.55 : 1);
   if (w.flags.dolu === p.id) w.flags.dolu = '';
   const weather = w.rain < 0.8 ? ', kurak yıl' : w.rain > 1.2 ? ', bereketli yıl' : '';
   if (c === 'hashas') {
@@ -278,7 +283,18 @@ function harvest(w: World, p: Parcel, lines: LedgerLine[]) {
     return;
   }
   const yar = p.mode === 'yarici';
-  const v = Math.round(d.value * mult * infl(w.m) * saleBonus(w) * (yar ? YARICI_SHARE : 1));
+  const units = d.value * mult * (yar ? YARICI_SHARE : 1);
+  if (w.flags.ambarla && STORABLE.includes(c) && ambarRoom(w) >= units) {
+    w.hh.ambar ??= {};
+    w.hh.ambar[c] = (w.hh.ambar[c] || 0) + units;
+    const est = Math.round(units * mk(w, c) * infl(w.m) * saleBonus(w));
+    p.hist.unshift({ m: w.m, crop: c, v: est, t: `ambara kondu (bugün ~${est.toLocaleString('tr-TR')} lira)${weather}` });
+    p.hist.length = Math.min(p.hist.length, 8);
+    log(w, `${p.no}. parselin ${d.ad.toLowerCase()} hasadı satılmadı, ambara kondu (bugünkü fiyatla ~${est} lira).`, 'is');
+    p.crop = null;
+    return;
+  }
+  const v = Math.round(units * mk(w, c) * infl(w.m) * saleBonus(w));
   w.hh.cash += v;
   lines.push({ t: `${p.no}. parsel: ${d.ad.toLowerCase()} hasadı${yar ? ' (yarıcıdan payımız)' : ''}`, v });
   p.hist.unshift({ m: w.m, crop: c, v, t: `${v.toLocaleString('tr-TR')} lira${weather}` });
@@ -424,5 +440,77 @@ export function setMode(w: World, pid: string, mode: 'kendi' | 'yarici') {
   if (mode === 'yarici') {
     p.hired = 0;
     for (const q of workersOf(w, p)) assignWorker(w, q.id, null);
+  }
+}
+
+// ---------- Ekim planı ----------
+
+/** Planı olan boş parseller ekim ayı gelince kendiliğinden ekilir. */
+export function autoSow(w: World) {
+  for (const p of w.hh.parcels) {
+    if (p.mode !== 'kendi' || p.crop || !p.plan || !canSow(w, p.plan)) continue;
+    if (p.plan === 'hashas' && !hasRuhsat(w) && !w.flags.kacakPlan) {
+      const key = 'planRuhsat' + year(w.m);
+      if (!w.flags[key]) {
+        w.flags[key] = true;
+        log(w, `Haşhaş planlı parseller ekilmedi: bu yıl ruhsat yok. Ruhsatsız ekmek istersen Tarla sekmesinden elle ek.`, 'is');
+      }
+      continue;
+    }
+    const err = sow(w, p.id, p.plan);
+    if (err) {
+      const key = 'planPara' + w.m;
+      if (!w.flags[key]) {
+        w.flags[key] = true;
+        log(w, `${p.no}. parsel ekilemedi: ${err}`, 'para');
+      }
+    }
+  }
+}
+
+export function setPlan(w: World, pid: string, c: CropId | null) {
+  const p = w.hh.parcels.find((x) => x.id === pid);
+  if (p) p.plan = c;
+  autoSow(w);
+}
+
+export function setPlanAll(w: World, c: CropId | null) {
+  for (const p of w.hh.parcels) if (p.mode === 'kendi') p.plan = c;
+  autoSow(w);
+}
+
+/** Bir sonraki ekim ayı (planlı ürün için) */
+export function nextSowText(c: CropId): string {
+  const m = CROPS[c].sow;
+  const MO = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+  return m.map((x) => MO[x]).join('–');
+}
+
+// ---------- Ambar ----------
+
+export const STORABLE: CropId[] = ['bugday', 'arpa', 'nohut'];
+/** Ambar kapasitesi (temel değer birimi): ev ambarı + samanlık */
+export const ambarCap = (w: World) => 1800 * (3 + (w.hh.rooms?.samanlik || 0) * 4 + (w.hh.house >= 2 ? 2 : 0));
+export const ambarUsed = (w: World) => Object.values(w.hh.ambar || {}).reduce((a, b) => a + (b || 0), 0);
+export const ambarRoom = (w: World) => ambarCap(w) - ambarUsed(w);
+export const ambarValue = (w: World, c: CropId) => Math.round((w.hh.ambar?.[c] || 0) * mk(w, c) * infl(w.m) * saleBonus(w));
+
+export function sellAmbar(w: World, c: CropId, frac = 1): number {
+  const u = (w.hh.ambar?.[c] || 0) * clamp(frac, 0, 1);
+  if (u <= 0) return 0;
+  const v = Math.round(u * mk(w, c) * infl(w.m) * saleBonus(w));
+  w.hh.ambar![c] = (w.hh.ambar![c] || 0) - u;
+  if ((w.hh.ambar![c] || 0) < 1) delete w.hh.ambar![c];
+  w.hh.cash += v;
+  log(w, `Ambardaki ${CROPS[c].ad.toLowerCase()} satıldı: ${v.toLocaleString('tr-TR')} lira (fiyat normalin %${Math.round(mk(w, c) * 100)}'i).`, 'para');
+  return v;
+}
+
+/** Aylık: ambarda fare ve nem payı */
+export function monthlyAmbar(w: World) {
+  if (!w.hh.ambar) return;
+  for (const c of Object.keys(w.hh.ambar) as CropId[]) {
+    w.hh.ambar[c] = (w.hh.ambar[c] || 0) * 0.993;
+    if ((w.hh.ambar[c] || 0) < 1) delete w.hh.ambar[c];
   }
 }
