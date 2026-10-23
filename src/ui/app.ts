@@ -4,8 +4,12 @@ import { migrate, newWorld } from '../core/world';
 import { advance, canAdvance, payDebt, resolveCard, setHeir, setJob, isPlainJSON } from '../core/sim';
 import { age, alive, bloodLiving, fullName, hhMembers, P, relationTo } from '../core/people';
 import { JOBS, jobsFor, wage } from '../core/jobs';
-import { landBlockers, landPrice } from '../core/cards';
-import { assignWorker, CROPS, careOf, expectedValue, harvestMonth, hasRuhsat, idleWage, irgatWage, isBanYear, kacakPrice, laborNeed, personFieldLabel, seedCost, sellStash, setHired, sow, sowableNow, workersOf } from '../core/fields';
+import { landPrice } from '../core/cards';
+import { BIZ, bizAvailable, bizIncome, bizManager, bizPrice, buyBiz, buyHouse, buyPlot, buyVehicle, HOUSES, housePrice, landBlockers, nam, sellVehicle, setManager, title, TRACTOR_POWER, VEHICLES, vehiclePrice } from '../core/assets';
+import { offerChance, offerPrice, PLOTS, plotOwnerName, plotPrice } from '../core/plots';
+import type { BizId, VehicleId } from '../core/types';
+import type { Pick } from './map';
+import { assignWorker, CROPS, careOf, expectedValue, harvestMonth, hasRuhsat, hireAll, idleWage, irgatWage, isBanYear, kacakPrice, laborNeed, personFieldLabel, qualityOf, recallAll, seedCost, sellStash, setHired, setMode, sow, sowAll, sowableNow, staffAll, workersOf } from '../core/fields';
 import { heatLabel } from '../core/crime';
 import type { CropId, Parcel } from '../core/types';
 import { dateText, year } from '../core/calendar';
@@ -44,7 +48,8 @@ function wipe() {
 
 export class App {
   private w: World | null = null;
-  private tab: 'aile' | 'tarla' | 'hane' | 'kronik' = 'aile';
+  private tab: 'aile' | 'tarla' | 'mulk' | 'hane' | 'kronik' = 'aile';
+  private pick: Pick | null = null;
   private speed = 0;
   private timer = 0;
   private map: VillageMap | null = null;
@@ -115,13 +120,19 @@ export class App {
         <nav class="tabs" role="tablist">
           <button role="tab" data-tab="aile">Aile</button>
           <button role="tab" data-tab="tarla">Tarla</button>
+          <button role="tab" data-tab="mulk">Mülk</button>
           <button role="tab" data-tab="hane">Hane</button>
           <button role="tab" data-tab="kronik">Kronik</button>
         </nav>
         <section class="panel" id="panel"></section>
       </div>
+      <div id="sheet"></div>
       <div id="overlay"></div>`;
     this.map = new VillageMap($<HTMLCanvasElement>('#cv')!, () => this.w);
+    this.map.onPick = (pk) => {
+      this.pick = pk;
+      this.renderSheet();
+    };
     this.root.querySelectorAll<HTMLButtonElement>('[data-sp]').forEach((b) => (b.onclick = () => this.setSpeed(Number(b.dataset.sp))));
     this.root.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) => (b.onclick = () => {
       this.tab = b.dataset.tab as typeof this.tab;
@@ -159,6 +170,7 @@ export class App {
     this.renderTop();
     this.renderPanel(false);
     this.renderOverlay();
+    this.renderSheet();
   }
 
   private renderTop() {
@@ -177,7 +189,10 @@ export class App {
     $('#menu')!.onclick = () => this.showStart();
     const pl = P(w, w.playerId);
     const who = $('#who');
-    if (who) who.innerHTML = alive(pl) ? `<b>${esc(fullName(pl))}</b>, ${age(w, pl)} yaşında, ${JOBS[pl.job].ad.toLowerCase()}` : 'Aile yasta';
+    const tt = title(w);
+    if (who) who.innerHTML = alive(pl)
+      ? `<b>${esc(fullName(pl))}</b>, ${age(w, pl)} yaşında, ${JOBS[pl.job].ad.toLowerCase()}<span class="ttl">${esc(tt.ad)} · nam ${nam(w)}${tt.next ? ` / ${tt.next.min}` : ''}</span>`
+      : 'Aile yasta';
     this.root.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === this.tab)));
   }
 
@@ -192,6 +207,7 @@ export class App {
     const keep = force ? 0 : panel.scrollTop;
     if (this.tab === 'aile') panel.innerHTML = this.familyHTML();
     else if (this.tab === 'tarla') panel.innerHTML = this.fieldsHTML();
+    else if (this.tab === 'mulk') panel.innerHTML = this.estateHTML();
     else if (this.tab === 'hane') panel.innerHTML = this.householdHTML();
     else panel.innerHTML = this.chronicleHTML();
     panel.scrollTop = keep;
@@ -248,6 +264,7 @@ export class App {
       const idle = idleWage(w, p);
       return f && laborNeed(w, f) > 0 ? `${f.no}. parselde çalışıyor; kazancı hasatta gelir` : `Parselde iş yok; gündeliğe gidiyor, ayda ${lira(idle)}`;
     }
+    if (p.job === 'isletme' && p.biz) return `${BIZ[p.biz].ad} başında; işletme bu ay ${lira(bizIncome(w, p.biz))} kazandırıyor`;
     const v = wage(w, p);
     return v > 0 ? `Bu ay kazancı ${lira(v)}` : JOBS[p.job].id === 'okul' ? 'Okuyor' : JOBS[p.job].id === 'ev' ? 'Evi çekip çeviriyor' : 'Kazancı yok';
   }
@@ -260,14 +277,86 @@ export class App {
       const blk = landBlockers(w);
       const pct = Math.min(100, Math.round((w.hh.cash / price) * 100));
       return `<div class="group">Henüz kendi toprağın yok</div>
-        <p class="note">Ailenin ilk tapusu için köy kenarında 5 dönüm tarla ${lira(price)}. Toprak fiyatı her yıl artıyor.</p>
+        <p class="note">Köyde 5 dönüm tarla şu an ${lira(price)} civarında. Toprak her yıl pahalanıyor.</p>
         <div class="meter"><i style="width:${pct}%"></i></div>
         <p class="note">Birikim: ${lira(w.hh.cash)} / ${lira(price)}</p>
-        ${blk.length ? `<ul class="blockers">${blk.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>` : `<p class="note good">Her şey hazır. Satılık tarla çıktığında haber gelecek.</p>`}`;
+        ${blk.length ? `<ul class="blockers">${blk.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>` : ''}
+        ${this.marketHTML()}`;
     }
     const now = sowableNow(w);
-    return `${w.hh.parcels.map((f) => this.parcelHTML(f, now)).join('')}
-      <p class="note">Ekim ayları: buğday, arpa ve haşhaş Ekim–Kasım; nohut Mart–Nisan; şeker pancarı Nisan. Ruhsat her yıl Ağustos'ta alınır.</p>`;
+    const empty = w.hh.parcels.filter((f) => !f.crop && f.mode === 'kendi').length;
+    const idle = hhMembers(w).filter((q) => !q.away && q.job === 'tarla' && age(w, q) >= 14).length;
+    const short = w.hh.parcels.filter((f) => f.mode === 'kendi' && f.lastNeed > 0 && f.lastGot < f.lastNeed * 0.97).length;
+    const trac = w.hh.veh.traktor || 0;
+    const rows = w.hh.parcels.map((f) => {
+      const i = w.plots.findIndex((x) => x.pid === f.id);
+      const ws = workersOf(w, f).length;
+      return `<tr data-goto="${f.id}"><td>${f.no}. ${esc(i >= 0 ? PLOTS[i].yer : '')}</td><td>${f.mode === 'yarici' ? 'Yarıcıda' : f.crop ? esc(CROPS[f.crop].ad) + (f.illegal ? ' !' : '') : 'Boş'}</td><td>${f.crop ? '%' + Math.round(careOf(f) * 100) : '–'}</td><td>${f.mode === 'yarici' ? '–' : `${ws}${f.hired ? '+' + f.hired : ''}${f.trac ? '+T' : ''}`}</td></tr>`;
+    }).join('');
+    return `<div class="bulk">
+        <div class="group">Bütün tarlalar</div>
+        <table class="ftable"><tr><th>Parsel</th><th>Ekin</th><th>Bakım</th><th>İşçi</th></tr>${rows}</table>
+        <p class="note">${w.hh.parcels.length} parsel, ${w.hh.land} dönüm. ${short ? `${short} parselde iş gücü eksik. ` : ''}${trac ? `${trac} traktör, ayda ${fmt1(trac * TRACTOR_POWER)} işçi gücü; eksik parsellere kendiliğinden gider.` : ''}</p>
+        ${empty && now.filter((c) => c !== 'hashas' || hasRuhsat(w)).length ? `<div class="btnrow">${now.map((c) => `<button class="small" data-sowall="${c}">Boş ${empty} parsele ${esc(CROPS[c].ad.toLowerCase())} ek</button>`).join('')}</div>` : ''}
+        <div class="btnrow">
+          <button class="small" data-bulk="staff"${idle ? '' : ' disabled'}>Gündelikçileri tarlalara dağıt (${idle})</button>
+          <button class="small" data-bulk="hire1">Her parsele 1 ırgat</button>
+          <button class="small" data-bulk="hire0">Irgatları gönder</button>
+          <button class="small" data-bulk="recall">Herkesi geri çağır</button>
+        </div>
+      </div>
+      ${w.hh.parcels.map((f) => this.parcelHTML(f, now)).join('')}
+      ${this.marketHTML()}
+      <p class="note">Ekim ayları: buğday, arpa ve haşhaş Ekim–Kasım; nohut Mart–Nisan; şeker pancarı Nisan. Ruhsat her yıl Ağustos'ta alınır. Haritada bir tarlaya dokunursan sahibini ve fiyatını görürsün.</p>`;
+  }
+
+  private marketHTML(): string {
+    const w = this.w!;
+    const n = nam(w);
+    const list = w.plots.map((_, i) => i).filter((i) => w.plots[i].o !== 'biz' && offerChance(w, i, n) > 0).sort((a, b) => offerPrice(w, a) - offerPrice(w, b)).slice(0, 6);
+    if (!list.length) return '';
+    return `<div class="group">Köyde alınabilecek tarlalar</div>
+      <table class="ftable">${list.map((i) => `<tr data-plot="${i}"><td>${esc(PLOTS[i].yer)}<br><span class="note">${esc(plotOwnerName(w, i))}</span></td><td>Verim ${Math.round(PLOTS[i].q * 100)}</td><td>${lira(offerPrice(w, i))}${w.plots[i].sale ? '' : '<br><span class="note">teklif</span>'}</td></tr>`).join('')}</table>`;
+  }
+
+  // ---------- Mülk ----------
+  private estateHTML(): string {
+    const w = this.w!;
+    const tt = title(w);
+    const n = nam(w);
+    const hv = HOUSES[w.hh.house];
+    const nh = HOUSES[w.hh.house + 1];
+    const yr = year(w.m);
+    const veh = (Object.keys(VEHICLES) as VehicleId[]).map((v) => {
+      const d = VEHICLES[v];
+      const have = w.hh.veh[v] || 0;
+      const lock = yr < d.from;
+      return `<div class="asset"><div class="prow"><span class="pname">${esc(d.ad)}</span>${have ? `<span class="badge sen">${have} tane</span>` : ''}</div>
+        <p class="note">${esc(d.desc)}</p>
+        <div class="btnrow">${lock ? `<span class="note">${d.from}'de gelir</span>` : `<button class="small" data-veh="${v}"${w.hh.cash < vehiclePrice(w, v) ? ' disabled' : ''}>Satın al (${lira(vehiclePrice(w, v))})</button>`}
+        ${have ? `<button class="small" data-sellveh="${v}">Sat (${lira(vehiclePrice(w, v) * 0.55)})</button>` : ''}</div></div>`;
+    }).join('');
+    const biz = (Object.keys(BIZ) as BizId[]).map((b) => {
+      const d = BIZ[b];
+      const own = !!w.hh.biz[b];
+      const why = bizAvailable(w, b);
+      const mgr = bizManager(w, b);
+      const cand = hhMembers(w).filter((q) => !q.away && age(w, q) >= 16);
+      return `<div class="asset"><div class="prow"><span class="pname">${esc(d.ad)}</span>${own ? '<span class="badge sen">Bizim</span>' : ''}</div>
+        <p class="note">${esc(d.desc)}</p>
+        ${own ? `<p class="note">Bu ay kazancı ${lira(bizIncome(w, b))}.</p>
+          <select data-mgr="${b}" aria-label="${esc(d.ad)} başına kim geçsin"><option value="">Başında kimse yok</option>${cand.map((q) => `<option value="${q.id}"${mgr?.id === q.id ? ' selected' : ''}>${esc(q.first)}, ticaret ${Math.round(q.sk.ticaret)}</option>`).join('')}</select>`
+        : why && why !== 'Zaten senin.' ? `<p class="note">${esc(why)}</p>` : `<button class="small" data-biz="${b}"${w.hh.cash < bizPrice(w, b) ? ' disabled' : ''}>Devral (${lira(bizPrice(w, b))})</button>`}</div>`;
+    }).join('');
+    const nextT = tt.next ? Math.min(100, Math.round((n / tt.next.min) * 100)) : 100;
+    return `<div class="rank"><div class="pname">${esc(tt.ad)}</div>
+        <p class="note">Nam ${n}${tt.next ? `. "${esc(tt.next.ad)}" için ${tt.next.min}` : ''}. Toprak, ev, taşıt, işletme ve kasadaki para namı büyütür; borç küçültür.</p>
+        <div class="meter"><i style="width:${nextT}%"></i></div></div>
+      <div class="group">Ev</div>
+      <div class="asset"><div class="prow"><span class="pname">${esc(hv.ad)}</span></div><p class="note">${esc(hv.desc)}</p>
+        ${nh ? `<p class="note">Sıradaki: ${esc(nh.ad)}. ${esc(nh.desc)}</p><button class="small" data-house="1"${w.hh.cash < housePrice(w, nh.lvl) ? ' disabled' : ''}>${w.hh.house === 0 ? 'Satın al' : 'Yaptır'} (${lira(housePrice(w, nh.lvl))})</button>` : ''}</div>
+      <div class="group">Taşıtlar</div>${veh}
+      <div class="group">Köy işletmeleri</div>${biz}`;
   }
 
   private parcelHTML(f: Parcel, now: CropId[]): string {
@@ -292,12 +381,23 @@ export class App {
       const next = monthsUntilSow(w.m);
       status = `<div class="crop">Tarla nadasta. Sonraki ekim ${next}.</div>`;
     }
+    const pl = w.plots.findIndex((x) => x.pid === f.id);
+    if (f.mode === 'yarici') {
+      return `<section class="parcel" id="pc-${f.id}">
+      <div class="prow"><span class="pname">${f.no}. parsel</span><span class="prel">${esc(pl >= 0 ? PLOTS[pl].yer : '')}, verim ${Math.round(qualityOf(w, f) * 100)}</span></div>
+      <div class="seg mode"><button data-mode="${f.id}:kendi" aria-pressed="false">Kendimiz ekiyoruz</button><button data-mode="${f.id}:yarici" aria-pressed="true">Yarıcıya ver</button></div>
+      <p class="note">Köylü bir yarıcı ekip biçiyor; tohum ve emek onun, hasadın %40'ı bizim. Haşhaşa dokunmaz.</p>
+      ${f.crop ? `<div class="crop"><b>${CROPS[f.crop].ad}</b>, hasat ${dateText(harvestMonth(f))}, payımız ~${lira(expectedValue(w, f))}</div>` : '<p class="note">Ekim zamanını bekliyor.</p>'}
+      ${f.hist.length ? `<div class="hist">Son hasatlar: ${f.hist.slice(0, 3).map((h) => `${year(h.m)} ${CROPS[h.crop].ad.toLowerCase()}, ${esc(h.t)}`).join('; ')}</div>` : ''}
+    </section>`;
+    }
     const pool = hhMembers(w).filter((q) => !q.away && age(w, q) >= 10 && !(q.job === 'kendi' && q.parcel === f.id));
     const needTxt = need > 0
-      ? `<div class="labor"><span>Bu ay gereken iş gücü ${fmt1(need)}, gelen ${fmt1(f.lastGot || 0)}</span><div class="meter${(f.lastGot || 0) < need * 0.97 ? ' short' : ''}"><i style="width:${Math.min(100, Math.round(((f.lastGot || 0) / need) * 100))}%"></i></div></div>`
+      ? `<div class="labor"><span>Bu ay gereken iş gücü ${fmt1(need)}, gelen ${fmt1(f.lastGot || 0)}${f.trac ? ` (traktör ${fmt1(f.trac)})` : ''}</span><div class="meter${(f.lastGot || 0) < need * 0.97 ? ' short' : ''}"><i style="width:${Math.min(100, Math.round(((f.lastGot || 0) / need) * 100))}%"></i></div></div>`
       : `<p class="note">Bu ay parselde iş yok. Buradaki işçiler başkasının tarlasına gündeliğe gidiyor.</p>`;
-    return `<section class="parcel">
-      <div class="prow"><span class="pname">${f.no}. parsel</span><span class="prel">5 dönüm${f.price ? `, ${year(f.boughtM)}'de ${lira(f.price)}` : ''}</span></div>
+    return `<section class="parcel" id="pc-${f.id}">
+      <div class="prow"><span class="pname">${f.no}. parsel</span><span class="prel">${esc(pl >= 0 ? PLOTS[pl].yer : '')}, verim ${Math.round(qualityOf(w, f) * 100)}${f.price ? `, ${year(f.boughtM)}'de ${lira(f.price)}` : ''}</span></div>
+      <div class="seg mode"><button data-mode="${f.id}:kendi" aria-pressed="${f.mode === 'kendi'}">Kendimiz ekiyoruz</button><button data-mode="${f.id}:yarici" aria-pressed="false"${f.crop === 'hashas' ? ' disabled' : ''}>Yarıcıya ver</button></div>
       ${status}
       ${f.crop ? needTxt : ''}
       <div class="group">Çalışanlar</div>
@@ -385,6 +485,45 @@ export class App {
       save(w);
       this.renderPanel(true);
     }));
+    const act = (fn: () => void) => () => {
+      fn();
+      save(w);
+      this.renderPanel(true);
+    };
+    panel.querySelectorAll<HTMLButtonElement>('[data-sowall]').forEach((b) => (b.onclick = act(() => {
+      const r = sowAll(w, b.dataset.sowall as CropId);
+      this.toast(r.n ? `${r.n} parsele ekildi.` : r.err ?? 'Ekilecek boş parsel yok.');
+    })));
+    panel.querySelectorAll<HTMLButtonElement>('[data-bulk]').forEach((b) => (b.onclick = act(() => {
+      const k = b.dataset.bulk;
+      if (k === 'staff') this.toast(`${staffAll(w)} kişi tarlalara gönderildi.`);
+      if (k === 'hire1') hireAll(w, 1);
+      if (k === 'hire0') hireAll(w, 0);
+      if (k === 'recall') recallAll(w);
+    })));
+    panel.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach((b) => (b.onclick = act(() => {
+      const [fid, m] = b.dataset.mode!.split(':');
+      setMode(w, fid, m as 'kendi' | 'yarici');
+    })));
+    panel.querySelectorAll<HTMLElement>('[data-goto]').forEach((r) => (r.onclick = () => document.getElementById('pc-' + r.dataset.goto)?.scrollIntoView({ block: 'start', behavior: 'smooth' })));
+    panel.querySelectorAll<HTMLElement>('[data-plot]').forEach((r) => (r.onclick = () => {
+      this.pick = { kind: 'plot', i: Number(r.dataset.plot) };
+      if (this.map) this.map.selected = this.pick;
+      this.renderSheet();
+    }));
+    panel.querySelectorAll<HTMLButtonElement>('[data-veh]').forEach((b) => (b.onclick = act(() => this.toast(buyVehicle(w, b.dataset.veh as VehicleId).msg))));
+    panel.querySelectorAll<HTMLButtonElement>('[data-sellveh]').forEach((b) => (b.onclick = act(() => {
+      const v = sellVehicle(w, b.dataset.sellveh as VehicleId);
+      this.toast(`Satıldı: ${lira(v)}`);
+    })));
+    panel.querySelectorAll<HTMLButtonElement>('[data-biz]').forEach((b) => (b.onclick = act(() => this.toast(buyBiz(w, b.dataset.biz as BizId).msg))));
+    panel.querySelectorAll<HTMLButtonElement>('[data-house]').forEach((b) => (b.onclick = act(() => this.toast(buyHouse(w).msg))));
+    panel.querySelectorAll<HTMLSelectElement>('[data-mgr]').forEach((sel) => {
+      sel.onchange = act(() => setManager(w, sel.dataset.mgr as BizId, sel.value || null));
+      sel.onblur = () => {
+        if (this.pendingPanel) this.renderPanel(false);
+      };
+    });
     panel.querySelectorAll<HTMLButtonElement>('[data-sow]').forEach((b) => (b.onclick = () => {
       const [fid, c] = b.dataset.sow!.split(':');
       const err = sow(w, fid, c as CropId);
@@ -426,6 +565,98 @@ export class App {
       save(w);
       this.renderPanel(true);
     }));
+  }
+
+  // ---------- Harita kartı ----------
+  private renderSheet() {
+    const el = $('#sheet');
+    const w = this.w;
+    if (!el || !w) return;
+    const pk = this.pick;
+    if (!pk) {
+      el.innerHTML = '';
+      return;
+    }
+    let body = '';
+    if (pk.kind === 'plot') {
+      const i = pk.i;
+      const d = PLOTS[i];
+      const st = w.plots[i];
+      if (st.o === 'biz') {
+        const f = w.hh.parcels.find((x) => x.id === st.pid)!;
+        body = `<h3>${esc(d.yer)}, ${f.no}. parselimiz</h3>
+          <p>5 dönüm, verim ${Math.round(d.q * 100)}. ${f.mode === 'yarici' ? 'Yarıcıda.' : f.crop ? `${esc(CROPS[f.crop].ad)}, hasat ${dateText(harvestMonth(f))}, bakım %${Math.round(careOf(f) * 100)}.` : 'Boş.'} Çalışan: ${workersOf(w, f).length} kişi${f.hired ? `, ${f.hired} ırgat` : ''}.</p>
+          <div class="btnrow"><button class="primary sm" data-sheet="goto:${f.id}">Tarlayı yönet</button></div>`;
+      } else {
+        const n = nam(w);
+        const ch = offerChance(w, i, n);
+        const price = offerPrice(w, i);
+        const blk = landBlockers(w);
+        const owner = plotOwnerName(w, i);
+        let state: string;
+        if (st.sale) state = `Satışta: ${lira(price)}.`;
+        else if (ch <= 0) state = st.o === 'aga' ? `Ağa toprağını satmıyor. Adın büyüdükçe (nam 40 ve üstü) teklif dinler.` : `${esc(owner)} bu yıl seninle konuşmuyor.`;
+        else state = `Satışta değil. Gönlünü yapmak için ${lira(price)} teklif edebilirsin; kabul etme ihtimali aşağı yukarı %${Math.round(ch * 100)}. Reddederse bu yıl bir daha konuşmaz.`;
+        const can = ch > 0 && !blk.length && w.hh.cash >= price;
+        body = `<h3>${esc(d.yer)} mevkii</h3>
+          <p>Sahibi: ${esc(owner)}. 5 dönüm, verim ${Math.round(d.q * 100)}${d.aga ? ', ağanın en iyi toprakları' : ''}. Bugünkü değeri ${lira(plotPrice(w, i))}.</p>
+          <p>${state}</p>
+          ${blk.length ? `<ul class="blockers">${blk.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>` : ''}
+          ${ch > 0 && w.hh.cash < price && !blk.length ? `<p class="note">Kasada ${lira(price - w.hh.cash)} eksik.</p>` : ''}
+          ${ch > 0 ? `<div class="btnrow"><button class="primary sm" data-sheet="buy:${i}"${can ? '' : ' disabled'}>${st.sale ? 'Satın al' : 'Teklif ver'} (${lira(price)})</button></div>` : ''}`;
+      }
+    } else {
+      const k = pk.k;
+      if (k === 'evOyuncu') {
+        const hv = HOUSES[w.hh.house];
+        const nh = HOUSES[w.hh.house + 1];
+        body = `<h3>${esc(hv.ad)}</h3><p>${esc(hv.desc)}</p>
+          ${nh ? `<p>Sıradaki: <b>${esc(nh.ad)}</b>. ${esc(nh.desc)}</p><div class="btnrow"><button class="primary sm" data-sheet="house"${w.hh.cash < housePrice(w, nh.lvl) ? ' disabled' : ''}>${w.hh.house === 0 ? 'Satın al' : 'Yaptır'} (${lira(housePrice(w, nh.lvl))})</button><button class="small" data-sheet="tab:mulk">Bütün mülk</button></div>` : ''}`;
+      } else if (k === 'konak') {
+        body = `<h3>Bozbey Ağa'nın konağı</h3>
+          <p>Köyün en iyi topraklarının, ev kiralarının ve borç defterinin sahibi.${w.hh.debt ? ` Ona ${lira(w.hh.debt)} borcun var; ayda %2 işliyor.` : ' Ona borcun yok.'}${Number(w.flags.agaKin || 0) >= year(w.m) ? ` Sana kızgın: ${w.flags.agaKin} yılına kadar köyde kimse sana toprak satmaz.` : ''}</p>
+          <p class="note">Ağanın tarlaları haritanın üst ve sol köşelerinde, biraz daha koyu. Nam 40'ı geçince satmayı düşünür, nam 55'i geçince bazen kendisi satışa çıkarır.</p>
+          ${w.hh.debt && w.hh.cash ? `<div class="btnrow"><button class="primary sm" data-sheet="pay">Borcu öde (${lira(Math.min(w.hh.cash, w.hh.debt))})</button></div>` : ''}`;
+      } else {
+        const b = k as BizId;
+        const d = BIZ[b];
+        const own = !!w.hh.biz[b];
+        const why = bizAvailable(w, b);
+        const mgr = bizManager(w, b);
+        body = `<h3>${esc(d.ad)}${own ? ', bizim' : ''}</h3><p>${esc(d.desc)}</p>
+          ${own ? `<p>Bu ay kazancı ${lira(bizIncome(w, b))}. ${mgr ? `Başında ${esc(mgr.first)} var.` : 'Başında kimse yok; Mülk sekmesinden birini görevlendir.'}</p><div class="btnrow"><button class="small" data-sheet="tab:mulk">Mülk sekmesi</button></div>`
+          : why && why !== 'Zaten senin.' ? `<p class="note">${esc(why)}</p>` : `<div class="btnrow"><button class="primary sm" data-sheet="biz:${b}"${w.hh.cash < bizPrice(w, b) ? ' disabled' : ''}>Devral (${lira(bizPrice(w, b))})</button></div>`}`;
+      }
+    }
+    el.innerHTML = `<div class="sheet" role="dialog" aria-label="Seçili yer"><button class="close" data-sheet="close" aria-label="Kapat">Kapat</button>${body}</div>`;
+    el.querySelectorAll<HTMLButtonElement>('[data-sheet]').forEach((b) => (b.onclick = () => this.sheetAct(b.dataset.sheet!)));
+  }
+
+  private sheetAct(a: string) {
+    const w = this.w!;
+    const [cmd, arg] = a.split(':');
+    if (cmd === 'close') {
+      this.pick = null;
+      if (this.map) this.map.selected = null;
+    } else if (cmd === 'buy') {
+      const r = buyPlot(w, Number(arg));
+      if (r.ok && r.msg === 'ilk') this.ceremony = { price: w.hh.parcels[0].price };
+      else this.toast(r.msg);
+    } else if (cmd === 'house') {
+      this.toast(buyHouse(w).msg);
+    } else if (cmd === 'biz') {
+      this.toast(buyBiz(w, arg as BizId).msg);
+    } else if (cmd === 'pay') {
+      payDebt(w, w.hh.cash);
+    } else if (cmd === 'goto' || cmd === 'tab') {
+      this.tab = cmd === 'goto' ? 'tarla' : (arg as typeof this.tab);
+      this.pick = null;
+      if (this.map) this.map.selected = null;
+      this.renderPanel(true);
+      if (cmd === 'goto') document.getElementById('pc-' + arg)?.scrollIntoView({ block: 'start' });
+    }
+    save(w);
+    this.refresh();
   }
 
   private toast(msg: string) {

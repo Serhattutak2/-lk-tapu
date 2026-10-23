@@ -7,6 +7,7 @@ import { age, alive, fullName, hhMembers, log } from './people';
 import { dateText, infl, monthOf, year } from './calendar';
 import { JOBS, wage } from './jobs';
 import { pushCard } from './cards';
+import { PLOTS } from './plots';
 
 export interface CropDef {
   id: CropId;
@@ -39,7 +40,7 @@ export const BAN_TO = 1974;
 export const isBanYear = (y: number) => y >= BAN_FROM && y <= BAN_TO;
 
 export const devletPrice = (w: World) => Math.round(DEVLET_PRICE * infl(w.m));
-export const kacakPrice = (w: World) => Math.round(KACAK_PRICE * infl(w.m) * (isBanYear(year(w.m)) ? 1.5 : 1));
+export const kacakPrice = (w: World) => Math.round(KACAK_PRICE * infl(w.m) * (isBanYear(year(w.m)) ? 1.5 : 1) * ((w.hh.veh?.kamyon || 0) > 0 ? 1.2 : 1));
 export const irgatWage = (w: World) => Math.round(IRGAT_WAGE * infl(w.m));
 export const seedCost = (w: World, c: CropId) => Math.round(CROPS[c].seed * infl(w.m));
 
@@ -47,6 +48,12 @@ export const seedCost = (w: World, c: CropId) => Math.round(CROPS[c].seed * infl
 export function stageOf(w: World, p: Parcel): number {
   if (!p.crop) return -1;
   return (w.m - p.sownM) / CROPS[p.crop].grow;
+}
+
+/** Parselin oturduğu tarlanın verimi. */
+export function qualityOf(w: World, p: Parcel): number {
+  const i = w.plots ? w.plots.findIndex((x) => x.pid === p.id) : -1;
+  return i >= 0 ? PLOTS[i].q : 1;
 }
 
 export const harvestMonth = (p: Parcel) => (p.crop ? p.sownM + CROPS[p.crop].grow : -1);
@@ -97,12 +104,16 @@ export function hasRuhsat(w: World): boolean {
 /** Beklenen hasat değeri (bugünkü bakımla). */
 export function expectedValue(w: World, p: Parcel): number {
   if (!p.crop) return 0;
-  return Math.round(CROPS[p.crop].value * Math.pow(careOf(p), 1.2) * infl(w.m));
+  const share = p.mode === 'yarici' ? YARICI_SHARE : 1;
+  return Math.round(CROPS[p.crop].value * Math.pow(careOf(p), 1.2) * qualityOf(w, p) * infl(w.m) * share * saleBonus(w));
 }
+
+export const YARICI_SHARE = 0.4;
+export const saleBonus = (w: World) => ((w.hh.veh?.araba || 0) > 0 || (w.hh.veh?.kamyon || 0) > 0 ? 1.06 : 1);
 
 export function newParcel(w: World, price: number): Parcel {
   const no = w.hh.parcels.length + 1;
-  const p: Parcel = { id: 'f' + w.nextId++, no, boughtM: w.m, price, crop: null, sownM: 0, illegal: false, hired: 0, careSum: 0, careN: 0, lastNeed: 0, lastGot: 0, hist: [] };
+  const p: Parcel = { id: 'f' + w.nextId++, no, boughtM: w.m, price, crop: null, sownM: 0, illegal: false, hired: 0, mode: 'kendi', trac: 0, careSum: 0, careN: 0, lastNeed: 0, lastGot: 0, hist: [] };
   w.hh.parcels.push(p);
   w.hh.land = w.hh.parcels.length * 5;
   return p;
@@ -172,20 +183,69 @@ export function idleWage(w: World, q: Person): number {
 export function monthlyFields(w: World, lines: LedgerLine[]) {
   // Geçersiz atamaları temizle
   for (const q of Object.values(w.people)) {
-    if (q.job === 'kendi' && !w.hh.parcels.some((x) => x.id === q.parcel)) {
+    if (q.job === 'kendi' && !w.hh.parcels.some((x) => x.id === q.parcel && x.mode === 'kendi')) {
       q.job = JOBS.tarla.id;
       q.parcel = undefined;
     }
   }
+  // Yarıcılar kendi kararıyla eker
   for (const p of w.hh.parcels) {
-    const need = laborNeed(w, p);
-    const got = laborGot(w, p);
-    p.lastNeed = need;
-    p.lastGot = got;
-    if (need > 0) {
-      p.careSum += clamp(got / need, 0, 1);
+    if (p.mode !== 'yarici' || p.crop) continue;
+    const c: CropId | undefined = canSow(w, 'bugday') ? 'bugday' : canSow(w, 'nohut') ? 'nohut' : undefined;
+    if (c) {
+      p.crop = c;
+      p.sownM = w.m;
+      p.careSum = 0;
+      p.careN = 0;
+      p.illegal = false;
+    }
+  }
+  // Önce aile ve ırgat, sonra eksik kalan parsellere traktör ve eşek
+  let pool = (w.hh.veh?.traktor || 0) * TRACTOR_POWER;
+  let donkey = (w.hh.veh?.esek || 0) * 0.3;
+  let tractorUsed = 0;
+  const need = new Map<string, number>();
+  for (const p of w.hh.parcels) {
+    const n = laborNeed(w, p);
+    need.set(p.id, n);
+    p.lastNeed = n;
+    p.trac = 0;
+    if (p.mode === 'yarici') {
+      p.lastGot = n;
+      continue;
+    }
+    p.lastGot = laborGot(w, p);
+  }
+  for (const p of w.hh.parcels) {
+    const n = need.get(p.id)!;
+    if (p.mode !== 'kendi' || n <= 0) continue;
+    let gap = n - p.lastGot;
+    if (gap > 0 && donkey > 0) {
+      const d = Math.min(gap, donkey);
+      donkey -= d;
+      p.lastGot += d;
+      gap -= d;
+    }
+    if (gap > 0 && pool > 0) {
+      const t = Math.min(gap, pool);
+      pool -= t;
+      tractorUsed += t;
+      p.trac = t;
+      p.lastGot += t;
+    }
+  }
+  if (tractorUsed > 0) {
+    const n = Math.ceil(tractorUsed / TRACTOR_POWER - 1e-9);
+    const fuel = n * Math.round(140 * infl(w.m));
+    w.hh.cash -= fuel;
+    lines.push({ t: `Traktör mazotu (${n} traktör çalıştı)`, v: -fuel });
+  }
+  for (const p of w.hh.parcels) {
+    const n = need.get(p.id)!;
+    if (n > 0) {
+      p.careSum += p.mode === 'yarici' ? 0.85 : clamp(p.lastGot / n, 0, 1);
       p.careN++;
-      if (p.hired > 0) {
+      if (p.mode === 'kendi' && p.hired > 0) {
         const cost = p.hired * irgatWage(w);
         w.hh.cash -= cost;
         lines.push({ t: `${p.no}. parsel: ${p.hired} ırgat`, v: -cost });
@@ -196,12 +256,14 @@ export function monthlyFields(w: World, lines: LedgerLine[]) {
   }
 }
 
+export const TRACTOR_POWER = 2.5;
+
 function harvest(w: World, p: Parcel, lines: LedgerLine[]) {
   const c = p.crop!;
   const d = CROPS[c];
   const best = Math.max(0, ...workersOf(w, p).map((q) => q.sk.tarim));
   const rainF = 1 + (w.rain - 1) * d.rainSens;
-  const mult = Math.pow(careOf(p), 1.2) * clamp(rainF, 0.3, 1.5) * (0.88 + best / 400) * clamp(gauss(w, 1, 0.08), 0.75, 1.25) * (w.flags.dolu === p.id ? 0.55 : 1);
+  const mult = qualityOf(w, p) * Math.pow(careOf(p), 1.2) * clamp(rainF, 0.3, 1.5) * (p.mode === 'yarici' ? 0.95 : 0.88 + best / 400) * clamp(gauss(w, 1, 0.08), 0.75, 1.25) * (w.flags.dolu === p.id ? 0.55 : 1);
   if (w.flags.dolu === p.id) w.flags.dolu = '';
   const weather = w.rain < 0.8 ? ', kurak yıl' : w.rain > 1.2 ? ', bereketli yıl' : '';
   if (c === 'hashas') {
@@ -214,24 +276,41 @@ function harvest(w: World, p: Parcel, lines: LedgerLine[]) {
     hashasCard(w, p, sacks, ill);
     return;
   }
-  const v = Math.round(d.value * mult * infl(w.m));
+  const yar = p.mode === 'yarici';
+  const v = Math.round(d.value * mult * infl(w.m) * saleBonus(w) * (yar ? YARICI_SHARE : 1));
   w.hh.cash += v;
-  lines.push({ t: `${p.no}. parsel: ${d.ad.toLowerCase()} hasadı`, v });
+  lines.push({ t: `${p.no}. parsel: ${d.ad.toLowerCase()} hasadı${yar ? ' (yarıcıdan payımız)' : ''}`, v });
   p.hist.unshift({ m: w.m, crop: c, v, t: `${v.toLocaleString('tr-TR')} lira${weather}` });
   p.hist.length = Math.min(p.hist.length, 8);
-  log(w, `${p.no}. parselin ${d.ad.toLowerCase()} hasadı ${v} liraya satıldı (bakım %${Math.round(careOf(p) * 100)}${weather}).`, 'para');
+  log(w, `${p.no}. parselin ${d.ad.toLowerCase()} hasadı${yar ? ' (yarıcı)' : ''}: ${v} lira (bakım %${Math.round(careOf(p) * 100)}${weather}).`, 'para');
   p.crop = null;
 }
 
 function hashasCard(w: World, p: Parcel, sacks: number, illegal: boolean) {
+  // Aynı ay biten haşhaş hasatları tek kartta toplanır
+  const prev = w.cards.find((c) => c.id === 'hashas_hasat' && c.m === w.m && !!c.data?.illegal === illegal);
+  const total = sacks + ((prev?.data?.sacks as number) || 0);
+  const label = prev ? `${prev.data!.label}, ${p.no}.` : `${p.no}.`;
+  const built = buildHashas(w, total, label, illegal);
+  if (prev) {
+    prev.text = built.text;
+    prev.opts = built.opts;
+    prev.data = { sacks: total, parcel: p.no, illegal, label };
+    return;
+  }
+  pushCard(w, { id: 'hashas_hasat', text: built.text, opts: built.opts, data: { sacks: total, parcel: p.no, illegal, label } });
+}
+
+function buildHashas(w: World, sacks: number, label: string, illegal: boolean) {
   const dp = devletPrice(w);
   const kp = kacakPrice(w);
   const rza = !!w.flags.kacakci;
   const half = Math.ceil(sacks / 2);
+  const where = label.includes(',') ? `${label} parsellerde` : `${label} parselde`;
   const opts: { t: string; k: string }[] = [];
   let text: string;
   if (!illegal) {
-    text = `${p.no}. parselde haşhaş hasadı bitti: ${sacks} çuval. Devlet çuvalı ${dp} liradan alıyor, toplam ${(sacks * dp).toLocaleString('tr-TR')} lira.`;
+    text = `${where} haşhaş hasadı bitti: ${sacks} çuval. Devlet çuvalı ${dp} liradan alıyor, toplam ${(sacks * dp).toLocaleString('tr-TR')} lira.`;
     text += rza
       ? ` Kara Rıza ise çuval başına ${kp} lira veriyor. Beyanda eksik gösterirsen fark senin olur, ama jandarmanın gözü de üstüne çevrilir.`
       : ' Kayıt dışı alıcı tanımıyorsun; saklarsan bir gün işe yarayabilir.';
@@ -240,15 +319,15 @@ function hashasCard(w: World, p: Parcel, sacks: number, illegal: boolean) {
     opts.push({ t: `Yarısını zulaya sakla (${half} çuval)`, k: 'yari_zula' });
     if (rza) opts.push({ t: `Hepsini Kara Rıza'ya sat, devlete kötü hasat de`, k: 'hepsi_kacak' });
   } else {
-    text = `Ruhsatsız ektiğin haşhaştan ${sacks} çuval çıktı. Devlete teslim edemezsin; elde tutmak da tehlikeli.`;
+    text = `${where} ruhsatsız ektiğin haşhaştan ${sacks} çuval çıktı. Devlete teslim edemezsin; elde tutmak da tehlikeli.`;
     if (rza) opts.push({ t: `Kara Rıza'ya sat (${(sacks * kp).toLocaleString('tr-TR')} lira)`, k: 'hepsi_kacak' });
     opts.push({ t: 'Zulaya sakla', k: 'hepsi_zula' });
     opts.push({ t: 'Yak, iz kalmasın', k: 'yak' });
   }
-  pushCard(w, { id: 'hashas_hasat', text, opts, data: { sacks, parcel: p.no, illegal } });
+  return { text, opts };
 }
 
-export function resolveHashas(w: World, sacks: number, no: number, k: string) {
+export function resolveHashas(w: World, sacks: number, no: number | string, k: string) {
   const dp = devletPrice(w);
   const kp = kacakPrice(w);
   const half = Math.ceil(sacks / 2);
@@ -270,7 +349,7 @@ export function resolveHashas(w: World, sacks: number, no: number, k: string) {
   if (black) parts.push(`${black} çuval Kara Rıza'ya (${(black * kp).toLocaleString('tr-TR')} lira)`);
   if (stash) parts.push(`${stash} çuval zulaya`);
   if (k === 'yak') parts.push(`${sacks} çuval gece yakıldı`);
-  log(w, `${no}. parselin haşhaşı: ${parts.join(', ')}.`, black || stash ? 'olay' : 'para');
+  log(w, `Haşhaş hasadı (${no}): ${parts.join(', ')}.`, black || stash ? 'olay' : 'para');
 }
 
 export function sellStash(w: World): number {
@@ -297,3 +376,52 @@ export function personFieldLabel(w: World, q: Person): string {
 }
 
 export { fullName };
+
+// ---------- Toplu yönetim ----------
+
+export function sowAll(w: World, c: CropId): { n: number; err?: string } {
+  let n = 0;
+  let err: string | undefined;
+  for (const p of w.hh.parcels) {
+    if (p.crop || p.mode !== 'kendi') continue;
+    const e = sow(w, p.id, c);
+    if (e) err = e;
+    else n++;
+  }
+  return { n, err };
+}
+
+export function hireAll(w: World, n: number) {
+  for (const p of w.hh.parcels) if (p.mode === 'kendi') p.hired = clamp(n, 0, 4);
+}
+
+export function recallAll(w: World) {
+  for (const q of hhMembers(w)) if (q.job === 'kendi') assignWorker(w, q.id, null);
+}
+
+/** Gündeliğe giden yetişkinleri, iş gücü eksik parsellere dağıtır. */
+export function staffAll(w: World): number {
+  const pool = hhMembers(w).filter((q) => !q.away && !q.sick && q.job === 'tarla' && age(w, q) >= 14 && age(w, q) <= 62);
+  let n = 0;
+  const ps = w.hh.parcels.filter((p) => p.mode === 'kendi' && p.crop);
+  for (const p of ps) {
+    const want = CROPS[p.crop!].need;
+    while (workersOf(w, p).length + p.hired < want && pool.length) {
+      const q = pool.shift()!;
+      assignWorker(w, q.id, p.id);
+      n++;
+    }
+  }
+  return n;
+}
+
+export function setMode(w: World, pid: string, mode: 'kendi' | 'yarici') {
+  const p = w.hh.parcels.find((x) => x.id === pid);
+  if (!p) return;
+  if (mode === 'yarici' && p.crop === 'hashas') return; // yarıcı haşhaşa karışmaz
+  p.mode = mode;
+  if (mode === 'yarici') {
+    p.hired = 0;
+    for (const q of workersOf(w, p)) assignWorker(w, q.id, null);
+  }
+}

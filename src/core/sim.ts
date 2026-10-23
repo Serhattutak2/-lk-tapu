@@ -6,8 +6,11 @@ import { JOBS, jobAllowed, wage } from './jobs';
 import { monthlyLife } from './life';
 import { generateCards, gurbetReturns, resolveCard, seasonalNotes } from './cards';
 import { infl, monthOf, year } from './calendar';
-import { assignWorker, CROPS, hasRuhsat, idleWage, laborNeed, monthlyFields, sow, sowableNow, workersOf } from './fields';
+import { assignWorker, CROPS, hasRuhsat, idleWage, laborNeed, monthlyFields, sow, sowableNow, staffAll, workersOf } from './fields';
 import { monthlyCrime } from './crime';
+import { BIZ, bizManager, buyBiz, buyHouse, buyPlot, buyVehicle, housePrice, monthlyAssets, nam, setManager, vehiclePrice } from './assets';
+import { offerChance, offerPrice, yearlyMarket } from './plots';
+import type { BizId } from './types';
 import type { CropId } from './types';
 
 export const DEBT_RATE = 0.02; // ağa faizi, aylık
@@ -22,6 +25,7 @@ export function advance(w: World): boolean {
 
   gurbetReturns(w);
   monthlyCrime(w);
+  if (monthOf(w.m) === 0) yearlyMarket(w, nam(w));
   const harvestBonus = seasonalNotes(w);
   economy(w, harvestBonus);
   growth(w);
@@ -58,6 +62,7 @@ function economy(w: World, harvestBonus: number) {
   }
 
   monthlyFields(w, lines);
+  monthlyAssets(w, lines);
 
   let food = 0;
   let housework = false;
@@ -75,8 +80,8 @@ function economy(w: World, harvestBonus: number) {
   const k = infl(w.m) * (w.flags.sertKis === year(w.m) && monthOf(w.m) <= 1 ? 1.3 : 1);
   const exp: LedgerLine[] = [
     { t: `Mutfak ve ev (${mem.filter((p) => !p.away).length} boğaz)${housework ? ', ev işleriyle' : ''}`, v: -Math.round(food * k) },
-    { t: 'Ağaya ev kirası', v: -Math.round(w.hh.rent * infl(w.m)) },
   ];
+  if (w.hh.house === 0 && w.hh.rent > 0) exp.push({ t: 'Ağaya ev kirası', v: -Math.round(w.hh.rent * infl(w.m)) });
   if (school) exp.push({ t: 'Okul masrafı', v: -Math.round(school * k) });
   if (sick) exp.push({ t: 'Hasta bakımı', v: -Math.round(sick * k) });
   const interest = Math.round(w.hh.debt * DEBT_RATE);
@@ -146,6 +151,11 @@ export function setJob(w: World, pid: string, job: JobId): boolean {
   const p = P(w, pid);
   if (!alive(p) || !p.inHH || p.away) return false;
   if (!jobAllowed(w, p, job)) return false;
+  if (job === 'isletme') {
+    const b = (Object.keys(w.hh.biz) as BizId[]).find((x) => w.hh.biz[x] && !bizManager(w, x));
+    if (!b) return false;
+    return setManager(w, b, pid);
+  }
   if (job === 'kendi') {
     // En çok işçiye ihtiyaç duyan parsele gönder
     const best = [...w.hh.parcels].sort((a, b) => workersOf(w, a).length - workersOf(w, b).length)[0];
@@ -154,6 +164,7 @@ export function setJob(w: World, pid: string, job: JobId): boolean {
   }
   p.job = job;
   p.parcel = undefined;
+  p.biz = undefined;
   return true;
 }
 
@@ -205,6 +216,7 @@ export function botTurn(w: World) {
     resolveCard(w, c.uid, k);
   }
   botFields(w);
+  botEstate(w);
   const pl = P(w, w.playerId);
   if (alive(pl) && age(w, pl) >= 38 && !alive(P(w, w.heirId))) {
     const kid = pl.kids.map((k) => w.people[k]).filter(alive).sort((a, b) => a.b - b.b)[0];
@@ -229,4 +241,25 @@ function botFields(w: World) {
       for (const q of workersOf(w, f)) assignWorker(w, q.id, null);
     }
   }
+}
+
+function botEstate(w: World) {
+  const reserve = 1500 * infl(w.m);
+  if (w.hh.debt === 0) {
+    const n = nam(w);
+    const opts = w.plots.map((_, i) => i).filter((i) => w.plots[i].o !== 'biz' && offerChance(w, i, n) >= 0.99);
+    opts.sort((a, b) => offerPrice(w, a) - offerPrice(w, b));
+    if (opts.length && w.hh.cash > offerPrice(w, opts[0]) + reserve && chance(w, 0.3)) buyPlot(w, opts[0]);
+  }
+  if (w.hh.house < 3 && w.hh.parcels.length >= 1 && w.hh.cash > housePrice(w, w.hh.house + 1) * 1.5 + reserve) buyHouse(w);
+  if (w.hh.parcels.length >= 3 && year(w.m) >= 1967 && (w.hh.veh.traktor || 0) * 3 < w.hh.parcels.length && w.hh.cash > vehiclePrice(w, 'traktor') * 1.3) buyVehicle(w, 'traktor');
+  for (const b of Object.keys(BIZ) as BizId[]) {
+    if (!w.hh.biz[b] && w.hh.cash > 3 * BIZ[b].price * infl(w.m)) {
+      if (buyBiz(w, b).ok) {
+        const m = hhMembers(w).find((q) => !q.away && q.job === 'tarla' && age(w, q) >= 18 && q.id !== w.playerId);
+        if (m) setManager(w, b, m.id);
+      }
+    }
+  }
+  staffAll(w);
 }

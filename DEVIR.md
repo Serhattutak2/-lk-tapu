@@ -20,6 +20,8 @@ Bu dosya projeyi başka bir yapay zekâ ya da geliştiriciyle sürdürmek için 
 | `core/cards.ts` | Olay kartları: üretim (`generateCards`), çözüm (`RESOLVE`), tapu fiyatı, gurbet dönüşleri, mevsim notları |
 | `core/fields.ts` | Kendi tarlalarımız: ekinler (`CROPS`), parsel, ekim (`sow`), işçi atama (`assignWorker`, iş `kendi`), ırgat, aylık iş gücü ve bakım, hasat; haşhaş hasadı kartı ve devlet/kaçak/zula seçimi, `sellStash` |
 | `core/crime.ts` | Karanlık taraf: Isı (`w.heat`), ruhsat (Ağustos), 1972–1974 yasağı, Kara Rıza, jandarma baskını ve hapis, ağanın kira ve kız istemesi, dolu |
+| `core/plots.ts` | Köyün toprak piyasası: haritadaki 25 tarla (`PLOTS`: konum, sahip, verim), `w.plots` sahiplik ve satış durumu, fiyat, teklif kabul ihtimali, her Ocak piyasa |
+| `core/assets.ts` | Ev (4 kademe), taşıtlar (eşek, at arabası, traktör, otomobil, kamyon), köy işletmeleri (bakkal, kahvehane, değirmen), nam ve unvan, toprak alımı `buyPlot` |
 | `core/sim.ts` | Aylık adım `advance`: ekonomi, beceri ve sağlık, yaşam, kartlar. Oyuncu eylemleri: `setJob`, `setHeir`, `payDebt`, `resolveCard`. Test botu `botTurn` |
 | `ui/app.ts` | Açılış, oyun ekranı, Aile/Hane/Kronik panelleri, olay kartı (evrak görünümü), ilk tapu töreni, son ekranı. Kayıt anahtarı `ilktapu_v1` |
 | `ui/map.ts` | İzometrik piksel köy; 320×196 tampona çizilir, ekrana büyütülür. `SLOTS` oyuncunun parselleri |
@@ -31,6 +33,11 @@ Bu dosya projeyi başka bir yapay zekâ ya da geliştiriciyle sürdürmek için 
 - Haşhaş tamamen soyut: çuval, devlet fiyatı, kaçak fiyatı. Gerçek üretim ya da işleme yöntemi oyunda yoktur ve eklenmeyecek.
 - Enflasyon yılda %4,5 (`infl`); ücret, gider ve toprak fiyatı birlikte artar.
 - Toprak sahipliğinin ötesinde yatırım yok; geç oyunda para birikir. Faz 2'de işletmeler bu parayı emecek.
+
+## Arayüz notları
+- Haritaya dokunulunca `VillageMap.onPick` tarla ya da bina döndürür; `App.renderSheet` alttan açılan kartı çizer.
+- Tarla sekmesinde toplu yönetim: boş parsellere toplu ekim, gündelikçileri dağıtma, ırgat, yarıcıya verme.
+- Aynı ay biten haşhaş hasatları tek kartta birleşir.
 
 ## Sıradaki (Faz 1)
 - Capacitor ile iOS sarmalayıcı ve GitHub Actions derlemesi (Miras FC'deki `ios.yml` örnek alınacak).

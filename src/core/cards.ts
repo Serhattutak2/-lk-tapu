@@ -6,24 +6,22 @@ import { FEMALE, MALE, SURNAMES } from './names';
 import { age, alive, fullName, hhMembers, log, makePerson, P, removeFromHH } from './people';
 import { dateText, infl, monthOf, year } from './calendar';
 import { marry, resolveSuccession } from './life';
-import { newParcel, resolveHashas } from './fields';
+import { resolveHashas } from './fields';
+import { buyPlot, landBlockers } from './assets';
+import { landBase, PLOTS, plotOwnerName, plotPrice } from './plots';
 import { crimeCards, resolveCrime } from './crime';
 
 export function pushCard(w: World, c: Omit<Card, 'uid' | 'm'>) {
   w.cards.push({ ...c, uid: w.nextCard++, m: w.m });
 }
 
-/** Toprak fiyatı: 5 dönüm, yıllar geçtikçe pahalanır. */
-export const landPrice = (w: World) => Math.round((11000 * infl(w.m) * (1 + w.hh.parcels.length * 0.08)) / 100) * 100;
-
-/** Toprak almaya ne engel? Boş dizi = alabilir. */
-export function landBlockers(w: World): string[] {
-  const out: string[] = [];
-  if (w.hh.debt > 0) out.push('Ağaya borcun varken kimse sana toprak satmaz; önce borç kapanmalı.');
-  if (((w.flags.agaKin as number) || 0) >= year(w.m)) out.push(`Ağa köyde "o aileye toprak satmayın" dedi; ${w.flags.agaKin} yılına kadar kimse satmaya cesaret edemez.`);
-  if (w.hh.cash < landPrice(w)) out.push(`Kasada ${(landPrice(w) - w.hh.cash).toLocaleString('tr-TR')} lira eksik.`);
-  return out;
+/** Köy kenarında bir tarlanın bugünkü fiyatı (ilk tapu hedefi için). */
+export function landPrice(w: World): number {
+  const i = w.plots.findIndex((p) => p.o === 'koy' && p.sale);
+  return i >= 0 ? plotPrice(w, i) : Math.round(landBase(w) * 0.95 / 100) * 100;
 }
+
+export { landBlockers };
 
 type Resolver = (w: World, c: Card, k: string) => void;
 
@@ -87,24 +85,12 @@ const RESOLVE: Record<string, Resolver> = {
   },
 
   tapu: (w, c, k) => {
-    const price = (c.data?.price as number) ?? landPrice(w);
     if (k !== 'al') return;
-    if (w.hh.cash < price) {
-      log(w, `Tarla için para yetmedi.`, 'para');
-      return;
-    }
-    w.hh.cash -= price;
-    const first = w.hh.parcels.length === 0;
-    newParcel(w, price);
-    if (first) {
-      w.flags.ilkTapu = w.m;
-      log(w, `İLK TAPU: ${w.surname} ailesi ${price} liraya Karaçam'ın kenarında 5 dönüm tarla aldı. Ailenin ilk kendi toprağı.`, 'tapu');
-    } else {
-      log(w, `${price} liraya 5 dönüm daha tarla alındı. Toplam ${w.hh.land} dönüm.`, 'tapu');
-    }
+    const r = buyPlot(w, c.data!.plot as number);
+    if (!r.ok) log(w, r.msg, 'para');
   },
 
-  hashas_hasat: (w, c, k) => resolveHashas(w, c.data!.sacks as number, c.data!.parcel as number, k),
+  hashas_hasat: (w, c, k) => resolveHashas(w, c.data!.sacks as number, `${(c.data!.label as string) ?? c.data!.parcel}. parsel`, k),
   bilgi: () => {},
 };
 
@@ -147,18 +133,23 @@ export function generateCards(w: World) {
     return;
   }
 
-  // İlk tapu ya da yeni tarla
-  const price = landPrice(w);
-  if (landBlockers(w).length === 0 && w.hh.parcels.length < 8 && (w.hh.parcels.length === 0 ? chance(w, 0.25) : chance(w, 0.03))) {
-    pushCard(w, {
-      id: 'tapu',
-      text: w.hh.parcels.length === 0
-        ? `Gurbete giden Deli Hamza'nın köy kenarındaki 5 dönüm tarlası satılık: ${price.toLocaleString('tr-TR')} lira. Bu, ailenin ilk kendi toprağı olur. Ne ekeceğine, kimi çalıştıracağına sen karar verirsin.`
-        : `Komşu parsel satılık: 5 dönüm, ${price.toLocaleString('tr-TR')} lira. Toprağın büyür, ama işçisini de bulman gerekir.`,
-      opts: [{ t: `Satın al (${price} lira)`, k: 'al' }, { t: 'Bekle', k: 'bekle' }],
-      data: { price },
-    });
-    return;
+  // Satılık tarla haberi
+  const sale = w.plots.map((p, i) => (p.o !== 'biz' && p.sale ? i : -1)).filter((i) => i >= 0);
+  if (sale.length && landBlockers(w).length === 0 && !w.flags['tapuSor' + yr] && chance(w, w.hh.parcels.length === 0 ? 0.25 : 0.05)) {
+    const i = sale.sort((a, b) => plotPrice(w, a) - plotPrice(w, b))[0];
+    const price = plotPrice(w, i);
+    if (w.hh.cash >= price) {
+      w.flags['tapuSor' + yr] = true;
+      pushCard(w, {
+        id: 'tapu',
+        text: w.hh.parcels.length === 0
+          ? `${plotOwnerName(w, i)}, ${PLOTS[i].yer} mevkiindeki 5 dönüm tarlasını satıyor: ${price.toLocaleString('tr-TR')} lira. Bu, ailenin ilk kendi toprağı olur. Haritada satılık tarlaların üstünde beyaz bir kazık var; dokunup başka tarlalara da bakabilirsin.`
+          : `${plotOwnerName(w, i)}, ${PLOTS[i].yer} mevkiindeki tarlasını ${price.toLocaleString('tr-TR')} liraya satıyor. Verimi ${Math.round(PLOTS[i].q * 100)}.`,
+        opts: [{ t: `Satın al (${price.toLocaleString('tr-TR')} lira)`, k: 'al' }, { t: 'Bekle', k: 'bekle' }],
+        data: { plot: i, price },
+      });
+      return;
+    }
   }
 
   // Hastalık

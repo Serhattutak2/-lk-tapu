@@ -2,6 +2,7 @@ import { newWorld } from '../src/core/world';
 import { advance, botTurn } from '../src/core/sim';
 import { alive, bloodLiving } from '../src/core/people';
 import { year } from '../src/core/calendar';
+import { nam } from '../src/core/assets';
 
 const N = Number(process.argv[2] ?? 40);
 const YEARS = Number(process.argv[3] ?? 100);
@@ -23,7 +24,7 @@ for (let i = 0; i < N; i++) {
     donum: w.hh.land, nakit: w.hh.cash, borc: w.hh.debt, borcluYil: debtYears,
     hane: w.hh.members.length, kan: bloodLiving(w).length, kisi: Object.keys(w.people).length,
     olu: Object.values(w.people).filter((p) => !alive(p)).length,
-    kacak: (w.flags.kacakToplam as number) || 0, hapis: w.chronicle.filter((e) => e.t.includes('hapis yattı')).length, baskin: w.chronicle.filter((e) => e.t.includes('aksın')).length, isi: Math.round(w.heat),
+    kacak: (w.flags.kacakToplam as number) || 0, ev: w.hh.house, trak: w.hh.veh.traktor || 0, isl: Object.keys(w.hh.biz).length, nam: nam(w), hapis: w.chronicle.filter((e) => e.t.includes('hapis yattı')).length, baskin: w.chronicle.filter((e) => e.t.includes('aksın')).length, isi: Math.round(w.heat),
   });
 }
 const avg = (k: string) => (rows.reduce((s, r) => s + r[k], 0) / rows.length).toFixed(1);

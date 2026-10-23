@@ -4,7 +4,9 @@
 
 export type Sex = 'E' | 'K';
 export type SkillId = 'tarim' | 'insaat' | 'zanaat' | 'ticaret';
-export type JobId = 'tarla' | 'kendi' | 'coban' | 'insaat' | 'cirak' | 'usta' | 'tuccar' | 'ev' | 'okul' | 'yok';
+export type JobId = 'tarla' | 'kendi' | 'isletme' | 'sofor' | 'coban' | 'insaat' | 'cirak' | 'usta' | 'tuccar' | 'ev' | 'okul' | 'yok';
+export type VehicleId = 'esek' | 'araba' | 'traktor' | 'otomobil' | 'kamyon';
+export type BizId = 'bakkal' | 'kahve' | 'degirmen';
 export type CropId = 'bugday' | 'arpa' | 'nohut' | 'pancar' | 'hashas';
 
 export interface Traits {
@@ -36,6 +38,7 @@ export interface Person {
   sk: Record<SkillId, number>; // 0-100
   job: JobId;
   parcel?: string;      // job === 'kendi' ise çalıştığı parsel
+  biz?: BizId;          // job === 'isletme' ise başında durduğu işletme
   rel: number;          // oyuncuya bağlılık -100..100
 }
 
@@ -69,6 +72,8 @@ export interface Parcel {
   sownM: number;
   illegal: boolean;     // ruhsatsız haşhaş
   hired: number;        // dışarıdan tutulan ırgat sayısı
+  mode: 'kendi' | 'yarici'; // kendimiz mi ekiyoruz, yarıcıya mı verdik
+  trac: number;         // geçen ay gelen traktör gücü
   careSum: number;      // bakım puanı birikimi
   careN: number;
   lastNeed: number;     // geçen ayki iş gücü ihtiyacı
@@ -84,6 +89,17 @@ export interface Household {
   members: string[];
   parcels: Parcel[];
   stash: number;        // zuladaki çuval
+  house: number;        // 0 kira evi, 1 kerpiç, 2 taş ev, 3 konak
+  veh: Partial<Record<VehicleId, number>>;
+  biz: Partial<Record<BizId, number>>; // sahip olunan işletmeler: alındığı ay
+}
+
+export interface PlotState {
+  o: 'aga' | 'koy' | 'biz';
+  pid?: string;         // bizimse parsel kimliği
+  ask: number;          // sahibinin fiyat çarpanı
+  sale: boolean;        // satışta mı
+  mad: number;          // bu yıla kadar teklif dinlemez
 }
 
 export interface LedgerLine {
@@ -112,5 +128,6 @@ export interface World {
   lines: LedgerLine[];  // geçen ayın gelir-gider dökümü
   heat: number;         // jandarmanın dikkati 0-100
   ruhsat: number;       // haşhaş ruhsatının geçerli olduğu yıl (0 = yok)
+  plots: PlotState[];   // köydeki bütün tarlaların sahipliği ve satış durumu
   over: null | { m: number; reason: string };
 }

@@ -17,7 +17,8 @@ export function yearlyMortality(a: number): number {
 
 export function monthlyDeathChance(w: World, p: Person): number {
   const q = yearlyMortality(age(w, p));
-  const mult = clamp(1 + (65 - p.hp) / 18, 0.4, 6);
+  let mult = clamp(1 + (65 - p.hp) / 18, 0.4, 6);
+  if (p.sick && p.inHH && (w.hh.veh?.otomobil || 0) > 0) mult *= 0.6;
   return (1 - Math.pow(1 - q, 1 / 12)) * mult;
 }
 

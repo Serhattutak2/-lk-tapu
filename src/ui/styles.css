@@ -59,7 +59,7 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
 .clock { position: absolute; right: 10px; bottom: 10px; display: flex; gap: 6px; }
 .clock button { min-width: 44px; height: 40px; border-radius: 6px; border: 1px solid rgba(230, 214, 166, .25); background: rgba(42, 33, 23, .82); font-weight: 700; }
 .clock button[aria-pressed='true'] { background: var(--wheat); color: var(--soil); border-color: var(--wheat); }
-.who { position: absolute; left: 10px; top: 10px; background: rgba(42, 33, 23, .82); border-radius: 6px; padding: 6px 10px; font-size: 14px; max-width: 60%; }
+.who { pointer-events: none; position: absolute; left: 10px; top: 10px; background: rgba(42, 33, 23, .82); border-radius: 6px; padding: 6px 10px; font-size: 14px; max-width: 60%; }
 .who b { font-family: var(--serif); font-size: 16px; }
 
 .tabs { display: flex; background: var(--soil-2); border-top: 1px solid var(--soil-3); padding: 0 calc(6px + var(--safe-r)) 0 calc(6px + var(--safe-l)); }
@@ -175,3 +175,35 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
 #toast { position: fixed; left: 50%; bottom: calc(24px + var(--safe-b)); transform: translate(-50%, 20px); background: var(--straw); color: var(--soil); padding: 10px 16px; border-radius: 6px; font-weight: 700; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 20; max-width: 90%; }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
 .tabs button { font-size: 15px; }
+
+/* ---------- Unvan, mülk, toplu yönetim, harita kartı ---------- */
+.who .ttl { display: block; font-size: 13px; color: var(--wheat); margin-top: 2px; }
+.rank { border: 1px solid var(--soil-3); border-radius: 6px; padding: 12px; margin: 10px 0 4px; background: var(--soil); }
+.rank .pname { font-size: 22px; color: var(--wheat); }
+.asset { padding: 10px 0; border-bottom: 1px solid var(--soil-3); }
+.asset:last-child { border-bottom: 0; }
+.asset .note { margin: 4px 0; }
+.asset select { background: var(--soil); color: var(--straw); border: 1px solid var(--soil-3); border-radius: 5px; padding: 7px 8px; font: inherit; max-width: 100%; }
+.bulk { border-bottom: 1px solid var(--soil-3); padding-bottom: 10px; }
+.ftable { width: 100%; border-collapse: collapse; font-size: 14px; margin: 6px 0; }
+.ftable th { text-align: left; color: var(--straw-dim); font-weight: 500; padding: 4px 4px 4px 0; border-bottom: 1px solid var(--soil-3); }
+.ftable td { padding: 7px 4px 7px 0; border-bottom: 1px solid var(--soil-3); vertical-align: top; font-variant-numeric: tabular-nums; }
+.ftable tr[data-goto], .ftable tr[data-plot] { cursor: pointer; }
+.ftable td .note { font-size: 12px; margin: 0; }
+.seg.mode { margin-top: 10px; }
+.seg.mode button { font-size: 14px; padding: 8px; }
+.seg button:disabled { opacity: .4; }
+.primary.sm { display: inline-block; width: auto; margin-top: 0; padding: 10px 14px; font-size: 16px; }
+.primary:disabled { opacity: .45; }
+#sheet .sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 8; max-height: 62%; overflow-y: auto; background: var(--paper); color: var(--ink); border-radius: 10px 10px 0 0; padding: 16px calc(18px + var(--safe-r)) calc(18px + var(--safe-b)) calc(18px + var(--safe-l)); box-shadow: 0 -10px 30px rgba(0, 0, 0, .4); }
+#sheet h3 { font: 700 20px/1.2 var(--serif); margin: 0 70px 8px 0; }
+#sheet p { font: 500 16px/1.45 var(--serif); margin: 6px 0; }
+#sheet .note { color: #6a5a43; }
+#sheet .blockers { color: var(--madder); }
+#sheet .small { border-color: var(--ink); color: var(--ink); }
+#sheet .primary { background: var(--ink); color: var(--paper); }
+#sheet .close { position: absolute; right: 12px; top: 12px; background: none; border: 1px solid #b8a983; border-radius: 5px; padding: 5px 10px; font-size: 14px; color: var(--ink); }
+@media (min-width: 820px) and (orientation: landscape) {
+  #sheet .sheet { left: 16px; right: auto; bottom: 16px; width: 380px; border-radius: 8px; max-height: 70%; }
+}
+.tabs button { padding-left: 2px; padding-right: 2px; }
