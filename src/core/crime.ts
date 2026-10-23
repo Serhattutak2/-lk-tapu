@@ -8,6 +8,8 @@ import { BAN_FROM, BAN_TO, isBanYear } from './fields';
 import { pushCard } from './cards';
 import { SITES } from './lab';
 import { payDirtyFirst } from './baron';
+import { has, policeFactor } from './era';
+import { jailYears } from './events';
 import { makeSpouseFor, marry } from './life';
 
 export const heatLabel = (h: number) => (h < 15 ? 'Kimse bakmıyor' : h < 35 ? 'Adın geçiyor' : h < 60 ? 'Jandarma soruyor' : 'Gözetim altındasın');
@@ -17,7 +19,7 @@ export function monthlyCrime(w: World) {
   const mo = monthOf(w.m);
   const yr = year(w.m);
   const illegalGrowing = w.hh.parcels.some((p) => p.illegal && p.crop);
-  w.heat = clamp(w.heat - 1.5 + (w.hh.stash > 0 ? 0.3 + w.hh.stash * 0.02 : 0) + (illegalGrowing && (mo === 4 || mo === 5) ? 3 : 0), 0, 100);
+  w.heat = clamp(w.heat - (has(w, 'dinleme') ? 1.0 : 1.5) + (w.hh.stash > 0 ? 0.3 + w.hh.stash * 0.02 : 0) + (illegalGrowing && (mo === 4 || mo === 5) ? 3 : 0), 0, 100);
   if (w.hh.cash > 20000 * infl(w.m) && chance(w, 0.02)) w.heat = clamp(w.heat + 4, 0, 100); // göze batan servet
 
   // Hapisten çıkış
@@ -64,12 +66,12 @@ export function crimeCards(w: World): boolean {
   const pa = age(w, pl);
   // Samanlık zulayı, uzak atölye kendini gizler: baskında bulunma ihtimali
   const stashFound = w.hh.stash > 0 && chance(w, w.hh.rooms?.samanlik ? 0.45 : 0.9);
-  const labFound = !!w.lab && chance(w, SITES[w.lab.site].find);
+  const labFound = !!w.lab && chance(w, SITES[w.lab.site].find * (has(w, 'kamera') ? 0.6 : 1));
   const fieldFound = w.hh.parcels.some((p) => p.illegal && p.crop);
   const evidence = stashFound || labFound || fieldFound;
 
   // Jandarma baskını
-  const raidP = Math.max(0, w.heat - 12) / 100 * 0.09 + (evidence ? 0.004 : 0);
+  const raidP = (Math.max(0, w.heat - 12) / 100 * 0.09 + (evidence ? 0.004 : 0)) * policeFactor(w) * (w.pol.seat === 'vekil' ? 0.5 : 1);
   if (w.heat > 12 && chance(w, raidP)) {
     if (!evidence) {
       w.heat = clamp(w.heat - 12, 0, 100);
@@ -204,7 +206,7 @@ export function resolveCrime(w: World, c: Card, k: string): boolean {
       w.ruhsat = 0;
       w.heat = clamp(w.heat * 0.35, 0, 100);
       if (alive(p)) {
-        const yrs = rint(w, 2, 4) + (seized > 20 ? 2 : 0) + (labHit ? 4 : 0);
+        const yrs = jailYears(w, rint(w, 2, 4) + (seized > 20 ? 2 : 0) + (labHit ? 4 : 0));
         p.away = 'hapis';
         p.awayUntil = w.m + yrs * 12;
         p.job = 'yok';

@@ -14,8 +14,11 @@ import { labCards, resolveLab } from './lab';
 import { feudCards, resolveFeud } from './feud';
 import { homeCards, resolveHome } from './home';
 import { crewCards, netCards, resolveBaron } from './baron';
+import { eventCards, resolveEvent } from './events';
+import { districtCards, resolveDistrict } from './district';
 
 export function pushCard(w: World, c: Omit<Card, 'uid' | 'm'>) {
+  w.flags.kartSay = Number(w.flags.kartSay || 0) + 1;
   w.cards.push({ ...c, uid: w.nextCard++, m: w.m });
 }
 
@@ -103,7 +106,7 @@ export function resolveCard(w: World, uid: number, k: string) {
   if (i < 0) return;
   const [c] = w.cards.splice(i, 1);
   if (RESOLVE[c.id]) RESOLVE[c.id](w, c, k);
-  else if (!resolveCrime(w, c, k) && !resolveLab(w, c.id, k) && !resolveFeud(w, c.id, c.pid, k, c.data) && !resolveBaron(w, c.id, k)) resolveHome(w, c.id, c.pid, k, c.data);
+  else if (!resolveCrime(w, c, k) && !resolveLab(w, c.id, k) && !resolveFeud(w, c.id, c.pid, k, c.data) && !resolveBaron(w, c.id, k) && !resolveEvent(w, c.id, k, c.pid, c.data) && !resolveDistrict(w, c.id, k, c.data)) resolveHome(w, c.id, c.pid, k, c.data);
   if (w.hh.cash < 0) {
     // Kasada olmayan para ağadan borç alınır
     w.hh.debt += -w.hh.cash;
@@ -123,6 +126,8 @@ export function generateCards(w: World) {
   if (feudCards(w) || w.over) return;
   if (labCards(w)) return;
   if (netCards(w) || crewCards(w)) return;
+  if (districtCards(w)) return;
+  if (eventCards(w) || w.over) return;
   if (homeCards(w)) return;
 
   // Görücü

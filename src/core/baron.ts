@@ -7,6 +7,9 @@ import { infl, year } from './calendar';
 import { pushCard } from './cards';
 import { BIZ } from './assets';
 import { gangPay } from './feud';
+import { distLaunder, DISTS, takeDistrict } from './district';
+import { has } from './era';
+import { hasEngineer } from './events';
 
 const fmt = (n: number) => Math.round(n).toLocaleString('tr-TR');
 export const CITY = 'Çukurkent';
@@ -27,9 +30,9 @@ export function launderCap(w: World): number {
   let c = 0;
   for (const b of Object.keys(BIZ) as (keyof typeof BIZ)[]) if (w.hh.biz[b]) c += b === 'bakkal' ? 1500 : b === 'kahve' ? 2500 : 4000;
   for (const f of Object.keys(w.city.facs) as FacId[]) c += FACS[f].launder;
-  return Math.round(c * infl(w.m));
+  return Math.round((c * infl(w.m) + distLaunder(w)) * (has(w, 'bilgisayar') ? 1.25 : 1));
 }
-export const launderFee = (w: World) => (w.city.facs.gazino ? 0.08 : 0.14);
+export const launderFee = (w: World) => (w.city.facs.gazino ? 0.08 : 0.14) - (has(w, 'kripto') ? 0.04 : 0);
 
 export function monthlyBaron(w: World, lines: LedgerLine[]) {
   // Aklama
@@ -65,13 +68,6 @@ export function monthlyBaron(w: World, lines: LedgerLine[]) {
     lines.push({ t: `${FACS[f].ad}${alive(mgr) && mgr.job === 'isletme' ? ` (${mgr.first})` : ''}`, v });
   }
 
-  // Mahalle haracı
-  if (w.city.turf > 0) {
-    const v = Math.round(w.city.turf * 900 * infl(w.m));
-    w.dirty += v;
-    w.heat = clamp(w.heat + 0.3 * w.city.turf, 0, 100);
-    lines.push({ t: `${w.city.turf} mahalleden haraç (kara kasaya)`, v });
-  }
 
   // Şehir yaşamı pahalı
   if (w.city.moved) {
@@ -173,6 +169,8 @@ export function facIncome(w: World, f: FacId): number {
   if (f === 'un') k *= 1 + Math.min(0.4, w.hh.parcels.filter((p) => p.crop === 'bugday').length * 0.05);
   if (f === 'insaat') k *= 0.6 + ((year(w.m) * 7) % 10) / 10;
   if (f === 'tekstil' && w.flags.grev === year(w.m)) k *= 0.3;
+  if (has(w, 'bilgisayar')) k *= 1.1;
+  if (hasEngineer(w)) k *= 1.1;
   return Math.round(FACS[f].income * k * infl(w.m));
 }
 
@@ -234,23 +232,9 @@ export function moveToCity(w: World, on: boolean): { ok: boolean; msg: string } 
 
 // ---------- Mahalleler ve rakip çete ----------
 export function takeTurf(w: World): { ok: boolean; msg: string } {
-  if (!w.city.moved) return { ok: false, msg: 'Şehirde yaşamadan mahalle tutulmaz.' };
-  const need = 4 + w.city.turf * 2;
-  if (w.gang < need) return { ok: false, msg: `Bir mahalle daha için en az ${need} adam gerekir.` };
-  const c = w.crew;
-  const p = clamp(0.55 + (w.gang - need) * 0.05 - (c && !c.gone ? c.men * 0.02 : 0), 0.2, 0.9);
-  w.heat = clamp(w.heat + 10, 0, 100);
-  if (chance(w, p)) {
-    w.city.turf++;
-    if (c && !c.gone && c.turf > 0) c.turf--;
-    if (c && !c.gone) c.feud = clamp(c.feud + 20, 0, 100);
-    log(w, `${CITY}'te bir mahalle daha senin adamlarına geçti. Esnaf artık haracı sana veriyor.`, 'olay');
-    return { ok: true, msg: 'Mahalle senin.' };
-  }
-  w.gang = Math.max(0, w.gang - rint(w, 1, 2));
-  if (c && !c.gone) c.feud = clamp(c.feud + 15, 0, 100);
-  log(w, `Mahalleyi alma girişimi kanlı bitti; adamlarından bazıları dönmedi.`, 'olay');
-  return { ok: false, msg: 'Girişim başarısız; adam kaybettin.' };
+  const d = w.city.dist.find((x) => x.o !== 'biz' && year(w.m) >= DISTS[x.id].from);
+  if (!d) return { ok: false, msg: 'Alınacak mahalle kalmadı.' };
+  return takeDistrict(w, d.id);
 }
 
 const CREWS = ['Demirkol çetesi', 'Kuzgun kardeşler', 'Liman çocukları'];

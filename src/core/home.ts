@@ -44,9 +44,9 @@ export function buildRoom(w: World, r: RoomId): { ok: boolean; msg: string } {
 }
 
 export function monthlyHome(w: World, lines: LedgerLine[]) {
-  if (w.hh.rooms.ahir) {
+  if (w.hh.rooms.ahir && Number(w.flags.ahirKapali || 0) <= w.m) {
     const keeper = hhMembers(w).find((p) => !p.away && (p.job === 'ev' || p.job === 'coban'));
-    const v = Math.round((keeper ? 170 : 60) * infl(w.m));
+    const v = Math.round((keeper ? 170 : 60) * infl(w.m) * (w.tech?.buzdolabi ? 1.3 : 1));
     w.hh.cash += v;
     lines.push({ t: `Ahır: süt, yoğurt, peynir${keeper ? '' : ' (bakan yok)'}`, v });
   }

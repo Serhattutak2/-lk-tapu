@@ -10,8 +10,12 @@ import { assignWorker, CROPS, hasRuhsat, idleWage, laborNeed, monthlyFields, sow
 import { monthlyCrime } from './crime';
 import { monthlyLab } from './lab';
 import { attackRival, lockedOut, monthlyFeud, setLock } from './feud';
-import { buyCityHome, buyFac, cityEvents, FACS, facPrice, hire, homePrice, monthlyBaron, moveToCity, setFacMgr, takeTurf } from './baron';
-import type { FacId } from './types';
+import { buyCityHome, buyFac, cityEvents, FACS, facPrice, hire, homePrice, monthlyBaron, moveToCity, setFacMgr } from './baron';
+import type { FacId, TechId } from './types';
+import { monthlyEra, buyTech, TECHS, techPrice } from './era';
+import { monthlyHostility, monthlyStories } from './events';
+import { monthlyGoals } from './goals';
+import { DISTS, menNeeded, monthlyDistricts, takeDistrict } from './district';
 import { buildRoom, canBuild, crowded, monthlyHome, roomPrice } from './home';
 import { AGIL_PRICE, buildLab, buyAgil, buyRaw, cevdetPay, hamPrice, hireCevdet, labPrice, moveStash, sellProduct, unlocked } from './lab';
 import { BIZ, bizManager, buyBiz, buyHouse, buyPlot, buyVehicle, housePrice, monthlyAssets, nam, setManager, vehiclePrice } from './assets';
@@ -30,12 +34,15 @@ export function advance(w: World): boolean {
   if (monthOf(w.m) === 2) w.rain = clamp(gauss(w, 1, 0.2), 0.5, 1.4);
 
   gurbetReturns(w);
+  monthlyEra(w);
   monthlyCrime(w);
+  monthlyHostility(w);
   if (monthOf(w.m) === 0) yearlyMarket(w, nam(w));
   const harvestBonus = seasonalNotes(w);
   economy(w, harvestBonus);
   growth(w);
   monthlyLife(w);
+  monthlyGoals(w);
   if (w.hh.cash < 0) {
     w.hh.debt += -w.hh.cash;
     w.hh.cash = 0;
@@ -74,6 +81,8 @@ function economy(w: World, harvestBonus: number) {
   monthlyLab(w, lines);
   monthlyFeud(w, lines);
   monthlyBaron(w, lines);
+  monthlyDistricts(w, lines);
+  monthlyStories(w, lines);
   cityEvents(w);
 
   let food = 0;
@@ -83,7 +92,7 @@ function economy(w: World, harvestBonus: number) {
   for (const p of mem) {
     if (p.away) continue;
     const a = age(w, p);
-    food += a >= 12 ? 80 : 40;
+    food += a >= 12 ? 74 : 37;
     if (p.job === 'okul') school += 10;
     if (p.job === 'ev' && a >= 12) housework = true;
     if (p.sick) sick += 15;
@@ -238,7 +247,11 @@ export function botTurn(w: World) {
     if (c.id === 'kacakci') k = chance(w, 0.5) ? 'evet' : 'hayir';
     if (c.id === 'hashas_hasat') k = c.opts[Math.min(c.opts.length - 1, chance(w, 0.6) ? 0 : 1)].k;
     if (c.id === 'aga_kiz') k = chance(w, 0.5) ? 'ver' : 'ret';
-    if (c.id === 'cete' || c.id === 'riza_taht' || c.id === 'kan' || c.id === 'kacirma' || c.id === 'sinir' || c.id === 'ayri_ev' || c.id === 'cevdet_ihanet') k = c.opts[Math.floor(rint(w, 0, c.opts.length - 1))].k;
+    if (c.id.startsWith('ev:')) {
+      const cheap = c.opts.filter((o) => !/\(\d/.test(o.t) && !/lira\)/.test(o.t));
+      const pool = w.hh.cash > 20000 * infl(w.m) ? c.opts : cheap.length ? cheap : c.opts;
+      k = pool[Math.floor(rint(w, 0, pool.length - 1))].k;
+    } else if (c.id === 'mah_esnaf' || c.id === 'donusum' || c.id === 'cete' || c.id === 'riza_taht' || c.id === 'kan' || c.id === 'kacirma' || c.id === 'sinir' || c.id === 'ayri_ev' || c.id === 'cevdet_ihanet') k = c.opts[Math.floor(rint(w, 0, c.opts.length - 1))].k;
     resolveCard(w, c.uid, k);
   }
   botFields(w);
@@ -297,8 +310,11 @@ function botEstate(w: World) {
     if (canBuild(w, r) === null && w.hh.cash > roomPrice(w, r) * 3 + reserve && (r !== 'oda' || crowded(w))) buildRoom(w, r);
   }
   // Kan davası: husumet çok yüksekse erkekleri eve kapat
-  if (w.rival.feud >= 75 && !w.rival.lock) setLock(w, true);
-  if (w.rival.feud < 40 && w.rival.lock) setLock(w, false);
+  if (w.rival.feud >= 92 && !w.rival.lock) {
+    setLock(w, true);
+    w.flags.lockM = w.m;
+  }
+  if (w.rival.lock && (w.rival.feud < 70 || w.m - Number(w.flags.lockM || 0) > 10)) setLock(w, false);
   // Atölye
   if (!unlocked(w) && chance(w, 0.5)) {
     if (!w.hh.agil && w.hh.cash > 4 * AGIL_PRICE * infl(w.m)) buyAgil(w);
@@ -320,13 +336,19 @@ function botEstate(w: World) {
     }
     if (w.city.home < 2 && w.hh.cash > homePrice(w, w.city.home + 1) * 2) buyCityHome(w);
     if (w.city.home && !w.city.moved && Object.keys(w.city.facs).length >= 2) moveToCity(w, true);
-    if (w.city.moved && w.gang >= 6 + w.city.turf * 2 && chance(w, 0.05)) takeTurf(w);
+    if (w.city.moved && chance(w, 0.05)) {
+      const d = w.city.dist.find((x) => x.o !== 'biz' && year(w.m) >= DISTS[x.id].from && w.gang >= menNeeded(w, x));
+      if (d) takeDistrict(w, d.id);
+    }
   }
   if (w.lab) {
     if (!w.lab.chem && w.hh.cash + w.dirty > cevdetPay(w) * 12) hireCevdet(w, true);
     moveStash(w);
     if (w.lab.raw < 2 && w.hh.cash + w.dirty > hamPrice(w) * 6 + reserve) buyRaw(w, 3);
     if (w.lab.prod + w.lab.hap >= 4 && w.heat < 70) sellProduct(w);
+  }
+  for (const t of Object.keys(TECHS) as TechId[]) {
+    if (!TECHS[t].auto && !w.tech[t] && year(w.m) >= TECHS[t].from && w.hh.cash > techPrice(w, t) * 5) buyTech(w, t);
   }
   staffAll(w);
 }

@@ -53,7 +53,7 @@ export function initPlots(w: World) {
   if (k >= 0) w.plots[k].sale = true;
 }
 
-export const landBase = (w: World) => 14500 * infl(w.m);
+export const landBase = (w: World) => 12500 * infl(w.m);
 
 export function plotPrice(w: World, i: number): number {
   const d = PLOTS[i];

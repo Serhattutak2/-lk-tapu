@@ -6,6 +6,8 @@ import { infl, monthOf, year } from './calendar';
 import { pushCard } from './cards';
 import { die, makeSpouseFor, marry } from './life';
 import { PLOTS } from './plots';
+import { jailYears } from './events';
+import { has } from './era';
 
 const fmt = (n: number) => Math.round(n).toLocaleString('tr-TR');
 export const feudLabel = (f: number) => (f < 10 ? 'Selam veriliyor' : f < 30 ? 'Soğukluk var' : f < 55 ? 'Düşmanlık' : f < 80 ? 'Kan davası eşiğinde' : 'Kan davası');
@@ -90,7 +92,7 @@ export function attackRival(w: World): { ok: boolean; msg: string } {
   const fam = targets(w).filter((t) => t.id !== w.playerId).length;
   const men = w.gang + Math.min(2, fam);
   if (w.gang < 2) return { ok: false, msg: 'Bu iş için en az iki maaşlı adam gerekir.' };
-  const p = clamp(0.3 + 0.07 * men - 0.06 * r.men, 0.1, 0.85);
+  const p = clamp(0.3 + 0.07 * men - 0.06 * r.men + (has(w, 'cep') ? 0.08 : 0), 0.1, 0.85);
   r.feud = 100;
   w.heat = clamp(w.heat + 14, 0, 100);
   if (chance(w, p)) {
@@ -106,7 +108,7 @@ export function attackRival(w: World): { ok: boolean; msg: string } {
   if (fam && chance(w, 0.25)) {
     const a = targets(w).filter((t) => t.id !== w.playerId)[0];
     a.away = 'hapis';
-    a.awayUntil = w.m + 12 * rint(w, 5, 10);
+    a.awayUntil = w.m + 12 * jailYears(w, rint(w, 5, 10));
     a.job = 'yok';
     a.parcel = undefined;
     log(w, `Baskın boşa çıktı. Adamlarından biri öldü; ${fullName(a)} yakalandı ve uzun hapis yedi.`, 'olay');
@@ -124,7 +126,7 @@ export function monthlyFeud(w: World, lines: LedgerLine[]) {
   const r = w.rival;
   if ((w.m - r.since) % 40 === 39 && r.men < 9) r.men++;
   // Husumet zamanla biraz söner, kan borcu varsa sönmez
-  if (r.blood === 0) r.feud = clamp(r.feud - 0.25, 0, 100);
+  if (r.blood === 0 && w.m - r.peaceM < 24) r.feud = clamp(r.feud - 0.25, 0, 100);
   // Rakip toprak toplar
   const sale = w.plots.map((p, i) => (p.o === 'koy' && p.sale ? i : -1)).filter((i) => i >= 0);
   if (sale.length && chance(w, 0.025)) {
@@ -149,7 +151,7 @@ export function feudCards(w: World): boolean {
   const theirs = w.plots.filter((p) => p.o === 'rakip').length;
 
   // Pusu: husumet yüksekken
-  if (r.feud >= 60) {
+  if (r.feud >= 50) {
     const ts = targets(w);
     const p = ((r.lock ? 0.008 : 0.035) * (r.feud / 80)) / (1 + w.gang * 0.25);
     if (ts.length && chance(w, p) && w.gang > 0 && chance(w, 0.45)) {
@@ -303,7 +305,7 @@ export function resolveFeud(w: World, id: string, pid: string | undefined, k: st
         const victim = pick(w, KOCABAS_MEN);
         if (alive(a) && chance(w, 0.55)) {
           a.away = 'hapis';
-          a.awayUntil = w.m + 12 * rint(w, 8, 15);
+          a.awayUntil = w.m + 12 * jailYears(w, rint(w, 8, 15));
           a.job = 'yok';
           a.parcel = undefined;
           log(w, `${fullName(a)}, ${rA(w)} ${victim} adlı adamı vurdu ve teslim oldu. Ağır ceza ${Math.round((a.awayUntil - w.m) / 12)} yıl verdi.`, 'olay');

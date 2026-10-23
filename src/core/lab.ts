@@ -7,6 +7,7 @@ import { infl, year } from './calendar';
 import { pushCard } from './cards';
 import { die } from './life';
 import { canPay, netBonus, payDirtyFirst } from './baron';
+import { hasEngineer } from './events';
 
 export interface LabLevel { lvl: number; ad: string; price: number; cap: number; from: number; desc: string; }
 export const LAB_LEVELS: LabLevel[] = [
@@ -60,7 +61,7 @@ export function labCapacity(w: World): number {
   if (!lab) return 0;
   const hands = labWorkers(w).length + (lab.chem ? 1 : 0);
   if (!hands) return 0;
-  return Math.round(LAB_LEVELS[lab.lvl].cap * Math.min(1, 0.5 + hands * 0.25));
+  return Math.round(LAB_LEVELS[lab.lvl].cap * Math.min(1, 0.5 + hands * 0.25)) + (w.tech?.elektrik ? 1 : 0);
 }
 
 export function unlocked(w: World): string | null {
@@ -154,7 +155,7 @@ export function monthlyLab(w: World, lines: LedgerLine[]) {
   const sk = labSkill(w);
   if (n > 0) {
     lab.raw -= n;
-    lab.q = clamp(0.3 + sk / 140 + lab.lvl * 0.06, 0.2, 1);
+    lab.q = clamp(0.3 + sk / 140 + lab.lvl * 0.06 + (hasEngineer(w) ? 0.05 : 0), 0.2, 1);
     if (lab.lvl >= 3) lab.hap += n;
     else lab.prod += n;
     lab.made += n;

@@ -111,11 +111,23 @@ function building(g: CanvasRenderingContext2D, b: Bld, p: Palette, t: number, w:
   const X = sx(b.x, b.y);
   const Y = sy(b.x, b.y);
   switch (b.k) {
-    case 'ev':
-      block(g, b.x, b.y, 7, '#c9a876', '#a8885a', p.snow ? '#eef1f1' : '#8a6a45', 2);
+    case 'ev': {
+      const y = 1965 + Math.floor(w.m / 12);
+      const brick = y >= 1985;
+      block(g, b.x, b.y, brick ? 9 : 7, brick ? '#d9b8a0' : '#c9a876', brick ? '#b89880' : '#a8885a', p.snow ? '#eef1f1' : brick ? '#a3322a' : '#8a6a45', 2);
       g.fillStyle = '#4b3a28';
       g.fillRect(X - 4, Y - 2, 2, 3);
+      if (y >= 1975) {
+        g.fillStyle = '#7a7a7a';
+        g.fillRect(X + 2, Y - (brick ? 18 : 16), 1, 5);
+        g.fillRect(X, Y - (brick ? 17 : 15), 5, 1);
+      }
+      if (y >= 1997) {
+        g.fillStyle = '#d8d8d8';
+        g.fillRect(X - 5, Y - (brick ? 12 : 10), 3, 2);
+      }
       break;
+    }
     case 'evOyuncu': {
       const lv = w.hh.house || 0;
       if (lv === 0) block(g, b.x, b.y, 6, '#b99c70', '#957a52', p.snow ? '#e9eded' : '#7a5d3c', 2);
@@ -534,7 +546,7 @@ export class VillageMap {
         const tl = grid[y][x];
         const alt = (x + y) % 2 === 0;
         let c = alt ? p.grass : p.grass2;
-        if (tl === 'r') c = p.road;
+        if (tl === 'r') c = w.tech?.asfalt ? ((x + y) % 2 ? '#56565a' : '#4f4f53') : p.road;
         const pi = plotAt[y][x];
         const own = pi >= 0 ? parcelOf(pi) : undefined;
         if (tl === 'f' || tl === 'h' || (pi >= 0 && !own)) c = alt ? p.field : p.field2;
@@ -647,6 +659,35 @@ export class VillageMap {
       const Y = sy(bx, by) + 2 + Math.round(Math.cos(this.t / 11 + i) * 2);
       figs.push({ x: X, y: Y - 4, c: q.sex === 'K' ? '#b8443a' : '#3f5f86' });
     });
+
+    // Elektrik direkleri, araçlar, dron
+    if (w.tech?.elektrik) {
+      g.strokeStyle = 'rgba(40,40,40,0.5)';
+      for (let i = 0; i < N; i += 3) {
+        for (const [px, py] of [[i, 7], [9, i]] as [number, number][]) {
+          const X = sx(px, py) + 4;
+          const Y = sy(px, py) + 2;
+          g.fillStyle = '#5d4a33';
+          g.fillRect(X, Y - 12, 1, 12);
+          g.fillRect(X - 2, Y - 12, 5, 1);
+        }
+      }
+    }
+    if (w.m >= (1985 - 1965) * 12) {
+      for (let k = 0; k < 3; k++) {
+        const along = (this.t * 0.25 + k * 7) % N;
+        const horiz = k % 2 === 0;
+        const X = sx(horiz ? along : 8, horiz ? 8 : along);
+        const Y = sy(horiz ? along : 8, horiz ? 8 : along);
+        g.fillStyle = ['#c0392b', '#3f86a6', '#e0c341'][k];
+        g.fillRect(Math.round(X) - 2, Math.round(Y) + 2, 4, 2);
+      }
+    }
+    if (w.tech?.dron && w.hh.parcels.length) {
+      const a = this.t / 12;
+      g.fillStyle = '#222';
+      g.fillRect(Math.round(sx(14, 13) + Math.cos(a) * 20), Math.round(sy(14, 13) - 20 + Math.sin(a) * 6), 3, 1);
+    }
 
     // Binalar (ressam sırası)
     const order = [...BLD].sort((a, b) => a.x + a.y - (b.x + b.y));

@@ -26,6 +26,10 @@ Bu dosya projeyi başka bir yapay zekâ ya da geliştiriciyle sürdürmek için 
 | `core/lab.ts` | Gizli atölye: SOYUT üretim zinciri (ham mal → paket → hap), yer seçimi (bodrum/değirmen/ağıl), Kimyager Cevdet, kaza, ihanet. Gerçek kimya ya da yöntem yok ve eklenmeyecek |
 | `core/feud.ts` | Köydeki rakip aile (`w.rival`; Kocabaş, sonra Sarıkaya, Bozbey, Gümüşdere). Erkekleri tükenen aile silinir (`checkGone`), yerine yenisi gelir. Adamlarla baskın (`attackRival`). toprak kapma, sınır kavgası, kız kaçırma, pusu, intikam/diyet/sabır, barış sofrası, erkekleri eve kapatma |
 | `core/baron.ts` | Kara para (`w.dirty`) ve aklama, maaşlı adamlar (`w.gang`), Kara Rıza'nın şebekesi, Çukurkent: fabrikalar (`FACS`), şehir evi, taşınma, mahalleler, rakip çete (`w.crew`), yeraltı unvanı (Baron) |
+| `core/era.ts` | Çağlar (`ERAS`: 1965 Toprak Yılları → 2020 Yeni Dünya) ve teknoloji (`TECHS`: kendiliğinden gelenler ve satın alınanlar), `buyTech`, `monthlyEra`, devletin gözetim çarpanı `policeFactor` |
+| `core/events.ts` | ~40 olay kartı (`ev:<id>`): askerlik, üniversite, sel, deprem, kriz, seçimler (muhtar/belediye/vekil), muhbir, rehine, kurşunlama, soygun, düğün, imece... `monthlyStories` (terhis, mezuniyet, kredi taksidi, koltuk süresi), `monthlyHostility` (rakip ve çete kendiliğinden saldırganlaşır) |
+| `core/district.ts` | Çukurkent'in 6 mahallesi (`DISTS`), mahalle yatırımları (`INVS`), mahalle alma `takeDistrict`, aylık kara gelir ve aklama kapasitesi, mahalle kartları |
+| `core/goals.ts` | Sonsuz oyun için 29 hanedan hedefi (`GOALS`) ve hanedan puanı (`flags.puan`) |
 | `core/sim.ts` | Aylık adım `advance`: ekonomi, beceri ve sağlık, yaşam, kartlar. Oyuncu eylemleri: `setJob`, `setHeir`, `payDebt`, `resolveCard`. Test botu `botTurn` |
 | `ui/app.ts` | Açılış, oyun ekranı, Aile/Hane/Kronik panelleri, olay kartı (evrak görünümü), ilk tapu töreni, son ekranı. Kayıt anahtarı `ilktapu_v1` |
 | `ui/map.ts` | İzometrik piksel köy; 320×196 tampona çizilir, ekrana büyütülür. `SLOTS` oyuncunun parselleri |

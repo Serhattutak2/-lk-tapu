@@ -110,7 +110,7 @@ export function expectedValue(w: World, p: Parcel): number {
 }
 
 export const YARICI_SHARE = 0.4;
-export const saleBonus = (w: World) => ((w.hh.veh?.araba || 0) > 0 || (w.hh.veh?.kamyon || 0) > 0 ? 1.06 : 1);
+export const saleBonus = (w: World) => ((w.hh.veh?.araba || 0) > 0 || (w.hh.veh?.kamyon || 0) > 0 ? 1.06 : 1) * (w.tech?.asfalt ? 1.05 : 1) * (w.tech?.dron ? 1.08 : 1);
 
 export function newParcel(w: World, price: number): Parcel {
   const no = w.hh.parcels.length + 1;
@@ -202,7 +202,7 @@ export function monthlyFields(w: World, lines: LedgerLine[]) {
     }
   }
   // Önce aile ve ırgat, sonra eksik kalan parsellere traktör ve eşek
-  let pool = (w.hh.veh?.traktor || 0) * TRACTOR_POWER;
+  let pool = (w.hh.veh?.traktor || 0) * TRACTOR_POWER + (w.tech?.bicer && w.hh.parcels.some((x) => x.crop && w.m - x.sownM >= CROPS[x.crop].grow - 2) ? 6 : 0);
   let donkey = (w.hh.veh?.esek || 0) * 0.3;
   let tractorUsed = 0;
   const need = new Map<string, number>();
@@ -263,7 +263,7 @@ function harvest(w: World, p: Parcel, lines: LedgerLine[]) {
   const c = p.crop!;
   const d = CROPS[c];
   const best = Math.max(0, ...workersOf(w, p).map((q) => q.sk.tarim));
-  const rainF = 1 + (w.rain - 1) * d.rainSens;
+  const rainF = 1 + (w.rain - 1) * d.rainSens * (w.tech?.sulama ? 0.5 : 1);
   const mult = qualityOf(w, p) * Math.pow(careOf(p), 1.2) * clamp(rainF, 0.3, 1.5) * (p.mode === 'yarici' ? 0.95 : 0.88 + best / 400) * clamp(gauss(w, 1, 0.08), 0.75, 1.25) * (w.flags.dolu === p.id ? 0.55 : 1);
   if (w.flags.dolu === p.id) w.flags.dolu = '';
   const weather = w.rain < 0.8 ? ', kurak yıl' : w.rain > 1.2 ? ', bereketli yıl' : '';

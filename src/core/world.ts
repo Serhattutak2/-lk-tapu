@@ -5,8 +5,9 @@ import { SURNAMES } from './names';
 import { log, makePerson, seedSkills } from './people';
 import { defaultJob } from './jobs';
 import { initPlots, PLOTS } from './plots';
+import { initDistricts, syncTurf } from './district';
 
-export const VERSION = 5;
+export const VERSION = 6;
 export const START_M = 2; // Mart 1965
 
 export interface NewGameOpts {
@@ -46,6 +47,8 @@ export function newWorld(o: NewGameOpts = {}): World {
     gang: 0,
     city: newCity(),
     crew: null,
+    tech: {},
+    pol: { seat: null, until: 0, tried: 0 },
     over: null,
   };
   const surname = o.surname?.trim() || pick(w, SURNAMES);
@@ -94,7 +97,7 @@ export function newRival(name = 'Kocabaş', m = 0, men = 6) {
 }
 
 export function newCity() {
-  return { open: false, home: 0, moved: false, facs: {}, turf: 0, net: false, laundered: 0 };
+  return { open: false, home: 0, moved: false, facs: {}, turf: 0, net: false, laundered: 0, dist: initDistricts() };
 }
 
 /** Eski kayıtları güncel veri modeline taşır. */
@@ -124,6 +127,14 @@ export function migrate(w: World): World {
   w.gang ??= 0;
   w.city ??= newCity();
   w.crew ??= null;
+  w.tech ??= {};
+  w.pol ??= { seat: null, until: 0, tried: 0 };
+  w.city.dist ??= initDistricts();
+  if (w.city.turf > 0 && !w.city.dist.some((d) => d.o === 'biz')) {
+    let n = w.city.turf;
+    for (const d of w.city.dist) if (n > 0 && d.o === 'serbest') { d.o = 'biz'; n--; }
+  }
+  syncTurf(w);
   for (const f of w.hh.parcels) {
     f.mode ??= 'kendi';
     f.trac ??= 0;

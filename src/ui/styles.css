@@ -47,6 +47,7 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
 .top { padding: calc(8px + var(--safe-t)) calc(14px + var(--safe-r)) 8px calc(14px + var(--safe-l)); display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; background: var(--soil); }
 .top { align-items: center; row-gap: 6px; }
 .top .date { font: 700 22px/1 var(--serif); margin-right: auto; }
+.top .date .era { display: block; font: 500 12px var(--sans); color: var(--straw-dim); margin-top: 3px; }
 .top .stats { display: flex; gap: 14px; flex-wrap: wrap; width: 100%; }
 @media (min-width: 820px) { .top .stats { width: auto; order: -1; margin-left: auto; } .top .date { order: -2; margin-right: 0; } }
 .stat { font-size: 15px; color: var(--straw-dim); white-space: nowrap; }
@@ -239,3 +240,20 @@ details summary.group { cursor: pointer; }
 [hidden] { display: none !important; }
 
 @media (max-width: 600px) { .top .stats { gap: 4px 12px; } .top .stats .stat { font-size: 14px; } }
+
+/* ---------- 0.6 ---------- */
+.clock button { min-width: 40px; }
+.goals { border: 1px solid var(--soil-3); border-radius: 6px; padding: 4px 10px 10px; margin: 8px 0 12px; background: var(--soil); }
+.ggrp { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.ggrp b { width: 100%; font: 700 14px var(--serif); color: var(--straw-dim); }
+.goal { font-size: 13px; border: 1px dashed var(--soil-3); border-radius: 99px; padding: 3px 9px; color: var(--straw-dim); }
+.goal i { font-style: normal; margin-left: 6px; opacity: .7; }
+.goal.ok { border-style: solid; border-color: var(--wheat); color: var(--wheat); }
+.bars { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; color: var(--straw-dim); margin: 6px 0; }
+.bars span { display: grid; gap: 3px; }
+.bars span::after { content: ''; }
+.bars i { display: block; height: 6px; border-radius: 3px; background: var(--leaf); }
+.bars i.pol { background: var(--cini); }
+.asset.dist.biz { border-left: 3px solid var(--wheat); padding-left: 10px; }
+.asset.dist.cete { border-left: 3px solid var(--madder); padding-left: 10px; }
+.asset.tech.got .pname { color: var(--wheat); }

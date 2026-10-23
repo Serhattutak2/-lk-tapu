@@ -6,6 +6,7 @@ import { addToHH, age, alive, bloodLiving, fullName, hhMembers, log, makePerson,
 import { defaultJob, JOBS } from './jobs';
 import { year } from './calendar';
 import { pushCard } from './cards';
+import { hasDoctor } from './events';
 
 /** Yıllık ölüm olasılığı (1960'lar Anadolu'su, biraz yumuşatılmış). */
 export function yearlyMortality(a: number): number {
@@ -19,6 +20,7 @@ export function monthlyDeathChance(w: World, p: Person): number {
   const q = yearlyMortality(age(w, p));
   let mult = clamp(1 + (65 - p.hp) / 18, 0.4, 6);
   if (p.sick && p.inHH && (w.hh.veh?.otomobil || 0) > 0) mult *= 0.6;
+  if (p.inHH && hasDoctor(w)) mult *= 0.75;
   return (1 - Math.pow(1 - q, 1 / 12)) * mult;
 }
 

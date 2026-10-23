@@ -4,11 +4,14 @@
 
 export type Sex = 'E' | 'K';
 export type SkillId = 'tarim' | 'insaat' | 'zanaat' | 'ticaret';
-export type JobId = 'tarla' | 'kendi' | 'isletme' | 'sofor' | 'lab' | 'coban' | 'insaat' | 'cirak' | 'usta' | 'tuccar' | 'ev' | 'okul' | 'yok';
+export type JobId = 'tarla' | 'kendi' | 'isletme' | 'sofor' | 'lab' | 'univ' | 'avukat' | 'doktor' | 'muhendis' | 'coban' | 'insaat' | 'cirak' | 'usta' | 'tuccar' | 'ev' | 'okul' | 'yok';
 export type VehicleId = 'esek' | 'araba' | 'traktor' | 'otomobil' | 'kamyon';
 export type BizId = 'bakkal' | 'kahve' | 'degirmen';
 export type RoomId = 'oda' | 'ahir' | 'samanlik' | 'misafir' | 'bodrum';
 export type LabSite = 'bodrum' | 'degirmen' | 'agil';
+export type TechId = 'radyo' | 'elektrik' | 'telefon' | 'buzdolabi' | 'tv' | 'telsiz' | 'bicer' | 'asfalt' | 'sulama' | 'bilgisayar' | 'cep' | 'kamera' | 'dinleme' | 'kripto' | 'dron' | 'uydu';
+export type DistId = 'liman' | 'carsi' | 'sanayi' | 'gecekondu' | 'yenisehir' | 'kordon';
+export type DInv = 'kahvehane' | 'galeri' | 'otel' | 'pavyon' | 'site';
 export type FacId = 'un' | 'nakliye' | 'tekstil' | 'gazino' | 'insaat';
 export type CropId = 'bugday' | 'arpa' | 'nohut' | 'pancar' | 'hashas';
 
@@ -33,7 +36,8 @@ export interface Person {
   kids: string[];
   blood: boolean;       // hanedanın kan bağı
   inHH: boolean;        // oyuncunun hanesinde mi yaşıyor
-  away?: 'gurbet' | 'hapis';
+  away?: 'gurbet' | 'hapis' | 'asker' | 'rehin';
+  dip?: 'hukuk' | 'tip' | 'muh'; // üniversite diploması
   awayUntil?: number;
   hp: number;           // sağlık 0-100
   sick?: number;        // kalan hastalık ayı
@@ -134,6 +138,21 @@ export interface CityState {
   turf: number;         // kontrol edilen mahalle
   net: boolean;         // Kara Rıza'nın şebekesi artık bizim
   laundered: number;    // bugüne kadar aklanan
+  dist: DistrictState[]; // şehrin mahalleleri
+}
+
+export interface DistrictState {
+  id: DistId;
+  o: 'biz' | 'cete' | 'serbest';
+  loy: number;          // esnafın bağlılığı 0-100
+  pol: number;          // polis varlığı 0-100
+  inv: Partial<Record<DInv, number>>;
+}
+
+export interface PolState {
+  seat: 'muhtar' | 'belediye' | 'vekil' | null;
+  until: number;        // görev bitiş ayı
+  tried: number;        // son aday olunan ay
 }
 
 export interface CrewState {
@@ -185,5 +204,7 @@ export interface World {
   gang: number;         // maaşlı adamlar (korumalar)
   city: CityState;
   crew: CrewState | null; // şehirdeki rakip çete
+  tech: Partial<Record<TechId, number>>; // gelen teknolojiler: geliş ayı
+  pol: PolState;
   over: null | { m: number; reason: string };
 }

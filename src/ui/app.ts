@@ -13,7 +13,10 @@ import { BASE_CAP, buildRoom, canBuild, capacity, crowded, residents, roomPrice,
 import { AGIL_PRICE, buildLab, buyAgil, buyRaw, cevdetPay, hamPrice, hapPrice, hireCevdet, LAB_LEVELS, labCapacity, labPrice, labSkill, labWorkers, moveStash, paketPrice, sellProduct, siteOk, SITES, unlocked } from '../core/lab';
 import { attackRival, feudLabel, gangPay, lockedOut, rP, setLock } from '../core/feud';
 import { buyCityHome, buyFac, CITY, FACS, facIncome, facPrice, hire, HOMES, homePrice, launderCap, launderFee, moveToCity, setFacMgr, takeTurf, underTitle } from '../core/baron';
-import type { FacId } from '../core/types';
+import type { DInv, DistId, FacId, TechId } from '../core/types';
+import { buyTech, eraOf, TECHS, techPrice } from '../core/era';
+import { DISTS, distIncome, invest, invPrice, INVS, menNeeded, takeDistrict } from '../core/district';
+import { doneGoals, GOALS } from '../core/goals';
 import type { LabSite, RoomId } from '../core/types';
 import { assignWorker, CROPS, careOf, expectedValue, harvestMonth, hasRuhsat, hireAll, idleWage, irgatWage, isBanYear, kacakPrice, laborNeed, personFieldLabel, qualityOf, recallAll, seedCost, sellStash, setHired, setMode, sow, sowAll, sowableNow, staffAll, workersOf } from '../core/fields';
 import { heatLabel } from '../core/crime';
@@ -24,16 +27,19 @@ import { VillageMap } from './map';
 const SAVE_KEY = 'ilktapu_v1';
 const NEWS_KEY = 'ilktapu_haber';
 export const NEWS = {
-  v: '0.5',
+  v: '0.6',
   items: [
-    ['Rakip aileyi silmek', 'Maaşlı adamlar tut, rakip aileye baskın yap. Erkekleri tükenen aile köyü terk eder, tarlaları ucuza satışa düşer. Ama boşluk uzun sürmez: Sarıkayalar, Bozbeyler, Gümüşdereliler sırayla gelir.'],
-    ['Kara para', 'Kaçak satış ve atölyenin parası artık kara kasaya giriyor. Toprak, ev ve fabrika için önce bakkal, kahvehane, değirmen ya da şehir işletmelerinde aklaman gerekiyor.'],
-    ['Çukurkent', 'Yeterince büyüyünce şehir açılıyor: un fabrikası, nakliye, tekstil, gazino, inşaat şirketi. Daire ya da villa alıp aileyi şehre taşıyabilirsin. Haritanın sağ üstünden köy ile şehir arasında geçiş yap.'],
-    ['Baronluğa giden yol', 'Kara Rıza yaşlandı: şebekesini devral, şehirde mahalle tut, rakip çetelerle savaş. Unvanın Kaçakçı, İmalatçı, Şebeke sahibi ve en sonunda Baron.'],
-    ['Kayıtların korunuyor', 'Eski oyunun kaldığı yerden devam eder; Kocabaşlar hâlâ köyde.'],
+    ['Çağlar ve teknoloji', 'Yıllar geçtikçe çağ değişiyor: Toprak Yılları, Kargaşa, Açılım, Kriz Yılları, Dijital Çağ, Yeni Dünya. Radyodan biçerdövere, cep telefonundan drona 16 yenilik zamanı gelince çıkıyor. Devletin telsizi, dinlemesi ve uydusu da geliyor.'],
+    ['Düşman artık bekliyor', 'Büyüdükçe rakip aile kızışıyor: evine kurşun, ahırına zehir, aileden rehine, yolda pusu. Şehirde çete mahallelerini geri almaya, malını soymaya geliyor.'],
+    ['30\'dan fazla yeni olay', 'Askerlik, üniversite, kumar borcu, sevda, muhbir, gazeteci, kredi, kriz, deprem, turist, maden şirketi, kurban, kız isteme, sel, çekirge ve daha fazlası.'],
+    ['Siyaset', 'Muhtar, belediye başkanı ve milletvekili seçimlerine gir. Makam baskınları azaltır, ihaleler getirir, milletvekilinin dokunulmazlığı vardır.'],
+    ['Okumuş torunlar', 'Zeki çocukları üniversiteye gönder: avukat hapis cezalarını kısaltır, doktor aileyi yaşatır, mühendis fabrikaları büyütür.'],
+    ['Çukurkent mahalleleri', 'Liman, Eski Çarşı, Sanayi, Gecekondu, Yenişehir ve Kordon. Her birinde esnaf bağlılığı, polis, yatırım ve kendi olayları var: isyan, karakol, kentsel dönüşüm.'],
+    ['Hanedan hedefleri', 'Kronik sekmesinin başında 29 hedef ve hanedan puanı. Oyunun sonu yok; ocak sönmedikçe sürer.'],
+    ['Daha yavaş zaman', 'Normal hız artık daha sakin; acele edene ▶▶▶ var.'],
   ] as [string, string][],
 };
-const SPEEDS = [0, 2200, 700];
+const SPEEDS = [0, 3000, 1100, 380];
 const KIND: Record<string, string> = { veraset: 'Veraset', gorucu: 'Görücü', hastalik: 'Hastalık', gurbet: 'Gurbet', tuccar: 'Tanışıklık', tapu: 'Tapu', bilgi: 'Haber', hashas_hasat: 'Hasat', ruhsat: 'Ruhsat', kacakci: 'Kahvehane', baskin: 'Jandarma', aga_kira: 'Ağa', aga_kiz: 'Ağa' };
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
@@ -135,6 +141,7 @@ export class App {
             <button data-sp="0" aria-label="Durdur">❚❚</button>
             <button data-sp="1" aria-label="Oynat">▶</button>
             <button data-sp="2" aria-label="Hızlı">▶▶</button>
+            <button data-sp="3" aria-label="Çok hızlı">▶▶▶</button>
           </div>
         </section>
         <nav class="tabs" role="tablist">
@@ -239,7 +246,7 @@ export class App {
     const top = $('#top');
     if (!top) return;
     top.innerHTML = `
-      <span class="date">${dateText(w.m)}</span>
+      <span class="date">${dateText(w.m)}<small class="era">${esc(eraOf(w).ad)}</small></span>
       <button class="small" id="menu">Menü</button>
       <div class="stats">
         <span class="stat money">Kasa <b>${lira(w.hh.cash)}</b></span>
@@ -253,7 +260,7 @@ export class App {
     const who = $('#who');
     const tt = title(w);
     if (who) who.innerHTML = alive(pl)
-      ? `<b>${esc(fullName(pl))}</b>, ${age(w, pl)} yaşında, ${JOBS[pl.job].ad.toLowerCase()}<span class="ttl">${esc(tt.ad)} · nam ${nam(w)}${tt.next ? ` / ${tt.next.min}` : ''}${underTitle(w).ad !== 'Temiz' ? ` · ${esc(underTitle(w).ad)}` : ''}</span>`
+      ? `<b>${esc(fullName(pl))}</b>, ${age(w, pl)} yaşında, ${JOBS[pl.job].ad.toLowerCase()}<span class="ttl">${esc(tt.ad)} · nam ${nam(w)}${tt.next ? ` / ${tt.next.min}` : ''}${underTitle(w).ad !== 'Temiz' ? ` · ${esc(underTitle(w).ad)}` : ''}${w.pol.seat ? ` · ${w.pol.seat === 'muhtar' ? 'Muhtar' : w.pol.seat === 'belediye' ? 'Belediye başkanı' : 'Milletvekili'}` : ''}</span>`
       : 'Aile yasta';
     this.root.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === this.tab)));
     const ts = document.getElementById('tabSehir');
@@ -297,6 +304,9 @@ export class App {
       p.id === w.heirId ? '<span class="badge varis">Varis</span>' : '',
       p.away === 'gurbet' ? '<span class="badge gurbet">Gurbette</span>' : '',
       p.away === 'hapis' ? '<span class="badge hasta">Cezaevinde</span>' : '',
+      p.away === 'asker' ? '<span class="badge gurbet">Askerde</span>' : '',
+      p.away === 'rehin' ? '<span class="badge hasta">Rehin</span>' : '',
+      p.dip ? `<span class="badge varis">${p.dip === 'tip' ? 'Doktor' : p.dip === 'hukuk' ? 'Avukat' : 'Mühendis'}</span>` : '',
       p.sick ? '<span class="badge hasta">Hasta</span>' : '',
     ].join('');
     const hp = Math.round(p.hp);
@@ -332,6 +342,7 @@ export class App {
     const w = this.w!;
     if (lockedOut(w, p)) return 'Kan davası yüzünden evden çıkmıyor';
     if (p.job === 'lab') return 'Atölyede; kazancı ürün satılınca gelir';
+    if (p.job === 'univ') return `Üniversitede; ${Math.max(0, 48 - (w.m - Number(w.flags['okul' + p.id] || w.m)))} ay sonra mezun`;
     if (p.job === 'kendi') {
       const f = w.hh.parcels.find((x) => x.id === p.parcel);
       const idle = idleWage(w, p);
@@ -446,6 +457,9 @@ export class App {
       <div class="asset"><div class="prow"><span class="pname">${esc(hv.ad)}</span></div><p class="note">${esc(hv.desc)}</p>
         ${nh ? `<p class="note">Sıradaki: ${esc(nh.ad)}. ${esc(nh.desc)}</p><button class="small" data-house="1"${w.hh.cash < housePrice(w, nh.lvl) ? ' disabled' : ''}>${w.hh.house === 0 ? 'Satın al' : 'Yaptır'} (${lira(housePrice(w, nh.lvl))})</button>` : ''}</div>
       <div class="group">Taşıtlar</div>${veh}
+      <div class="group">Teknoloji: ${esc(eraOf(w).ad)}</div>
+      <p class="note">${esc(eraOf(w).desc)}</p>
+      ${this.techHTML()}
       <div class="group">Köy işletmeleri</div>${biz}`;
   }
 
@@ -546,6 +560,32 @@ export class App {
       <p class="note">Zula, atölye ve kan davası Yeraltı sekmesinde.</p>`;
   }
 
+  private techHTML(): string {
+    const w = this.w!;
+    const y = year(w.m);
+    return (Object.keys(TECHS) as TechId[]).filter((t) => TECHS[t].from <= y + 6).map((t) => {
+      const d = TECHS[t];
+      const got = !!w.tech[t];
+      const soon = y < d.from;
+      return `<div class="asset tech${got ? ' got' : ''}"><div class="prow"><span class="pname">${esc(d.ad)}</span><span class="prel">${d.from}</span>${got ? '<span class="badge sen">Var</span>' : ''}</div><p class="note">${esc(d.desc)}</p>
+        ${got ? '' : soon ? `<p class="note">${d.from}'de gelecek.</p>` : d.auto ? '' : `<button class="small" data-tech="${t}"${w.hh.cash < techPrice(w, t) ? ' disabled' : ''}>Al (${lira(techPrice(w, t))})</button>`}</div>`;
+    }).join('');
+  }
+
+  private distHTML(): string {
+    const w = this.w!;
+    return w.city.dist.map((d) => {
+      const dd = DISTS[d.id];
+      const open = year(w.m) >= dd.from;
+      const owner = d.o === 'biz' ? 'Bizim' : d.o === 'cete' ? (w.crew && !w.crew.gone ? w.crew.name : 'Liman çetesi') : 'Kimsenin değil';
+      const invs = (Object.keys(INVS) as DInv[]).map((i) => `<button class="small" data-inv="${d.id}:${i}"${w.hh.cash < invPrice(w, i) ? ' disabled' : ''}>${esc(INVS[i].ad)}${d.inv[i] ? ` (${d.inv[i]})` : ''}, ${lira(invPrice(w, i))}</button>`).join('');
+      return `<div class="asset dist ${d.o}"><div class="prow"><span class="pname">${esc(dd.ad)}</span><span class="badge ${d.o === 'biz' ? 'sen' : d.o === 'cete' ? 'hasta' : 'gurbet'}">${esc(owner)}</span></div>
+        <p class="note">${esc(dd.desc)}${open ? '' : ` ${dd.from}'de kurulacak.`}</p>
+        ${open ? `<div class="bars"><span>Esnaf <i style="width:${Math.round(d.loy)}%"></i></span><span>Polis <i class="pol" style="width:${Math.round(d.pol)}%"></i></span></div>` : ''}
+        ${d.o === 'biz' ? `<p class="note">Aylık getiri ${lira(distIncome(w, d))}.</p><details><summary class="note">Yatırım yap</summary><div class="btnrow">${invs}</div></details>` : open ? `<button class="small danger" data-dist="${d.id}"${w.city.moved ? '' : ' disabled'}>Mahalleyi al (${menNeeded(w, d)} adam gerekir)</button>` : ''}</div>`;
+    }).join('');
+  }
+
   // ---------- Şehir ----------
   private cityHTML(): string {
     const w = this.w!;
@@ -565,9 +605,9 @@ export class App {
       <div class="btnrow">${nh ? `<button class="small" data-chome="1"${w.hh.cash < homePrice(w, nh.lvl) ? ' disabled' : ''}>${esc(nh.ad)} al (${lira(homePrice(w, nh.lvl))})</button>` : ''}
         ${w.city.home ? `<button class="small" data-move="${w.city.moved ? 0 : 1}">${w.city.moved ? 'Köye geri dön' : 'Şehre taşın'}</button>` : ''}</div>
       <div class="group">Fabrikalar ve şirketler</div>${facs}
-      <div class="group">Mahalleler: ${w.city.turf}</div>
-      <p class="note">Her mahalle her ay kara kasaya haraç getirir ama dikkat çeker. Bir mahalle daha için ${4 + w.city.turf * 2} adam gerekir.</p>
-      <div class="btnrow"><button class="small danger" data-turf="1"${w.city.moved ? '' : ' disabled'}>Bir mahalle daha al</button></div>`;
+      <div class="group">Mahalleler: ${w.city.turf} / ${w.city.dist.length}</div>
+      <p class="note">Mahallelerden gelen haraç ve kazanç kara kasaya girer. Esnafın bağlılığı düşerse isyan çıkar; polis varlığı arttıkça hem almak hem tutmak zorlaşır. Yatırımlar kazancı ve aklama kapasitesini büyütür.</p>
+      ${this.distHTML()}`;
   }
 
   // ---------- Yeraltı ----------
@@ -642,7 +682,12 @@ export class App {
   private chronicleHTML(): string {
     const w = this.w!;
     const items = w.chronicle.slice(-250).reverse();
-    return `<ul class="chron">${items.map((e) => `<li class="${e.k}"><time>${dateText(e.m)}</time>${esc(e.t)}</li>`).join('')}</ul>`;
+    const done = doneGoals(w);
+    const groups = [...new Set(GOALS.map((g) => g.grup))];
+    return `<details class="goals"><summary class="group">Hanedan hedefleri: ${done.length} / ${GOALS.length}, ${Number(w.flags.puan || 0)} puan</summary>
+      ${groups.map((gr) => `<div class="ggrp"><b>${esc(gr)}</b>${GOALS.filter((g) => g.grup === gr).map((g) => `<span class="goal${w.flags['goal_' + g.id] ? ' ok' : ''}">${esc(g.ad)}<i>${g.pts}</i></span>`).join('')}</div>`).join('')}
+      </details>
+      <ul class="chron">${items.map((e) => `<li class="${e.k}"><time>${dateText(e.m)}</time>${esc(e.t)}</li>`).join('')}</ul>`;
   }
 
   private bindPanel(panel: HTMLElement) {
@@ -727,6 +772,12 @@ export class App {
     panel.querySelectorAll<HTMLButtonElement>('[data-move]').forEach((b) => (b.onclick = act(() => {
       this.toast(moveToCity(w, b.dataset.move === '1').msg);
       if (this.map) this.map.mode = w.city.moved ? 'sehir' : 'koy';
+    })));
+    panel.querySelectorAll<HTMLButtonElement>('[data-tech]').forEach((b) => (b.onclick = act(() => this.toast(buyTech(w, b.dataset.tech as TechId).msg))));
+    panel.querySelectorAll<HTMLButtonElement>('[data-dist]').forEach((b) => (b.onclick = act(() => this.toast(takeDistrict(w, b.dataset.dist as DistId).msg))));
+    panel.querySelectorAll<HTMLButtonElement>('[data-inv]').forEach((b) => (b.onclick = act(() => {
+      const [d, i] = b.dataset.inv!.split(':');
+      this.toast(invest(w, d as DistId, i as DInv).msg);
     })));
     panel.querySelectorAll<HTMLButtonElement>('[data-turf]').forEach((b) => (b.onclick = act(() => this.toast(takeTurf(w).msg))));
     panel.querySelectorAll<HTMLButtonElement>('[data-lock]').forEach((b) => (b.onclick = act(() => setLock(w, b.dataset.lock === '1'))));
