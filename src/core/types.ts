@@ -9,6 +9,7 @@ export type VehicleId = 'esek' | 'araba' | 'traktor' | 'otomobil' | 'kamyon';
 export type BizId = 'bakkal' | 'kahve' | 'degirmen';
 export type RoomId = 'oda' | 'ahir' | 'samanlik' | 'misafir' | 'bodrum';
 export type LabSite = 'bodrum' | 'degirmen' | 'agil';
+export type FacId = 'un' | 'nakliye' | 'tekstil' | 'gazino' | 'insaat';
 export type CropId = 'bugday' | 'arpa' | 'nohut' | 'pancar' | 'hashas';
 
 export interface Traits {
@@ -120,6 +121,27 @@ export interface RivalState {
   dead: number;         // bizden kaybedilen
   theirDead: number;    // onlardan
   peaceM: number;       // son barış ayı
+  men: number;          // silah tutabilecek erkekleri
+  gone: boolean;        // köyden silindi mi
+  since: number;        // köye geldiği ay
+}
+
+export interface CityState {
+  open: boolean;        // şehir açıldı mı
+  home: number;         // 0 yok, 1 apartman dairesi, 2 villa
+  moved: boolean;       // aile şehre taşındı mı
+  facs: Partial<Record<FacId, { since: number; mgr?: string }>>;
+  turf: number;         // kontrol edilen mahalle
+  net: boolean;         // Kara Rıza'nın şebekesi artık bizim
+  laundered: number;    // bugüne kadar aklanan
+}
+
+export interface CrewState {
+  name: string;
+  men: number;
+  feud: number;
+  turf: number;
+  gone: boolean;
 }
 
 export interface PlotState {
@@ -159,5 +181,9 @@ export interface World {
   plots: PlotState[];   // köydeki bütün tarlaların sahipliği ve satış durumu
   lab: LabState | null;
   rival: RivalState;
+  dirty: number;        // kara para: yasal mülk almak için aklanmalı
+  gang: number;         // maaşlı adamlar (korumalar)
+  city: CityState;
+  crew: CrewState | null; // şehirdeki rakip çete
   over: null | { m: number; reason: string };
 }

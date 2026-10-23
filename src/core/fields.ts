@@ -41,7 +41,7 @@ export const BAN_TO = 1974;
 export const isBanYear = (y: number) => y >= BAN_FROM && y <= BAN_TO;
 
 export const devletPrice = (w: World) => Math.round(DEVLET_PRICE * infl(w.m));
-export const kacakPrice = (w: World) => Math.round(KACAK_PRICE * infl(w.m) * (isBanYear(year(w.m)) ? 1.5 : 1) * ((w.hh.veh?.kamyon || 0) > 0 ? 1.2 : 1));
+export const kacakPrice = (w: World) => Math.round(KACAK_PRICE * infl(w.m) * (isBanYear(year(w.m)) ? 1.5 : 1) * ((w.hh.veh?.kamyon || 0) > 0 ? 1.2 : 1) * (w.city?.facs?.nakliye ? 1.15 : 1) * (w.city?.net ? 1.6 : w.flags.rizaOrtak ? 1.25 : 1));
 export const irgatWage = (w: World) => Math.round(IRGAT_WAGE * infl(w.m));
 export const seedCost = (w: World, c: CropId) => Math.round(CROPS[c].seed * infl(w.m));
 
@@ -340,8 +340,8 @@ export function resolveHashas(w: World, sacks: number, no: number | string, k: s
   else if (k === 'yari_zula') { gov = sacks - half; stash = half; }
   else if (k === 'hepsi_kacak') black = sacks;
   else if (k === 'hepsi_zula') stash = sacks;
-  const money = gov * dp + black * kp;
-  w.hh.cash += money;
+  w.hh.cash += gov * dp;
+  w.dirty += black * kp;
   w.hh.stash += stash;
   w.heat = clamp(w.heat + black * 1.6 + stash * 0.9 + (k === 'hepsi_kacak' && gov === 0 ? 8 : 0), 0, 100);
   w.flags.kacakToplam = ((w.flags.kacakToplam as number) || 0) + black;
@@ -357,11 +357,11 @@ export function sellStash(w: World): number {
   if (!w.flags.kacakci || w.hh.stash <= 0) return 0;
   const n = w.hh.stash;
   const v = n * kacakPrice(w);
-  w.hh.cash += v;
+  w.dirty += v;
   w.hh.stash = 0;
   w.heat = clamp(w.heat + n * 1.2, 0, 100);
   w.flags.kacakToplam = ((w.flags.kacakToplam as number) || 0) + n;
-  log(w, `Zuladaki ${n} çuval Kara Rıza'ya ${v} liraya satıldı.`, 'olay');
+  log(w, `Zuladaki ${n} çuval Kara Rıza'ya ${v} liraya satıldı; para kara kasaya girdi.`, 'olay');
   return v;
 }
 

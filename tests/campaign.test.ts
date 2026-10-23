@@ -27,7 +27,9 @@ function check(w: World) {
   expect(w.hh.land).toBe(w.hh.parcels.length * 5);
   for (const p of Object.values(w.people)) {
     if (p.job === 'lab' && p.inHH && p.d === undefined && !p.away) expect(w.lab).toBeTruthy();
-    if (p.job === 'isletme') expect(p.biz && w.hh.biz[p.biz]).toBeTruthy();
+    if (p.job === 'isletme' && p.inHH && p.d === undefined) expect((p.biz && w.hh.biz[p.biz]) || Object.values(w.city.facs).some((f) => f?.mgr === p.id)).toBeTruthy();
+    expect(w.dirty).toBeGreaterThanOrEqual(0);
+    expect(w.gang).toBeGreaterThanOrEqual(0);
     if (p.job === 'kendi') expect(w.hh.parcels.some((f) => f.id === p.parcel), `${p.id} parseli var`).toBe(true);
     if (p.away === 'hapis' && p.d === undefined) expect(p.awayUntil).toBeGreaterThan(w.m - 1);
   }

@@ -11,7 +11,9 @@ import type { BizId, VehicleId } from '../core/types';
 import type { Pick } from './map';
 import { BASE_CAP, buildRoom, canBuild, capacity, crowded, residents, roomPrice, ROOMS, SLOTS } from '../core/home';
 import { AGIL_PRICE, buildLab, buyAgil, buyRaw, cevdetPay, hamPrice, hapPrice, hireCevdet, LAB_LEVELS, labCapacity, labPrice, labSkill, labWorkers, moveStash, paketPrice, sellProduct, siteOk, SITES, unlocked } from '../core/lab';
-import { feudLabel, lockedOut, setLock } from '../core/feud';
+import { attackRival, feudLabel, gangPay, lockedOut, rP, setLock } from '../core/feud';
+import { buyCityHome, buyFac, CITY, FACS, facIncome, facPrice, hire, HOMES, homePrice, launderCap, launderFee, moveToCity, setFacMgr, takeTurf, underTitle } from '../core/baron';
+import type { FacId } from '../core/types';
 import type { LabSite, RoomId } from '../core/types';
 import { assignWorker, CROPS, careOf, expectedValue, harvestMonth, hasRuhsat, hireAll, idleWage, irgatWage, isBanYear, kacakPrice, laborNeed, personFieldLabel, qualityOf, recallAll, seedCost, sellStash, setHired, setMode, sow, sowAll, sowableNow, staffAll, workersOf } from '../core/fields';
 import { heatLabel } from '../core/crime';
@@ -22,15 +24,13 @@ import { VillageMap } from './map';
 const SAVE_KEY = 'ilktapu_v1';
 const NEWS_KEY = 'ilktapu_haber';
 export const NEWS = {
-  v: '0.4',
+  v: '0.5',
   items: [
-    ['Yeni manzara', 'Köyün etrafı artık dağlar, bozkır, dere, sürüler ve gökyüzüyle çevrili. Mevsimle birlikte değişiyor.'],
-    ['Yeraltı sekmesi', 'Zula, Kara Rıza, gizli atölye ve kan davası tek yerde.'],
-    ['Gizli atölye', 'Kimyager Cevdet ile tanış, bodrumda, değirmenin arkasında ya da dağdaki ağılda atölye kur. Ham malı pakete, sonra hapa çevir. Kaza, ihanet ve baskın seni bekliyor.'],
-    ['Kocabaşlar ve kan davası', 'Rakip aile toprak kapıyor, sınır taşı kaydırıyor, kız kaçırıyor. Kan dökülürse intikam, diyet ya da sabır: karar senin. Gerekirse erkekleri eve kapat.'],
-    ['Ev ve odalar', 'Kendi evine yatak odası, ahır, samanlık, misafir odası ve gizli bodrum yap. Ev daralırsa aile huzursuzlanır.'],
-    ['Aile kolay dağılmıyor', 'Evlenen oğullar artık habersiz gitmiyor; gitmeden önce sana soruyor. Oda yapar, gönlünü alır ya da izin verirsin.'],
-    ['Daha zor ekonomi', 'Toprak, ev, taşıt ve işletmeler pahalandı. Borç büyürse ağa haciz yapar: önce taşıtını, sonra tarlanı alır.'],
+    ['Rakip aileyi silmek', 'Maaşlı adamlar tut, rakip aileye baskın yap. Erkekleri tükenen aile köyü terk eder, tarlaları ucuza satışa düşer. Ama boşluk uzun sürmez: Sarıkayalar, Bozbeyler, Gümüşdereliler sırayla gelir.'],
+    ['Kara para', 'Kaçak satış ve atölyenin parası artık kara kasaya giriyor. Toprak, ev ve fabrika için önce bakkal, kahvehane, değirmen ya da şehir işletmelerinde aklaman gerekiyor.'],
+    ['Çukurkent', 'Yeterince büyüyünce şehir açılıyor: un fabrikası, nakliye, tekstil, gazino, inşaat şirketi. Daire ya da villa alıp aileyi şehre taşıyabilirsin. Haritanın sağ üstünden köy ile şehir arasında geçiş yap.'],
+    ['Baronluğa giden yol', 'Kara Rıza yaşlandı: şebekesini devral, şehirde mahalle tut, rakip çetelerle savaş. Unvanın Kaçakçı, İmalatçı, Şebeke sahibi ve en sonunda Baron.'],
+    ['Kayıtların korunuyor', 'Eski oyunun kaldığı yerden devam eder; Kocabaşlar hâlâ köyde.'],
   ] as [string, string][],
 };
 const SPEEDS = [0, 2200, 700];
@@ -65,7 +65,7 @@ function wipe() {
 
 export class App {
   private w: World | null = null;
-  private tab: 'aile' | 'tarla' | 'mulk' | 'yeralti' | 'hane' | 'kronik' = 'aile';
+  private tab: 'aile' | 'tarla' | 'mulk' | 'yeralti' | 'sehir' | 'hane' | 'kronik' = 'aile';
   private pick: Pick | null = null;
   private speed = 0;
   private timer = 0;
@@ -130,6 +130,7 @@ export class App {
         <header class="top" id="top"></header>
         <section class="mapwrap"><canvas id="cv" aria-label="Karaçam köyü"></canvas>
           <div class="who" id="who"></div>
+          <div class="maptog" id="maptog" role="group" aria-label="Harita"><button data-map="koy">Köy</button><button data-map="sehir">Şehir</button></div>
           <div class="clock" role="group" aria-label="Zaman">
             <button data-sp="0" aria-label="Durdur">❚❚</button>
             <button data-sp="1" aria-label="Oynat">▶</button>
@@ -141,6 +142,7 @@ export class App {
           <button role="tab" data-tab="tarla">Tarla</button>
           <button role="tab" data-tab="mulk">Mülk</button>
           <button role="tab" data-tab="yeralti">Yeraltı</button>
+          <button role="tab" data-tab="sehir" id="tabSehir">Şehir</button>
           <button role="tab" data-tab="hane">Hane</button>
           <button role="tab" data-tab="kronik">Kronik</button>
         </nav>
@@ -150,6 +152,15 @@ export class App {
       <div id="overlay"></div>
       <div id="newsbox"></div>`;
     this.map = new VillageMap($<HTMLCanvasElement>('#cv')!, () => this.w);
+    if (w.city.moved) this.map.mode = 'sehir';
+    this.root.querySelectorAll<HTMLButtonElement>('[data-map]').forEach((b) => (b.onclick = () => {
+      if (!this.map) return;
+      this.map.mode = b.dataset.map as 'koy' | 'sehir';
+      this.map.selected = null;
+      this.pick = null;
+      this.renderSheet();
+      this.renderTop();
+    }));
     this.map.onPick = (pk) => {
       this.pick = pk;
       this.renderSheet();
@@ -234,6 +245,7 @@ export class App {
         <span class="stat money">Kasa <b>${lira(w.hh.cash)}</b></span>
         ${w.hh.debt > 0 ? `<span class="stat debt">Borç <b>${lira(w.hh.debt)}</b></span>` : ''}
         <span class="stat">Toprak <b>${w.hh.land} dönüm</b></span>
+        ${w.dirty > 0 ? `<span class="stat dirty">Kara kasa <b>${lira(w.dirty)}</b></span>` : ''}
         ${w.heat >= 15 ? `<span class="stat heat">Dikkat <b>${esc(heatLabel(w.heat))}</b></span>` : ''}
       </div>`;
     $('#menu')!.onclick = () => this.showStart();
@@ -241,9 +253,16 @@ export class App {
     const who = $('#who');
     const tt = title(w);
     if (who) who.innerHTML = alive(pl)
-      ? `<b>${esc(fullName(pl))}</b>, ${age(w, pl)} yaşında, ${JOBS[pl.job].ad.toLowerCase()}<span class="ttl">${esc(tt.ad)} · nam ${nam(w)}${tt.next ? ` / ${tt.next.min}` : ''}</span>`
+      ? `<b>${esc(fullName(pl))}</b>, ${age(w, pl)} yaşında, ${JOBS[pl.job].ad.toLowerCase()}<span class="ttl">${esc(tt.ad)} · nam ${nam(w)}${tt.next ? ` / ${tt.next.min}` : ''}${underTitle(w).ad !== 'Temiz' ? ` · ${esc(underTitle(w).ad)}` : ''}</span>`
       : 'Aile yasta';
     this.root.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === this.tab)));
+    const ts = document.getElementById('tabSehir');
+    if (ts) ts.hidden = !w.city.open;
+    const mt = document.getElementById('maptog');
+    if (mt) {
+      mt.hidden = !w.city.open;
+      mt.querySelectorAll<HTMLButtonElement>('[data-map]').forEach((b) => b.setAttribute('aria-pressed', String(this.map?.mode === b.dataset.map)));
+    }
   }
 
   private renderPanel(force: boolean) {
@@ -259,6 +278,7 @@ export class App {
     else if (this.tab === 'tarla') panel.innerHTML = this.fieldsHTML();
     else if (this.tab === 'mulk') panel.innerHTML = this.estateHTML();
     else if (this.tab === 'yeralti') panel.innerHTML = this.underHTML();
+    else if (this.tab === 'sehir') panel.innerHTML = this.cityHTML();
     else if (this.tab === 'hane') panel.innerHTML = this.householdHTML();
     else panel.innerHTML = this.chronicleHTML();
     panel.scrollTop = keep;
@@ -526,6 +546,30 @@ export class App {
       <p class="note">Zula, atölye ve kan davası Yeraltı sekmesinde.</p>`;
   }
 
+  // ---------- Şehir ----------
+  private cityHTML(): string {
+    const w = this.w!;
+    if (!w.city.open) return `<p class="note">${CITY} henüz kapılarını açmadı. Kasanla kara kasan birlikte büyük bir servete ulaşınca ya da on iki tarlaya sahip olunca şehir seni tanır.</p>`;
+    const nh = HOMES[w.city.home + 1];
+    const cand = hhMembers(w).filter((q) => !q.away && age(w, q) >= 18);
+    const facs = (Object.keys(FACS) as FacId[]).map((f) => {
+      const d = FACS[f];
+      const st = w.city.facs[f];
+      return `<div class="asset"><div class="prow"><span class="pname">${esc(d.ad)}</span>${st ? '<span class="badge sen">Bizim</span>' : ''}</div><p class="note">${esc(d.desc)}</p>
+        ${st ? `<p class="note">Bu ay kazancı ${lira(facIncome(w, f))}.</p><select data-facmgr="${f}" aria-label="${esc(d.ad)} müdürü"><option value="">Müdür yok (kazanç düşük)</option>${cand.map((q) => `<option value="${q.id}"${st.mgr === q.id ? ' selected' : ''}>${esc(q.first)}, ticaret ${Math.round(q.sk.ticaret)}</option>`).join('')}</select>`
+        : `<button class="small" data-fac="${f}"${w.hh.cash < facPrice(w, f) ? ' disabled' : ''}>Satın al (${lira(facPrice(w, f))})</button>`}</div>`;
+    }).join('');
+    return `<div class="rank"><div class="pname">${CITY}</div><p class="note">Fabrikalar temiz parayla alınır; kara parayı da aklarlar. Şehre taşınırsan köydeki tarlalar yarıcıya geçer, hayat pahalanır ama mahalle tutup haraç toplayabilirsin.</p></div>
+      <div class="group">Ev</div>
+      <p class="note">${w.city.home ? `${esc(HOMES[w.city.home].ad)} senin. ${w.city.moved ? 'Aile şehirde yaşıyor.' : 'Aile hâlâ köyde.'}` : 'Şehirde evin yok.'}</p>
+      <div class="btnrow">${nh ? `<button class="small" data-chome="1"${w.hh.cash < homePrice(w, nh.lvl) ? ' disabled' : ''}>${esc(nh.ad)} al (${lira(homePrice(w, nh.lvl))})</button>` : ''}
+        ${w.city.home ? `<button class="small" data-move="${w.city.moved ? 0 : 1}">${w.city.moved ? 'Köye geri dön' : 'Şehre taşın'}</button>` : ''}</div>
+      <div class="group">Fabrikalar ve şirketler</div>${facs}
+      <div class="group">Mahalleler: ${w.city.turf}</div>
+      <p class="note">Her mahalle her ay kara kasaya haraç getirir ama dikkat çeker. Bir mahalle daha için ${4 + w.city.turf * 2} adam gerekir.</p>
+      <div class="btnrow"><button class="small danger" data-turf="1"${w.city.moved ? '' : ' disabled'}>Bir mahalle daha al</button></div>`;
+  }
+
   // ---------- Yeraltı ----------
   private underHTML(): string {
     const w = this.w!;
@@ -572,11 +616,26 @@ export class App {
       ${(w.flags.kacakToplam as number) ? `<p class="note">Bugüne kadar kayıt dışına çıkan: ${w.flags.kacakToplam} çuval.${w.flags.labKazanc ? ` Atölyeden kazanılan: ${lira(Number(w.flags.labKazanc))}.` : ''}</p>` : ''}
       <div class="group">Gizli atölye</div>
       ${labHtml}
-      <div class="group">Kocabaşlar</div>
+      <div class="group">Kara kasa ve adamlar</div>
+      <table class="ledger">
+        <tr><td>Kara kasa</td><td>${lira(w.dirty)}</td></tr>
+        <tr><td>Aylık aklama kapasitesi</td><td>${lira(launderCap(w))}</td></tr>
+        <tr><td>Aklama komisyonu</td><td>%${Math.round(launderFee(w) * 100)}</td></tr>
+        <tr><td>Bugüne kadar aklanan</td><td>${lira(w.city.laundered)}</td></tr>
+        <tr><td>Maaşlı adamlar</td><td>${w.gang} kişi, ayda ${lira(w.gang * gangPay(w))}</td></tr>
+      </table>
+      <p class="note">Kaçak satış ve atölyenin parası kara kasaya girer. Atölye, rüşvet, adam maaşı kara parayla ödenir; toprak, ev, fabrika için para önce bakkal, kahvehane, değirmen ve şehirdeki işletmelerden aklanmalı.</p>
+      <div class="btnrow"><button class="small" data-gang="1">Adam tut (ayda ${lira(gangPay(w))})</button><button class="small" data-gang="-1"${w.gang ? '' : ' disabled'}>Bir adamı gönder</button></div>
+      <div class="group">Yeraltı unvanı: ${esc(underTitle(w).ad)}</div>
+      <p class="note">${esc(underTitle(w).next)}${w.city.net ? ' Kara Rıza\'nın şebekesi senin: kaçak fiyatlar %60 yüksek.' : w.flags.rizaOrtak ? ' Rıza ile ortaksın: fiyatlar %25 yüksek.' : ''}</p>
+      <div class="group">${r.gone ? 'Köyde rakip aile yok' : esc(rP(w))}</div>
+      ${r.gone ? `<p class="note">${esc(String(w.flags.yokEdilen || ''))} köyden silindi. Boşluk uzun sürmez; yeni bir aile gelecek.</p>` : `
       <div class="labor"><span>${esc(feudLabel(r.feud))}</span><div class="meter heat"><i style="width:${Math.round(r.feud)}%"></i></div></div>
-      <p class="note">Köydeki rakip aile. Toprakları: ${w.plots.filter((x) => x.o === 'rakip').length} tarla. ${r.dead || r.theirDead ? `Kan davasında bizden ${r.dead}, onlardan ${r.theirDead} kişi öldü.` : 'Henüz kan dökülmedi.'} ${r.blood < 0 ? 'Onların kanı bizde.' : r.blood > 0 ? 'Bizim kanımız onlarda.' : ''}</p>
-      <div class="btnrow"><button class="small${r.lock ? ' danger' : ''}" data-lock="${r.lock ? 0 : 1}">${r.lock ? 'Erkekler yeniden dışarı çıksın' : 'Erkekler evden çıkmasın'}</button></div>
-      <p class="note">Evden çıkmayan erkekler pusuya düşmez ama çalışamaz da. Barış için misafir odası olan ev arabulucuyu ucuza ağırlar.</p>`;
+      <p class="note">Silah tutacak ${r.men} erkekleri var. Toprakları: ${w.plots.filter((x) => x.o === 'rakip').length} tarla. ${r.dead || r.theirDead ? `Kan davasında bizden ${r.dead}, onlardan ${r.theirDead} kişi öldü.` : 'Henüz kan dökülmedi.'} ${r.blood < 0 ? 'Onların kanı bizde.' : r.blood > 0 ? 'Bizim kanımız onlarda.' : ''}</p>
+      <div class="btnrow"><button class="small${r.lock ? ' danger' : ''}" data-lock="${r.lock ? 0 : 1}">${r.lock ? 'Erkekler yeniden dışarı çıksın' : 'Erkekler evden çıkmasın'}</button>
+        <button class="small danger" data-attack="1"${w.gang >= 2 ? '' : ' disabled'}>Adamlarını gönder (${w.gang} adam)</button></div>
+      <p class="note">Evden çıkmayan erkekler pusuya düşmez ama çalışamaz da. Korumalar pusuyu zorlaştırır. Baskın için en az iki adam gerekir; başarı adam sayısına bağlı, başarısız olursa adam kaybedersin. Erkekleri tükenen aile köyü terk eder.</p>`}
+      ${w.crew && !w.crew.gone ? `<div class="group">${esc(w.crew.name)}</div><div class="labor"><span>Husumet</span><div class="meter heat"><i style="width:${Math.round(w.crew.feud)}%"></i></div></div><p class="note">${CITY}'te ${w.crew.men} silahlı adamları ve ${w.crew.turf} mahalleleri var.</p>` : ''}`;
   }
 
   // ---------- Kronik ----------
@@ -658,6 +717,18 @@ export class App {
       if (a === 'buy3') this.toast(buyRaw(w, 3).msg);
       if (a === 'sell') this.toast(`Teslim edildi: ${lira(sellProduct(w))}`);
     })));
+    panel.querySelectorAll<HTMLButtonElement>('[data-gang]').forEach((b) => (b.onclick = act(() => this.toast(hire(w, Number(b.dataset.gang)).msg))));
+    panel.querySelectorAll<HTMLButtonElement>('[data-attack]').forEach((b) => (b.onclick = act(() => this.toast(attackRival(w).msg))));
+    panel.querySelectorAll<HTMLButtonElement>('[data-fac]').forEach((b) => (b.onclick = act(() => this.toast(buyFac(w, b.dataset.fac as FacId).msg))));
+    panel.querySelectorAll<HTMLSelectElement>('[data-facmgr]').forEach((sel) => {
+      sel.onchange = act(() => setFacMgr(w, sel.dataset.facmgr as FacId, sel.value || null));
+    });
+    panel.querySelectorAll<HTMLButtonElement>('[data-chome]').forEach((b) => (b.onclick = act(() => this.toast(buyCityHome(w).msg))));
+    panel.querySelectorAll<HTMLButtonElement>('[data-move]').forEach((b) => (b.onclick = act(() => {
+      this.toast(moveToCity(w, b.dataset.move === '1').msg);
+      if (this.map) this.map.mode = w.city.moved ? 'sehir' : 'koy';
+    })));
+    panel.querySelectorAll<HTMLButtonElement>('[data-turf]').forEach((b) => (b.onclick = act(() => this.toast(takeTurf(w).msg))));
     panel.querySelectorAll<HTMLButtonElement>('[data-lock]').forEach((b) => (b.onclick = act(() => setLock(w, b.dataset.lock === '1'))));
     panel.querySelectorAll<HTMLButtonElement>('[data-sow]').forEach((b) => (b.onclick = () => {
       const [fid, c] = b.dataset.sow!.split(':');
@@ -740,6 +811,17 @@ export class App {
           ${ch > 0 && w.hh.cash < price && !blk.length ? `<p class="note">Kasada ${lira(price - w.hh.cash)} eksik.</p>` : ''}
           ${ch > 0 ? `<div class="btnrow"><button class="primary sm" data-sheet="buy:${i}"${can ? '' : ' disabled'}>${st.sale ? 'Satın al' : 'Teklif ver'} (${lira(price)})</button></div>` : ''}`;
       }
+    } else if (pk.kind === 'fac') {
+      const f = pk.f;
+      const d = FACS[f];
+      const own = !!w.city.facs[f];
+      body = `<h3>${esc(d.ad)}${own ? ', bizim' : ''}</h3><p>${esc(d.desc)}</p>
+        <p>${own ? `Bu ay kazancı ${lira(facIncome(w, f))}. Ayda ${lira(d.launder * Math.pow(1.045, year(w.m) - 1965))} kara parayı aklayabilir.` : `Fiyatı ${lira(facPrice(w, f))}. Kara para tapuya geçmez; temiz parayla alınır.`}</p>
+        <div class="btnrow">${own ? '' : `<button class="primary sm" data-sheet="fac:${f}"${w.city.open && w.hh.cash >= facPrice(w, f) ? '' : ' disabled'}>Satın al</button>`}<button class="small" data-sheet="tab:sehir">Şehir sekmesi</button></div>`;
+    } else if (pk.kind === 'cityhome') {
+      body = `<h3>${w.city.home ? esc(HOMES[w.city.home].ad) : 'Şehirde ev'}</h3>
+        <p>${w.city.home ? (w.city.moved ? 'Aile burada yaşıyor.' : 'Ev hazır; aile hâlâ köyde.') : `${esc(CITY)}'te henüz evin yok.`}</p>
+        <div class="btnrow"><button class="small" data-sheet="tab:sehir">Şehir sekmesi</button></div>`;
     } else {
       const k = pk.k;
       if (k === 'evOyuncu') {
@@ -780,6 +862,8 @@ export class App {
       const r = buyPlot(w, Number(arg));
       if (r.ok && r.msg === 'ilk') this.ceremony = { price: w.hh.parcels[0].price };
       else this.toast(r.msg);
+    } else if (cmd === 'fac') {
+      this.toast(buyFac(w, arg as FacId).msg);
     } else if (cmd === 'agil') {
       this.toast(buyAgil(w).msg);
     } else if (cmd === 'house') {

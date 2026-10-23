@@ -230,3 +230,12 @@ details summary.group { cursor: pointer; }
 .doc.news ul { margin: 8px 0 0; padding: 0 20px 0 38px; font: 500 16px/1.45 var(--serif); }
 .doc.news li { margin: 6px 0; }
 .doc.news { max-height: 88vh; overflow-y: auto; }
+
+/* ---------- 0.5: şehir, kara kasa ---------- */
+.maptog { position: absolute; right: calc(10px + var(--safe-r)); top: 10px; display: flex; gap: 4px; }
+.maptog button { background: rgba(42, 33, 23, .85); border: 1px solid rgba(230, 214, 166, .25); border-radius: 6px; padding: 6px 12px; font-weight: 700; font-size: 14px; }
+.maptog button[aria-pressed='true'] { background: var(--wheat); color: var(--soil); border-color: var(--wheat); }
+.stat.dirty b { color: #b9a2d6; }
+[hidden] { display: none !important; }
+
+@media (max-width: 600px) { .top .stats { gap: 4px 12px; } .top .stats .stat { font-size: 14px; } }

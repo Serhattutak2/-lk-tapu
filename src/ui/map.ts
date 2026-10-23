@@ -1,5 +1,5 @@
 // İzometrik piksel köy: Karaçam. Düşük çözünürlükte çizilir, tam sayı katıyla büyütülür.
-import type { World } from '../core/types';
+import type { FacId, World } from '../core/types';
 import { monthOf } from '../core/calendar';
 import { hhMembers } from '../core/people';
 import { CROPS } from '../core/fields';
@@ -15,7 +15,7 @@ const R = 11; // köyün dışındaki bozkır halkası (karo)
 
 type Tile = 'g' | 'r' | 'f' | 'h' | 'p'; // çimen, yol, ağa tarlası, haşhaş, oyuncu parseli yuvası
 type Kind = 'ev' | 'evOyuncu' | 'kahve' | 'cami' | 'okul' | 'konak' | 'cesme' | 'kavak' | 'ahir' | 'bakkal' | 'degirmen' | 'agil';
-export type Pick = { kind: 'plot'; i: number } | { kind: 'bld'; k: 'evOyuncu' | 'kahve' | 'bakkal' | 'degirmen' | 'konak' | 'agil' };
+export type Pick = { kind: 'plot'; i: number } | { kind: 'bld'; k: 'evOyuncu' | 'kahve' | 'bakkal' | 'degirmen' | 'konak' | 'agil' } | { kind: 'fac'; f: FacId } | { kind: 'cityhome' };
 interface Bld { x: number; y: number; k: Kind; }
 
 const grid: Tile[][] = [];
@@ -363,7 +363,13 @@ function outline(g: CanvasRenderingContext2D, x0: number, y0: number, x1: number
 
 const TAPPABLE: string[] = ['evOyuncu', 'kahve', 'bakkal', 'degirmen', 'konak', 'agil'];
 
+/** Şehir: Çukurkent. Aynı izometrik ızgarada apartmanlar, sanayi, gazino, liman. */
+const FAC_AT: Record<FacId, [number, number]> = { un: [2, 8], tekstil: [4, 8], nakliye: [2, 10], insaat: [4, 10], gazino: [9, 9] };
+const isCRoad = (x: number, y: number) => x % 6 === 0 || y % 6 === 0;
+const isSea = (x: number, y: number) => x >= 15;
+
 export class VillageMap {
+  mode: 'koy' | 'sehir' = 'koy';
   selected: Pick | null = null;
   private tx = { ox: 0, oy: 0, s: 1, dpr: 1 };
   onPick: ((p: Pick | null) => void) | null = null;
@@ -398,6 +404,16 @@ export class VillageMap {
 
   /** Tampon koordinatından tarla ya da bina bulur. */
   private hit(X: number, Y: number): Pick | null {
+    if (this.mode === 'sehir') {
+      for (const f of Object.keys(FAC_AT) as FacId[]) {
+        const [fx, fy] = FAC_AT[f];
+        if (Math.abs(X - sx(fx, fy)) <= 10 && Y >= sy(fx, fy) - 26 && Y <= sy(fx, fy) + 8) return { kind: 'fac', f };
+      }
+      for (const [hx, hy] of [[2, 2], [13, 13]] as [number, number][]) {
+        if (Math.abs(X - sx(hx, hy)) <= 10 && Y >= sy(hx, hy) - 26 && Y <= sy(hx, hy) + 8) return { kind: 'cityhome' };
+      }
+      return null;
+    }
     for (const b of BLD) {
       if (!TAPPABLE.includes(b.k)) continue;
       const bx = sx(b.x, b.y);
@@ -451,6 +467,11 @@ export class VillageMap {
   private draw() {
     const w = this.getWorld();
     if (!w) return;
+    if (this.mode === 'sehir') {
+      this.drawCity(w);
+      this.blit(w);
+      return;
+    }
     const g = this.g;
     const p = palette(w.m);
     g.fillStyle = steppe(w.m, false);
@@ -647,6 +668,186 @@ export class VillageMap {
       }
     }
 
+    this.blit(w);
+  }
+
+  private drawCity(w: World) {
+    const g = this.g;
+    const t = this.t;
+    const snow0 = palette(w.m).snow;
+    g.fillStyle = snow0 ? '#d1d8db' : '#837f73';
+    g.fillRect(0, 0, W, H);
+    sky(g, w.m, t);
+    // uzak şehir silueti
+    for (let x = 0; x < W; x += 6) {
+      const h = 20 + Math.round(hash(x, 3) * 22);
+      g.fillStyle = '#8a96a0';
+      g.fillRect(x, HORIZON + 12 - h, 5, h);
+      if (hash(x, 9) > 0.7) {
+        g.fillStyle = '#c9d4db';
+        g.fillRect(x + 2, HORIZON + 14 - h, 1, 1);
+      }
+    }
+    const snow = palette(w.m).snow;
+    for (let s = -2 * R; s < 2 * (N + R); s++) {
+      for (let y = -R; y < N + R; y++) {
+        const x = s - y;
+        if (x < -R || x >= N + R) continue;
+        if (sy(x, y) + 8 < HORIZON + 2 || sy(x, y) > H || sx(x, y) < -10 || sx(x, y) > W + 10) continue;
+        const alt = (x + y) % 2 === 0;
+        let c = snow ? (alt ? '#dfe4e6' : '#d1d8db') : alt ? '#8d8a7e' : '#837f73';
+        if (isSea(x, y)) c = alt ? '#3d7c9e' : '#367294';
+        else if (isCRoad(x, y)) c = alt ? '#4c4c4e' : '#454547';
+        else if (x < 4 && y < 4) c = snow ? '#e7ecec' : alt ? '#6f9a48' : '#648d40';
+        diamond(g, x, y, c);
+        if (isSea(x, y) && (Math.floor(t / 5) + x * 3 + y) % 7 === 0) {
+          g.fillStyle = '#9cc9df';
+          g.fillRect(sx(x, y) - 2, sy(x, y) + 3, 3, 1);
+        }
+        if (isCRoad(x, y) && !isSea(x, y) && (x + y) % 2 === 0) {
+          g.fillStyle = '#c9b45a';
+          g.fillRect(sx(x, y), sy(x, y) + 4, 1, 1);
+        }
+      }
+    }
+    // binalar: ressam sırası
+    const items: { d: number; f: () => void }[] = [];
+    for (let y = 0; y < N; y++) {
+      for (let x = 0; x < N; x++) {
+        if (isCRoad(x, y) || isSea(x, y) || (x < 4 && y < 4)) continue;
+        const fac = (Object.keys(FAC_AT) as FacId[]).find((f) => FAC_AT[f][0] === x && FAC_AT[f][1] === y);
+        const d = x + y;
+        if (fac) {
+          items.push({ d, f: () => this.facSprite(w, fac, x, y) });
+          continue;
+        }
+        if ((x === 1 || x === 3 || x === 5) && y >= 7 && y <= 11) continue; // sanayi boşlukları
+        const hv = hash(x, y);
+        if (hv < 0.3) {
+          // park ve meydan
+          items.push({
+            d,
+            f: () => {
+              const X = sx(x, y);
+              const Y = sy(x, y);
+              g.fillStyle = snow ? '#c9d2d4' : '#6b8f45';
+              g.fillRect(X - 6, Y + 2, 12, 4);
+              g.fillStyle = '#5d4a33';
+              g.fillRect(X, Y - 3, 1, 5);
+              g.fillStyle = snow ? '#9aa7a9' : '#4f7a35';
+              g.fillRect(X - 2, Y - 8, 5, 5);
+            },
+          });
+          continue;
+        }
+        const h = 6 + Math.round(hv * 16);
+        const tone = ['#d8d0bf', '#cbbfa6', '#e2d6c4', '#bfb6a8', '#d6c3a9'][Math.floor(hash(y, x) * 5)];
+        items.push({
+          d,
+          f: () => {
+            block(g, x, y, h, tone, shade(tone, -28), shade(tone, 12), 1);
+            const X = sx(x, y);
+            const Y = sy(x, y) + 4 - h;
+            for (let k = 2; k < h - 1; k += 3) {
+              g.fillStyle = hash(x * 7 + k, y + t / 40) > 0.6 ? '#f2d98a' : '#5f6f7c';
+              g.fillRect(X - 5, Y + k + 2, 1, 1);
+              g.fillRect(X + 3, Y + k + 1, 1, 1);
+            }
+            if (x === 13 && y === 13 && w.city.home >= 1) {
+              g.fillStyle = '#a3322a';
+              g.fillRect(X + 1, Y - 6, 3, 2);
+              g.fillRect(X, Y - 6, 1, 6);
+            }
+          },
+        });
+      }
+    }
+    // villa
+    if (w.city.home >= 2) {
+      items.push({
+        d: 4,
+        f: () => {
+          block(g, 2, 2, 9, '#f4efe4', '#d8d0c0', '#f4efe4', 0);
+          roof(g, 2, 2, 9, '#a3322a', '#842820', 5);
+          g.fillStyle = '#5fb3d6';
+          g.fillRect(sx(2, 3) - 4, sy(2, 3) + 2, 8, 3);
+          g.fillStyle = '#d9a441';
+          g.fillRect(sx(2, 2) - 1, sy(2, 2) - 22, 1, 6);
+        },
+      });
+    }
+    items.sort((a, b) => a.d - b.d).forEach((it) => it.f());
+    // araçlar
+    for (let k = 0; k < 8; k++) {
+      const along = (t * 0.6 + k * 23) % (N * 1.0);
+      const lane = (k % 3) * 6;
+      const horiz = k % 2 === 0;
+      const x = horiz ? along : lane;
+      const y = horiz ? lane : along;
+      g.fillStyle = ['#c0392b', '#e0c341', '#2f5d8a', '#ddd'][k % 4];
+      g.fillRect(Math.round(sx(x, y)) - 1, Math.round(sy(x, y)) + 3, 3, 2);
+    }
+    // gemi
+    const sxp = sx(16, 4 + ((t / 30) % 8));
+    g.fillStyle = '#2b2b2b';
+    g.fillRect(sxp - 8, sy(16, 4 + ((t / 30) % 8)) + 2, 14, 3);
+    g.fillStyle = '#c0392b';
+    g.fillRect(sxp - 2, sy(16, 4 + ((t / 30) % 8)) - 2, 3, 4);
+    if (this.selected && this.selected.kind === 'fac') {
+      const [fx, fy] = FAC_AT[this.selected.f];
+      if (Math.floor(t / 4) % 2 === 0) outline(g, fx, fy, fx, fy);
+    }
+  }
+
+  private facSprite(w: World, f: FacId, x: number, y: number) {
+    const g = this.g;
+    const t = this.t;
+    const own = !!w.city.facs[f];
+    const X = sx(x, y);
+    const Y = sy(x, y);
+    if (f === 'gazino') {
+      block(g, x, y, 12, '#3b2a4a', '#2d2038', '#4b365e', 0);
+      const on = Math.floor(t / 3) % 2 === 0;
+      g.fillStyle = on ? '#ff4fa0' : '#ffd24f';
+      g.fillRect(X - 6, Y - 10, 12, 2);
+      g.fillStyle = on ? '#ffd24f' : '#ff4fa0';
+      g.fillRect(X - 4, Y - 6, 2, 1);
+      g.fillRect(X + 2, Y - 7, 2, 1);
+    } else {
+      const col = f === 'un' ? '#d9cfb8' : f === 'tekstil' ? '#b9a69a' : f === 'nakliye' ? '#9aa2a8' : '#c8b07a';
+      block(g, x, y, f === 'insaat' ? 6 : 10, col, shade(col, -30), shade(col, 10), 0);
+      if (f === 'insaat') {
+        g.fillStyle = '#e0a020';
+        g.fillRect(X + 2, Y - 30, 1, 26);
+        g.fillRect(X - 8, Y - 30, 16, 1);
+        g.fillRect(X - 8, Y - 29 + (Math.floor(t / 8) % 6), 1, 4);
+      } else {
+        g.fillStyle = '#7a6a5a';
+        g.fillRect(X + 3, Y - 22, 2, 14);
+        if (own || f === 'un') {
+          for (let i = 0; i < 4; i++) {
+            const k = (t / 2 + i * 5) % 18;
+            g.fillStyle = `rgba(200,200,200,${0.6 - k / 32})`;
+            g.fillRect(X + 3 + Math.round(Math.sin((t + i * 6) / 5) * 2), Y - 24 - k, 2, 2);
+          }
+        }
+        if (f === 'nakliye') {
+          g.fillStyle = '#c0392b';
+          g.fillRect(X - 10, Y + 3, 6, 3);
+          g.fillRect(X - 3, Y + 5, 6, 3);
+        }
+      }
+    }
+    if (own) {
+      g.fillStyle = '#4a3624';
+      g.fillRect(X - 8, Y - 18, 1, 10);
+      g.fillStyle = '#a3322a';
+      g.fillRect(X - 7, Y - 18 + (Math.floor(t / 6) % 2), 4, 3);
+    }
+  }
+
+  private blit(w: World) {
+    const p = palette(w.m);
     // Ekrana ölçekle
     const c = this.canvas;
     const dpr = Math.min(3, window.devicePixelRatio || 1);
@@ -658,7 +859,7 @@ export class VillageMap {
     }
     const o = this.out;
     o.imageSmoothingEnabled = false;
-    o.fillStyle = steppe(w.m, false);
+    o.fillStyle = this.mode === 'sehir' ? (p.snow ? '#d1d8db' : '#837f73') : steppe(w.m, false);
     o.fillRect(0, 0, cw, ch);
     // Köyün kapladığı alan (yaklaşık 300x170) ekrana sığar; çevresi bozkır ve dağlarla dolar
     const s = Math.min(cw / 300, ch / 170);

@@ -9,7 +9,9 @@ import { infl, monthOf, year } from './calendar';
 import { assignWorker, CROPS, hasRuhsat, idleWage, laborNeed, monthlyFields, sow, sowableNow, staffAll, workersOf } from './fields';
 import { monthlyCrime } from './crime';
 import { monthlyLab } from './lab';
-import { lockedOut, monthlyFeud, setLock } from './feud';
+import { attackRival, lockedOut, monthlyFeud, setLock } from './feud';
+import { buyCityHome, buyFac, cityEvents, FACS, facPrice, hire, homePrice, monthlyBaron, moveToCity, setFacMgr, takeTurf } from './baron';
+import type { FacId } from './types';
 import { buildRoom, canBuild, crowded, monthlyHome, roomPrice } from './home';
 import { AGIL_PRICE, buildLab, buyAgil, buyRaw, cevdetPay, hamPrice, hireCevdet, labPrice, moveStash, sellProduct, unlocked } from './lab';
 import { BIZ, bizManager, buyBiz, buyHouse, buyPlot, buyVehicle, housePrice, monthlyAssets, nam, setManager, vehiclePrice } from './assets';
@@ -71,6 +73,8 @@ function economy(w: World, harvestBonus: number) {
   monthlyHome(w, lines);
   monthlyLab(w, lines);
   monthlyFeud(w, lines);
+  monthlyBaron(w, lines);
+  cityEvents(w);
 
   let food = 0;
   let housework = false;
@@ -234,7 +238,7 @@ export function botTurn(w: World) {
     if (c.id === 'kacakci') k = chance(w, 0.5) ? 'evet' : 'hayir';
     if (c.id === 'hashas_hasat') k = c.opts[Math.min(c.opts.length - 1, chance(w, 0.6) ? 0 : 1)].k;
     if (c.id === 'aga_kiz') k = chance(w, 0.5) ? 'ver' : 'ret';
-    if (c.id === 'kan' || c.id === 'kacirma' || c.id === 'sinir' || c.id === 'ayri_ev' || c.id === 'cevdet_ihanet') k = c.opts[Math.floor(rint(w, 0, c.opts.length - 1))].k;
+    if (c.id === 'cete' || c.id === 'riza_taht' || c.id === 'kan' || c.id === 'kacirma' || c.id === 'sinir' || c.id === 'ayri_ev' || c.id === 'cevdet_ihanet') k = c.opts[Math.floor(rint(w, 0, c.opts.length - 1))].k;
     resolveCard(w, c.uid, k);
   }
   botFields(w);
@@ -299,12 +303,29 @@ function botEstate(w: World) {
   if (!unlocked(w) && chance(w, 0.5)) {
     if (!w.hh.agil && w.hh.cash > 4 * AGIL_PRICE * infl(w.m)) buyAgil(w);
     const lvl = w.lab?.lvl || 0;
-    if (w.hh.agil && lvl < 3 && w.hh.cash > labPrice(w, lvl + 1) * 2) buildLab(w, 'agil');
+    if (w.hh.agil && lvl < 3 && w.hh.cash + w.dirty > labPrice(w, lvl + 1) * 2) buildLab(w, 'agil');
+  }
+  // Adamlar ve kan davası
+  if (w.flags.kacakci && w.dirty > 40000 * infl(w.m) && w.gang < 12) hire(w, 1);
+  if (w.rival.feud >= 80 && w.gang >= 3 && chance(w, 0.1)) attackRival(w);
+  // Şehir
+  if (w.city.open) {
+    for (const f of Object.keys(FACS) as FacId[]) {
+      if (!w.city.facs[f] && w.hh.cash > facPrice(w, f) * 1.5) {
+        if (buyFac(w, f).ok) {
+          const m = hhMembers(w).find((q) => !q.away && q.job === 'tarla' && age(w, q) >= 20 && q.id !== w.playerId);
+          if (m) setFacMgr(w, f, m.id);
+        }
+      }
+    }
+    if (w.city.home < 2 && w.hh.cash > homePrice(w, w.city.home + 1) * 2) buyCityHome(w);
+    if (w.city.home && !w.city.moved && Object.keys(w.city.facs).length >= 2) moveToCity(w, true);
+    if (w.city.moved && w.gang >= 6 + w.city.turf * 2 && chance(w, 0.05)) takeTurf(w);
   }
   if (w.lab) {
-    if (!w.lab.chem && w.hh.cash > cevdetPay(w) * 12) hireCevdet(w, true);
+    if (!w.lab.chem && w.hh.cash + w.dirty > cevdetPay(w) * 12) hireCevdet(w, true);
     moveStash(w);
-    if (w.lab.raw < 2 && w.hh.cash > hamPrice(w) * 6 + reserve) buyRaw(w, 3);
+    if (w.lab.raw < 2 && w.hh.cash + w.dirty > hamPrice(w) * 6 + reserve) buyRaw(w, 3);
     if (w.lab.prod + w.lab.hap >= 4 && w.heat < 70) sellProduct(w);
   }
   staffAll(w);

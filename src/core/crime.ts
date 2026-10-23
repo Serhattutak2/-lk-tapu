@@ -7,6 +7,7 @@ import { dateText, infl, monthOf, year } from './calendar';
 import { BAN_FROM, BAN_TO, isBanYear } from './fields';
 import { pushCard } from './cards';
 import { SITES } from './lab';
+import { payDirtyFirst } from './baron';
 import { makeSpouseFor, marry } from './life';
 
 export const heatLabel = (h: number) => (h < 15 ? 'Kimse bakmıyor' : h < 35 ? 'Adın geçiyor' : h < 60 ? 'Jandarma soruyor' : 'Gözetim altındasın');
@@ -78,7 +79,7 @@ export function crimeCards(w: World): boolean {
     const bc = bribeCost(w) * (labFound ? 2 : 1);
     const sg = scapegoats(w)[0];
     const opts: { t: string; k: string }[] = [];
-    if (w.hh.cash >= bc) opts.push({ t: `Komutana zarf ver (${fmt(bc)} lira)`, k: 'rusvet' });
+    if (w.hh.cash + w.dirty >= bc) opts.push({ t: `Komutana zarf ver (${fmt(bc)} lira)`, k: 'rusvet' });
     if (sg) opts.push({ t: `Suçu ${sg.first} üstlensin`, k: 'ustlen:' + sg.id });
     opts.push({ t: 'Suçu ben üstleneyim', k: 'ustlen:' + pl.id });
     pushCard(w, {
@@ -180,7 +181,7 @@ export function resolveCrime(w: World, c: Card, k: string): boolean {
     case 'baskin': {
       if (k === 'rusvet') {
         const b = c.data!.bribe as number;
-        w.hh.cash -= b;
+        payDirtyFirst(w, b);
         w.heat = clamp(w.heat * 0.6, 0, 100);
         log(w, `Jandarma baskını ${fmt(b)} liralık bir zarfla kapandı. Zula yerinde kaldı.`, 'olay');
         return true;

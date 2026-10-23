@@ -6,7 +6,7 @@ import { log, makePerson, seedSkills } from './people';
 import { defaultJob } from './jobs';
 import { initPlots, PLOTS } from './plots';
 
-export const VERSION = 4;
+export const VERSION = 5;
 export const START_M = 2; // Mart 1965
 
 export interface NewGameOpts {
@@ -42,6 +42,10 @@ export function newWorld(o: NewGameOpts = {}): World {
     plots: [],
     lab: null,
     rival: newRival(),
+    dirty: 0,
+    gang: 0,
+    city: newCity(),
+    crew: null,
     over: null,
   };
   const surname = o.surname?.trim() || pick(w, SURNAMES);
@@ -85,8 +89,12 @@ export function newWorld(o: NewGameOpts = {}): World {
   return w;
 }
 
-export function newRival() {
-  return { name: 'Kocabaş', power: 25, feud: 0, blood: 0, lock: false, dead: 0, theirDead: 0, peaceM: 0 };
+export function newRival(name = 'Kocabaş', m = 0, men = 6) {
+  return { name, power: 25, feud: 0, blood: 0, lock: false, dead: 0, theirDead: 0, peaceM: 0, men, gone: false, since: m };
+}
+
+export function newCity() {
+  return { open: false, home: 0, moved: false, facs: {}, turf: 0, net: false, laundered: 0 };
 }
 
 /** Eski kayıtları güncel veri modeline taşır. */
@@ -109,6 +117,13 @@ export function migrate(w: World): World {
   w.hh.agil ??= false;
   w.lab ??= null;
   w.rival ??= newRival();
+  w.rival.men ??= 6;
+  w.rival.gone ??= false;
+  w.rival.since ??= 0;
+  w.dirty ??= 0;
+  w.gang ??= 0;
+  w.city ??= newCity();
+  w.crew ??= null;
   for (const f of w.hh.parcels) {
     f.mode ??= 'kendi';
     f.trac ??= 0;

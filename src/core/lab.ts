@@ -6,6 +6,7 @@ import { age, alive, fullName, hhMembers, log, P } from './people';
 import { infl, year } from './calendar';
 import { pushCard } from './cards';
 import { die } from './life';
+import { canPay, netBonus, payDirtyFirst } from './baron';
 
 export interface LabLevel { lvl: number; ad: string; price: number; cap: number; from: number; desc: string; }
 export const LAB_LEVELS: LabLevel[] = [
@@ -26,6 +27,9 @@ export const PAKET_PRICE = 3000;
 export const HAP_PRICE = 6400;
 export const HAM_PRICE = 1400;
 export const CEVDET_PAY = 1100;
+
+/** Şebeke, ortaklık ve nakliye şirketi satış fiyatını artırır. */
+export const routeBonus = (w: World) => netBonus(w) * (w.city?.facs?.nakliye ? 1.15 : 1);
 
 export const paketPrice = (w: World) => Math.round(PAKET_PRICE * infl(w.m));
 export const hapPrice = (w: World) => Math.round(HAP_PRICE * infl(w.m));
@@ -75,8 +79,8 @@ export function buildLab(w: World, site: LabSite): { ok: boolean; msg: string } 
   const L = LAB_LEVELS[next];
   if (year(w.m) < L.from) return { ok: false, msg: `${L.ad} ancak ${L.from}'den sonra kurulabilir.` };
   const price = labPrice(w, next);
-  if (w.hh.cash < price) return { ok: false, msg: `${(price - w.hh.cash).toLocaleString('tr-TR')} lira eksik.` };
-  w.hh.cash -= price;
+  if (!canPay(w, price)) return { ok: false, msg: `${(price - w.hh.cash - w.dirty).toLocaleString('tr-TR')} lira eksik.` };
+  payDirtyFirst(w, price);
   if (!w.lab) w.lab = { lvl: 1, site, raw: 0, prod: 0, hap: 0, chem: null, q: 0.5, made: 0 };
   else {
     w.lab.lvl = next;
@@ -107,8 +111,8 @@ export function hireCevdet(w: World, on: boolean) {
 export function buyRaw(w: World, n: number): { ok: boolean; msg: string } {
   if (!w.lab) return { ok: false, msg: 'Atölye yok.' };
   const cost = n * hamPrice(w);
-  if (w.hh.cash < cost) return { ok: false, msg: 'Para yetmiyor.' };
-  w.hh.cash -= cost;
+  if (!canPay(w, cost)) return { ok: false, msg: 'Para yetmiyor.' };
+  payDirtyFirst(w, cost);
   w.lab.raw += n;
   w.heat = clamp(w.heat + n * 0.4, 0, 100);
   return { ok: true, msg: `Rıza'dan ${n} çuval ham mal geldi.` };
@@ -126,11 +130,11 @@ export function sellProduct(w: World): number {
   const lab = w.lab;
   if (!lab || (!lab.prod && !lab.hap)) return 0;
   const qf = 0.7 + lab.q * 0.6;
-  const v = Math.round((lab.prod * paketPrice(w) + lab.hap * hapPrice(w)) * qf);
+  const v = Math.round((lab.prod * paketPrice(w) + lab.hap * hapPrice(w)) * qf * routeBonus(w));
   w.heat = clamp(w.heat + lab.prod * 2.2 + lab.hap * 3, 0, 100);
-  w.hh.cash += v;
+  w.dirty += v;
   w.flags.labKazanc = Number(w.flags.labKazanc || 0) + v;
-  log(w, `Kara Rıza'nın adamları ${lab.prod ? `${lab.prod} paket` : ''}${lab.prod && lab.hap ? ' ve ' : ''}${lab.hap ? `${lab.hap} koli hap` : ''} aldı: ${v.toLocaleString('tr-TR')} lira.`, 'olay');
+  log(w, `${w.city.net ? 'Şebekenin dağıtıcıları' : "Kara Rıza'nın adamları"} ${lab.prod ? `${lab.prod} paket` : ''}${lab.prod && lab.hap ? ' ve ' : ''}${lab.hap ? `${lab.hap} koli hap` : ''} aldı: ${v.toLocaleString('tr-TR')} lira kara kasaya girdi.`, 'olay');
   lab.prod = 0;
   lab.hap = 0;
   return v;
@@ -142,7 +146,7 @@ export function monthlyLab(w: World, lines: LedgerLine[]) {
   if (!lab) return;
   if (lab.chem === 'cevdet') {
     const pay = cevdetPay(w);
-    w.hh.cash -= pay;
+    payDirtyFirst(w, pay);
     lines.push({ t: 'Kimyager Cevdet: aylığı', v: -pay });
   }
   const cap = labCapacity(w);

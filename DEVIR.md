@@ -24,7 +24,8 @@ Bu dosya projeyi başka bir yapay zekâ ya da geliştiriciyle sürdürmek için 
 | `core/assets.ts` | Ev (4 kademe), taşıtlar (eşek, at arabası, traktör, otomobil, kamyon), köy işletmeleri (bakkal, kahvehane, değirmen), nam ve unvan, toprak alımı `buyPlot` |
 | `core/home.ts` | Ev içi: odalar (`ROOMS`), kapasite, kalabalık evde huzursuzluk, ayrılmak isteyen oğul kartı (`ayri_ev`). Aile kolları artık kendiliğinden ayrılmaz |
 | `core/lab.ts` | Gizli atölye: SOYUT üretim zinciri (ham mal → paket → hap), yer seçimi (bodrum/değirmen/ağıl), Kimyager Cevdet, kaza, ihanet. Gerçek kimya ya da yöntem yok ve eklenmeyecek |
-| `core/feud.ts` | Rakip aile Kocabaşlar: toprak kapma, sınır kavgası, kız kaçırma, pusu, intikam/diyet/sabır, barış sofrası, erkekleri eve kapatma |
+| `core/feud.ts` | Köydeki rakip aile (`w.rival`; Kocabaş, sonra Sarıkaya, Bozbey, Gümüşdere). Erkekleri tükenen aile silinir (`checkGone`), yerine yenisi gelir. Adamlarla baskın (`attackRival`). toprak kapma, sınır kavgası, kız kaçırma, pusu, intikam/diyet/sabır, barış sofrası, erkekleri eve kapatma |
+| `core/baron.ts` | Kara para (`w.dirty`) ve aklama, maaşlı adamlar (`w.gang`), Kara Rıza'nın şebekesi, Çukurkent: fabrikalar (`FACS`), şehir evi, taşınma, mahalleler, rakip çete (`w.crew`), yeraltı unvanı (Baron) |
 | `core/sim.ts` | Aylık adım `advance`: ekonomi, beceri ve sağlık, yaşam, kartlar. Oyuncu eylemleri: `setJob`, `setHeir`, `payDebt`, `resolveCard`. Test botu `botTurn` |
 | `ui/app.ts` | Açılış, oyun ekranı, Aile/Hane/Kronik panelleri, olay kartı (evrak görünümü), ilk tapu töreni, son ekranı. Kayıt anahtarı `ilktapu_v1` |
 | `ui/map.ts` | İzometrik piksel köy; 320×196 tampona çizilir, ekrana büyütülür. `SLOTS` oyuncunun parselleri |
