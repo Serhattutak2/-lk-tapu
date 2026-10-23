@@ -5,7 +5,7 @@ import { SURNAMES } from './names';
 import { log, makePerson, seedSkills } from './people';
 import { defaultJob } from './jobs';
 
-export const VERSION = 1;
+export const VERSION = 2;
 export const START_M = 2; // Mart 1965
 
 export interface NewGameOpts {
@@ -26,7 +26,7 @@ export function newWorld(o: NewGameOpts = {}): World {
     nextCard: 1,
     surname: '',
     people: {},
-    hh: { cash: 0, debt: 0, rent: 50, land: 0, members: [] },
+    hh: { cash: 0, debt: 0, rent: 50, land: 0, members: [], parcels: [], stash: 0 },
     playerId: '',
     heirId: null,
     cards: [],
@@ -35,6 +35,9 @@ export function newWorld(o: NewGameOpts = {}): World {
     rain: 1,
     lastIncome: 0,
     lastExpense: 0,
+    lines: [],
+    heat: 0,
+    ruhsat: 0,
     over: null,
   };
   const surname = o.surname?.trim() || pick(w, SURNAMES);
@@ -74,5 +77,22 @@ export function newWorld(o: NewGameOpts = {}): World {
   nine.job = 'ev';
 
   log(w, `${surname} ailesi, Karaçam köyünde kirada oturdukları eski evde yaşıyor. Kendilerine ait bir karış toprakları yok; ağaya ${w.hh.debt} lira borçlular.`, 'olay');
+  return w;
+}
+
+/** Eski kayıtları güncel veri modeline taşır. */
+export function migrate(w: World): World {
+  if (!w.hh.parcels) {
+    w.hh.parcels = [];
+    const n = Math.floor((w.hh.land || 0) / 5);
+    for (let i = 0; i < n; i++) {
+      w.hh.parcels.push({ id: 'f' + w.nextId++, no: i + 1, boughtM: w.m, price: 0, crop: null, sownM: 0, illegal: false, hired: 0, careSum: 0, careN: 0, lastNeed: 0, lastGot: 0, hist: [] });
+    }
+  }
+  w.hh.stash ??= 0;
+  w.lines ??= [];
+  w.heat ??= 0;
+  w.ruhsat ??= 0;
+  w.v = VERSION;
   return w;
 }

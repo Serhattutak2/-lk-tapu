@@ -20,6 +20,7 @@ export interface JobDef {
 
 export const JOBS: Record<JobId, JobDef> = {
   tarla: { id: 'tarla', ad: 'Tarla gündelikçisi', skill: 'tarim', minAge: 11, maxAge: 70, summer: 215, winter: 50, physical: true, risk: 0.0004, gain: 1.4, desc: 'Ağanın ve büyük çiftçilerin tarlasında gündelik iş. Yazın bol, kışın yok gibi.' },
+  kendi: { id: 'kendi', ad: 'Kendi tarlamızda', skill: 'tarim', minAge: 10, maxAge: 75, summer: 0, winter: 0, physical: true, risk: 0.0003, gain: 0, desc: 'Ailenin kendi parselinde çalışır. Parselde iş yokken başkasının tarlasına gündeliğe gider.', unlock: (w) => w.hh.parcels.length > 0 },
   coban: { id: 'coban', ad: 'Çoban', skill: 'tarim', minAge: 10, maxAge: 70, summer: 130, winter: 110, physical: true, risk: 0.0003, gain: 0.8, desc: 'Köyün sürüsünü otlatır. Az ama her ay kazanç.' },
   insaat: { id: 'insaat', ad: 'İnşaat işçisi', skill: 'insaat', minAge: 15, maxAge: 60, summer: 300, winter: 80, physical: true, risk: 0.0014, gain: 1.6, desc: 'İlçedeki şantiyelerde iş. İyi para, ama kaza riski yüksek.' },
   cirak: { id: 'cirak', ad: 'Demirci çırağı', skill: 'zanaat', minAge: 11, maxAge: 30, summer: 80, winter: 80, physical: false, risk: 0.0002, gain: 2.6, desc: 'Az kazanır ama hızlı öğrenir. Yeterince ustalaşınca usta olur.' },

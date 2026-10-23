@@ -4,7 +4,8 @@
 
 export type Sex = 'E' | 'K';
 export type SkillId = 'tarim' | 'insaat' | 'zanaat' | 'ticaret';
-export type JobId = 'tarla' | 'coban' | 'insaat' | 'cirak' | 'usta' | 'tuccar' | 'ev' | 'okul' | 'yok';
+export type JobId = 'tarla' | 'kendi' | 'coban' | 'insaat' | 'cirak' | 'usta' | 'tuccar' | 'ev' | 'okul' | 'yok';
+export type CropId = 'bugday' | 'arpa' | 'nohut' | 'pancar' | 'hashas';
 
 export interface Traits {
   zeka: number;  // 1-10
@@ -27,13 +28,14 @@ export interface Person {
   kids: string[];
   blood: boolean;       // hanedanın kan bağı
   inHH: boolean;        // oyuncunun hanesinde mi yaşıyor
-  away?: 'gurbet';
+  away?: 'gurbet' | 'hapis';
   awayUntil?: number;
   hp: number;           // sağlık 0-100
   sick?: number;        // kalan hastalık ayı
   tr: Traits;
   sk: Record<SkillId, number>; // 0-100
   job: JobId;
+  parcel?: string;      // job === 'kendi' ise çalıştığı parsel
   rel: number;          // oyuncuya bağlılık -100..100
 }
 
@@ -58,12 +60,35 @@ export interface Card {
   data?: Record<string, unknown>;
 }
 
+export interface Parcel {
+  id: string;
+  no: number;           // 1. parsel, 2. parsel…
+  boughtM: number;
+  price: number;
+  crop: CropId | null;
+  sownM: number;
+  illegal: boolean;     // ruhsatsız haşhaş
+  hired: number;        // dışarıdan tutulan ırgat sayısı
+  careSum: number;      // bakım puanı birikimi
+  careN: number;
+  lastNeed: number;     // geçen ayki iş gücü ihtiyacı
+  lastGot: number;      // geçen ay gelen iş gücü
+  hist: { m: number; crop: CropId; v: number; t: string }[];
+}
+
 export interface Household {
   cash: number;
   debt: number;
   rent: number;
-  land: number;         // sahip olunan dönüm
+  land: number;         // sahip olunan dönüm (parsel sayısı × 5)
   members: string[];
+  parcels: Parcel[];
+  stash: number;        // zuladaki çuval
+}
+
+export interface LedgerLine {
+  t: string;
+  v: number;
 }
 
 export interface World {
@@ -84,5 +109,8 @@ export interface World {
   rain: number;         // bu yılın yağış çarpanı
   lastIncome: number;
   lastExpense: number;
+  lines: LedgerLine[];  // geçen ayın gelir-gider dökümü
+  heat: number;         // jandarmanın dikkati 0-100
+  ruhsat: number;       // haşhaş ruhsatının geçerli olduğu yıl (0 = yok)
   over: null | { m: number; reason: string };
 }

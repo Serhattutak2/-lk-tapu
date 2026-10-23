@@ -6,13 +6,24 @@ import { FEMALE, MALE, SURNAMES } from './names';
 import { age, alive, fullName, hhMembers, log, makePerson, P, removeFromHH } from './people';
 import { dateText, infl, monthOf, year } from './calendar';
 import { marry, resolveSuccession } from './life';
+import { newParcel, resolveHashas } from './fields';
+import { crimeCards, resolveCrime } from './crime';
 
 export function pushCard(w: World, c: Omit<Card, 'uid' | 'm'>) {
   w.cards.push({ ...c, uid: w.nextCard++, m: w.m });
 }
 
 /** Toprak fiyatı: 5 dönüm, yıllar geçtikçe pahalanır. */
-export const landPrice = (w: World) => Math.round((8500 * infl(w.m)) / 100) * 100;
+export const landPrice = (w: World) => Math.round((11000 * infl(w.m) * (1 + w.hh.parcels.length * 0.08)) / 100) * 100;
+
+/** Toprak almaya ne engel? Boş dizi = alabilir. */
+export function landBlockers(w: World): string[] {
+  const out: string[] = [];
+  if (w.hh.debt > 0) out.push('Ağaya borcun varken kimse sana toprak satmaz; önce borç kapanmalı.');
+  if (((w.flags.agaKin as number) || 0) >= year(w.m)) out.push(`Ağa köyde "o aileye toprak satmayın" dedi; ${w.flags.agaKin} yılına kadar kimse satmaya cesaret edemez.`);
+  if (w.hh.cash < landPrice(w)) out.push(`Kasada ${(landPrice(w) - w.hh.cash).toLocaleString('tr-TR')} lira eksik.`);
+  return out;
+}
 
 type Resolver = (w: World, c: Card, k: string) => void;
 
@@ -59,6 +70,7 @@ const RESOLVE: Record<string, Resolver> = {
     p.away = 'gurbet';
     p.awayUntil = w.m + 12 * rint(w, 4, 9);
     p.job = 'yok';
+    p.parcel = undefined;
     log(w, `${fullName(p)} Almanya'ya işçi olarak gitti. Yol parası 250 lira.`, 'olay');
   },
 
@@ -82,8 +94,8 @@ const RESOLVE: Record<string, Resolver> = {
       return;
     }
     w.hh.cash -= price;
-    const first = w.hh.land === 0;
-    w.hh.land += 5;
+    const first = w.hh.parcels.length === 0;
+    newParcel(w, price);
     if (first) {
       w.flags.ilkTapu = w.m;
       log(w, `İLK TAPU: ${w.surname} ailesi ${price} liraya Karaçam'ın kenarında 5 dönüm tarla aldı. Ailenin ilk kendi toprağı.`, 'tapu');
@@ -92,6 +104,7 @@ const RESOLVE: Record<string, Resolver> = {
     }
   },
 
+  hashas_hasat: (w, c, k) => resolveHashas(w, c.data!.sacks as number, c.data!.parcel as number, k),
   bilgi: () => {},
 };
 
@@ -99,7 +112,14 @@ export function resolveCard(w: World, uid: number, k: string) {
   const i = w.cards.findIndex((c) => c.uid === uid);
   if (i < 0) return;
   const [c] = w.cards.splice(i, 1);
-  RESOLVE[c.id]?.(w, c, k);
+  if (RESOLVE[c.id]) RESOLVE[c.id](w, c, k);
+  else resolveCrime(w, c, k);
+  if (w.hh.cash < 0) {
+    // Kasada olmayan para ağadan borç alınır
+    w.hh.debt += -w.hh.cash;
+    log(w, `Kasada para yoktu; ${-w.hh.cash} lira ağadan borç alındı.`, 'para');
+    w.hh.cash = 0;
+  }
 }
 
 /** Her ay çağrılır: koşullara göre yeni kartlar üretir. */
@@ -109,6 +129,7 @@ export function generateCards(w: World) {
   if (!alive(pl)) return;
   const pa = age(w, pl);
   const yr = year(w.m);
+  if (crimeCards(w)) return;
 
   // Görücü
   if (pa >= 18 && pa <= 45 && !alive(P(w, pl.sp)) && !pl.sp && chance(w, 0.08)) {
@@ -128,12 +149,12 @@ export function generateCards(w: World) {
 
   // İlk tapu ya da yeni tarla
   const price = landPrice(w);
-  if (w.hh.cash >= price && (w.hh.land === 0 ? chance(w, 0.35) : chance(w, 0.03))) {
+  if (landBlockers(w).length === 0 && w.hh.parcels.length < 8 && (w.hh.parcels.length === 0 ? chance(w, 0.25) : chance(w, 0.03))) {
     pushCard(w, {
       id: 'tapu',
-      text: w.hh.land === 0
-        ? `Köyün kenarında 5 dönüm tarla satılık: ${price} lira. Bu ailenin ilk kendi toprağı olur. Kendi tarlanın hasadı her yıl Eylül'de senin olur.`
-        : `Komşu parsel satılık: 5 dönüm, ${price} lira. Toprağın büyür, hasadın artar.`,
+      text: w.hh.parcels.length === 0
+        ? `Gurbete giden Deli Hamza'nın köy kenarındaki 5 dönüm tarlası satılık: ${price.toLocaleString('tr-TR')} lira. Bu, ailenin ilk kendi toprağı olur. Ne ekeceğine, kimi çalıştıracağına sen karar verirsin.`
+        : `Komşu parsel satılık: 5 dönüm, ${price.toLocaleString('tr-TR')} lira. Toprağın büyür, ama işçisini de bulman gerekir.`,
       opts: [{ t: `Satın al (${price} lira)`, k: 'al' }, { t: 'Bekle', k: 'bekle' }],
       data: { price },
     });
@@ -207,6 +228,7 @@ export function gurbetReturns(w: World) {
       const sav = Math.round(rint(w, 30, 60) * 100 * infl(w.m));
       w.hh.cash += sav;
       p.job = 'tarla';
+      p.parcel = undefined;
       log(w, `${fullName(p)} Almanya'dan döndü; yanında ${sav} lira birikim getirdi.`, 'para');
     } else {
       removeFromHH(w, p);

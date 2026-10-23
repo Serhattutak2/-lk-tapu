@@ -2,6 +2,7 @@
 import type { World } from '../core/types';
 import { monthOf } from '../core/calendar';
 import { hhMembers } from '../core/people';
+import { CROPS } from '../core/fields';
 
 const W = 320;
 const H = 196;
@@ -202,6 +203,27 @@ function fence(g: CanvasRenderingContext2D, x0: number, y0: number, x1: number, 
   }
 }
 
+/** Kendi parselimizin zemin rengi: ekin ve olgunluğa göre. */
+function parcelTile(w: World, f: World['hh']['parcels'][number], alt: boolean, snow: boolean): string {
+  if (snow) return alt ? '#e4e8e8' : '#d3dadb';
+  if (!f.crop) return alt ? '#7a5638' : '#6c4b30';
+  const st = (w.m - f.sownM) / CROPS[f.crop].grow;
+  const pick = (a: string, b: string) => (alt ? a : b);
+  if (st < 0.15) return pick('#6f5a36', '#634f30');
+  switch (f.crop) {
+    case 'bugday':
+    case 'arpa':
+      return st > 0.8 ? pick('#d9ae45', '#c99d3a') : st > 0.6 ? pick('#a9ab48', '#9b9d40') : pick('#6e9a3c', '#628c35');
+    case 'pancar':
+      return pick('#3f7d37', '#36702f');
+    case 'nohut':
+      return st > 0.8 ? pick('#a99a55', '#9a8b4b') : pick('#7aa245', '#6d943d');
+    case 'hashas':
+      return st > 0.85 ? pick('#9fae76', '#91a06a') : pick('#5f9447', '#55873f');
+  }
+  return pick('#6b4f33', '#5e452d');
+}
+
 export class VillageMap {
   private buf = document.createElement('canvas');
   private g: CanvasRenderingContext2D;
@@ -228,6 +250,37 @@ export class VillageMap {
     cancelAnimationFrame(this.raf);
   }
 
+  /** Parseldeki ekinin olgunluğa göre görünümü. */
+  private crop(w: World, f: World['hh']['parcels'][number], x: number, y: number, snow: boolean) {
+    const g = this.g;
+    if (!f.crop || snow) return;
+    const st = (w.m - f.sownM) / CROPS[f.crop].grow;
+    const X = sx(x, y);
+    const Y = sy(x, y);
+    const dots: [number, number][] = [[-5, 3], [-2, 2], [1, 3], [4, 4], [-3, 5], [0, 5], [3, 6], [-1, 7], [6, 4], [-6, 4]];
+    let c1 = '#7fa04a';
+    let c2: string | null = null;
+    if (st < 0.2) c1 = '#86a34f';
+    if (f.crop === 'bugday' || f.crop === 'arpa') {
+      c1 = st > 0.75 ? '#e2bb4e' : st > 0.5 ? '#b6b94a' : '#77a043';
+    } else if (f.crop === 'pancar') {
+      c1 = st > 0.3 ? '#2f6f36' : '#5d9a40';
+    } else if (f.crop === 'nohut') {
+      c1 = st > 0.8 ? '#b9a25a' : '#6e9a42';
+    } else if (f.crop === 'hashas') {
+      c1 = st > 0.85 ? '#a7b07a' : '#6a9a4a';
+      const mo = monthOf(w.m);
+      if (st > 0.5 && (mo === 4 || mo === 5)) c2 = (Math.floor(this.t / 18) + x + y) % 4 ? '#f4efe6' : f.illegal ? '#c45f8f' : '#d98aa8';
+    }
+    const n = st < 0.2 ? 3 : st < 0.5 ? 6 : dots.length;
+    g.fillStyle = c1;
+    for (let i = 0; i < n; i++) g.fillRect(X + dots[i][0], Y + dots[i][1] - (st > 0.5 ? 1 : 0), 1, st > 0.5 ? 2 : 1);
+    if (c2) {
+      g.fillStyle = c2;
+      for (let i = 0; i < n; i += 2) g.fillRect(X + dots[i][0], Y + dots[i][1] - 2, 1, 1);
+    }
+  }
+
   private draw() {
     const w = this.getWorld();
     if (!w) return;
@@ -235,10 +288,10 @@ export class VillageMap {
     const p = palette(w.m);
     g.fillStyle = p.snow ? '#b9c3c6' : '#3d4f2f';
     g.fillRect(0, 0, W, H);
-    const owned = Math.min(SLOTS.length, Math.floor(w.hh.land / 5));
-    const ownedTiles = new Set<string>();
-    SLOTS.slice(0, owned).forEach(([x, y]) => {
-      for (let j = 0; j < 2; j++) for (let i = 0; i < 3; i++) ownedTiles.add(`${x + i},${y + j}`);
+    const owned = Math.min(SLOTS.length, w.hh.parcels.length);
+    const ownedTiles = new Map<string, number>();
+    SLOTS.slice(0, owned).forEach(([x, y], k) => {
+      for (let j = 0; j < 2; j++) for (let i = 0; i < 3; i++) ownedTiles.set(`${x + i},${y + j}`, k);
     });
     const mo = monthOf(w.m);
 
@@ -251,8 +304,11 @@ export class VillageMap {
         const alt = (x + y) % 2 === 0;
         let c = alt ? p.grass : p.grass2;
         if (tl === 'r') c = p.road;
-        if (tl === 'f' || tl === 'h' || (tl === 'p' && ownedTiles.has(`${x},${y}`))) c = alt ? p.field : p.field2;
+        const pk = tl === 'p' ? ownedTiles.get(`${x},${y}`) : undefined;
+        if (tl === 'f' || tl === 'h') c = alt ? p.field : p.field2;
+        if (pk !== undefined) c = parcelTile(w, w.hh.parcels[pk], alt, p.snow);
         diamond(g, x, y, c);
+        if (pk !== undefined) this.crop(w, w.hh.parcels[pk], x, y, p.snow);
         if (tl === 'h' && (mo === 4 || mo === 5)) {
           // haşhaş çiçekleri
           g.fillStyle = (x + y + Math.floor(this.t / 20)) % 3 ? '#f2eee6' : '#d98aa8';
@@ -272,7 +328,7 @@ export class VillageMap {
     });
 
     // İnsanlar ve hayvanlar
-    const workers = hhMembers(w).filter((q) => !q.away && !q.sick && (q.job === 'tarla' || q.job === 'coban'));
+    const workers = hhMembers(w).filter((q) => !q.away && !q.sick && (q.job === 'tarla' || q.job === 'coban' || q.job === 'kendi'));
     const working = mo >= 3 && mo <= 9;
     const figs: { x: number; y: number; c: string }[] = [];
     workers.forEach((q, i) => {
@@ -286,10 +342,11 @@ export class VillageMap {
           const a = this.t / 30 + k * 1.3 + i;
           figs.push({ x: sx(bx, by) + Math.round(Math.cos(a) * 9), y: sy(bx, by) + 2 + Math.round(Math.sin(a * 1.3) * 4), c: p.snow ? '#efe9de' : '#f0ece2' });
         }
-      } else if (owned > 0 && i % 2 === 0) {
-        const [ox, oy] = SLOTS[i % owned];
+      } else if (q.job === 'kendi' && owned > 0) {
+        const k = Math.max(0, w.hh.parcels.findIndex((f) => f.id === q.parcel));
+        const [ox, oy] = SLOTS[Math.min(k, owned - 1)];
         bx = ox + 1;
-        by = oy;
+        by = oy + 1;
       } else {
         const fields: [number, number][] = [[2, 2], [14, 2], [2, 15], [4, 3], [13, 4]];
         [bx, by] = fields[i % fields.length];

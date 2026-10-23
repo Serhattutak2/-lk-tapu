@@ -21,6 +21,18 @@ function check(w: World) {
     if (p.sp) expect(w.people[p.sp]?.sp).toBe(p.id);
   }
   if (!w.over && !w.flags.interregnum) expect(alive(w.people[w.playerId])).toBe(true);
+  expect(w.heat).toBeGreaterThanOrEqual(0);
+  expect(w.heat).toBeLessThanOrEqual(100);
+  expect(w.hh.stash).toBeGreaterThanOrEqual(0);
+  expect(w.hh.land).toBe(w.hh.parcels.length * 5);
+  for (const p of Object.values(w.people)) {
+    if (p.job === 'kendi') expect(w.hh.parcels.some((f) => f.id === p.parcel), `${p.id} parseli var`).toBe(true);
+    if (p.away === 'hapis') expect(p.awayUntil).toBeGreaterThan(w.m - 1);
+  }
+  for (const f of w.hh.parcels) {
+    expect(Number.isFinite(f.careSum)).toBe(true);
+    if (f.crop) expect(f.sownM).toBeLessThanOrEqual(w.m);
+  }
 }
 
 export function runCampaign(seed: number, years = 100) {

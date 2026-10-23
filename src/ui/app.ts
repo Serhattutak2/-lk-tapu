@@ -1,16 +1,19 @@
 // Arayüz: açılış, oyun ekranı, paneller, olay kartları, son ekranı.
 import type { Card, JobId, Person, World } from '../core/types';
-import { newWorld } from '../core/world';
+import { migrate, newWorld } from '../core/world';
 import { advance, canAdvance, payDebt, resolveCard, setHeir, setJob, isPlainJSON } from '../core/sim';
 import { age, alive, bloodLiving, fullName, hhMembers, P, relationTo } from '../core/people';
-import { JOBS, jobsFor } from '../core/jobs';
-import { landPrice } from '../core/cards';
+import { JOBS, jobsFor, wage } from '../core/jobs';
+import { landBlockers, landPrice } from '../core/cards';
+import { assignWorker, CROPS, careOf, expectedValue, harvestMonth, hasRuhsat, idleWage, irgatWage, isBanYear, kacakPrice, laborNeed, personFieldLabel, seedCost, sellStash, setHired, sow, sowableNow, workersOf } from '../core/fields';
+import { heatLabel } from '../core/crime';
+import type { CropId, Parcel } from '../core/types';
 import { dateText, year } from '../core/calendar';
 import { VillageMap } from './map';
 
 const SAVE_KEY = 'ilktapu_v1';
 const SPEEDS = [0, 2200, 700];
-const KIND: Record<string, string> = { veraset: 'Veraset', gorucu: 'Görücü', hastalik: 'Hastalık', gurbet: 'Gurbet', tuccar: 'Tanışıklık', tapu: 'Tapu', bilgi: 'Haber' };
+const KIND: Record<string, string> = { veraset: 'Veraset', gorucu: 'Görücü', hastalik: 'Hastalık', gurbet: 'Gurbet', tuccar: 'Tanışıklık', tapu: 'Tapu', bilgi: 'Haber', hashas_hasat: 'Hasat', ruhsat: 'Ruhsat', kacakci: 'Kahvehane', baskin: 'Jandarma', aga_kira: 'Ağa', aga_kiz: 'Ağa' };
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 const lira = (n: number) => Math.round(n).toLocaleString('tr-TR') + ' lira';
@@ -19,7 +22,7 @@ const $ = <T extends HTMLElement>(sel: string, root: ParentNode = document) => r
 function load(): World | null {
   try {
     const s = localStorage.getItem(SAVE_KEY);
-    return s ? (JSON.parse(s) as World) : null;
+    return s ? migrate(JSON.parse(s) as World) : null;
   } catch {
     return null;
   }
@@ -41,7 +44,7 @@ function wipe() {
 
 export class App {
   private w: World | null = null;
-  private tab: 'aile' | 'hane' | 'kronik' = 'aile';
+  private tab: 'aile' | 'tarla' | 'hane' | 'kronik' = 'aile';
   private speed = 0;
   private timer = 0;
   private map: VillageMap | null = null;
@@ -111,6 +114,7 @@ export class App {
         </section>
         <nav class="tabs" role="tablist">
           <button role="tab" data-tab="aile">Aile</button>
+          <button role="tab" data-tab="tarla">Tarla</button>
           <button role="tab" data-tab="hane">Hane</button>
           <button role="tab" data-tab="kronik">Kronik</button>
         </nav>
@@ -168,6 +172,7 @@ export class App {
         <span class="stat money">Kasa <b>${lira(w.hh.cash)}</b></span>
         ${w.hh.debt > 0 ? `<span class="stat debt">Borç <b>${lira(w.hh.debt)}</b></span>` : ''}
         <span class="stat">Toprak <b>${w.hh.land} dönüm</b></span>
+        ${w.heat >= 15 ? `<span class="stat heat">Dikkat <b>${esc(heatLabel(w.heat))}</b></span>` : ''}
       </div>`;
     $('#menu')!.onclick = () => this.showStart();
     const pl = P(w, w.playerId);
@@ -186,6 +191,7 @@ export class App {
     this.pendingPanel = false;
     const keep = force ? 0 : panel.scrollTop;
     if (this.tab === 'aile') panel.innerHTML = this.familyHTML();
+    else if (this.tab === 'tarla') panel.innerHTML = this.fieldsHTML();
     else if (this.tab === 'hane') panel.innerHTML = this.householdHTML();
     else panel.innerHTML = this.chronicleHTML();
     panel.scrollTop = keep;
@@ -202,7 +208,8 @@ export class App {
     const badges = [
       isMe ? '<span class="badge sen">Sen</span>' : '',
       p.id === w.heirId ? '<span class="badge varis">Varis</span>' : '',
-      p.away ? '<span class="badge gurbet">Gurbette</span>' : '',
+      p.away === 'gurbet' ? '<span class="badge gurbet">Gurbette</span>' : '',
+      p.away === 'hapis' ? '<span class="badge hasta">Cezaevinde</span>' : '',
       p.sick ? '<span class="badge hasta">Hasta</span>' : '',
     ].join('');
     const hp = Math.round(p.hp);
@@ -211,8 +218,10 @@ export class App {
     if (inHouse && !p.away && a >= 7) {
       const opts = jobsFor(w, p).filter((j) => j.id !== 'yok' || p.job === 'yok');
       jobCtl = `<select data-job="${p.id}" aria-label="${esc(p.first)} ne iş yapsın">${opts.map((j) => `<option value="${j.id}"${j.id === p.job ? ' selected' : ''}>${j.ad}</option>`).join('')}</select>`;
-    } else if (p.away) {
+    } else if (p.away === 'gurbet') {
       jobCtl = `<span>Almanya'da işçi</span>`;
+    } else if (p.away === 'hapis') {
+      jobCtl = `<span>Çıkışı ${dateText(p.awayUntil ?? w.m)}</span>`;
     } else if (!inHouse) {
       jobCtl = `<span>Kendi evinde</span>`;
     }
@@ -228,7 +237,79 @@ export class App {
       <div class="pmeta"><span class="hp${hp < 40 ? ' low' : ''}" title="Sağlık ${hp}"><i style="width:${hp}%"></i></span>${jobCtl}
         ${canHeir ? `<button class="small" data-heir="${p.id}">Varis yap</button>` : ''}</div>
       ${sk ? `<div class="skills">${sk}</div>` : ''}
+      ${inHouse && !p.away ? `<div class="earn">${this.earnText(p)}</div>` : ''}
     </div>`;
+  }
+
+  private earnText(p: Person): string {
+    const w = this.w!;
+    if (p.job === 'kendi') {
+      const f = w.hh.parcels.find((x) => x.id === p.parcel);
+      const idle = idleWage(w, p);
+      return f && laborNeed(w, f) > 0 ? `${f.no}. parselde çalışıyor; kazancı hasatta gelir` : `Parselde iş yok; gündeliğe gidiyor, ayda ${lira(idle)}`;
+    }
+    const v = wage(w, p);
+    return v > 0 ? `Bu ay kazancı ${lira(v)}` : JOBS[p.job].id === 'okul' ? 'Okuyor' : JOBS[p.job].id === 'ev' ? 'Evi çekip çeviriyor' : 'Kazancı yok';
+  }
+
+  // ---------- Tarla ----------
+  private fieldsHTML(): string {
+    const w = this.w!;
+    if (!w.hh.parcels.length) {
+      const price = landPrice(w);
+      const blk = landBlockers(w);
+      const pct = Math.min(100, Math.round((w.hh.cash / price) * 100));
+      return `<div class="group">Henüz kendi toprağın yok</div>
+        <p class="note">Ailenin ilk tapusu için köy kenarında 5 dönüm tarla ${lira(price)}. Toprak fiyatı her yıl artıyor.</p>
+        <div class="meter"><i style="width:${pct}%"></i></div>
+        <p class="note">Birikim: ${lira(w.hh.cash)} / ${lira(price)}</p>
+        ${blk.length ? `<ul class="blockers">${blk.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>` : `<p class="note good">Her şey hazır. Satılık tarla çıktığında haber gelecek.</p>`}`;
+    }
+    const now = sowableNow(w);
+    return `${w.hh.parcels.map((f) => this.parcelHTML(f, now)).join('')}
+      <p class="note">Ekim ayları: buğday, arpa ve haşhaş Ekim–Kasım; nohut Mart–Nisan; şeker pancarı Nisan. Ruhsat her yıl Ağustos'ta alınır.</p>`;
+  }
+
+  private parcelHTML(f: Parcel, now: CropId[]): string {
+    const w = this.w!;
+    const ws = workersOf(w, f);
+    const need = laborNeed(w, f);
+    let status: string;
+    if (f.crop) {
+      const d = CROPS[f.crop];
+      const left = harvestMonth(f) - w.m;
+      status = `<div class="crop"><b>${d.ad}</b>${f.illegal ? ' <span class="badge hasta">Ruhsatsız</span>' : ''}<br>
+        Ekim ${dateText(f.sownM)}, hasat ${dateText(harvestMonth(f))}${left > 0 ? ` (${left} ay sonra)` : ''}<br>
+        Bakım %${Math.round(careOf(f) * 100)}, ${f.crop === 'hashas' ? 'tahmini ' + Math.round(12 * Math.pow(careOf(f), 1.2)) + ' çuval' : 'beklenen hasat ~' + lira(expectedValue(w, f))}</div>`;
+    } else if (now.length) {
+      status = `<div class="crop">Tarla boş. Bu ay ekilebilecekler:</div><div class="sowgrid">${now.map((c) => {
+        const d = CROPS[c];
+        const ill = c === 'hashas' && !hasRuhsat(w);
+        const note = c === 'hashas' ? (ill ? (isBanYear(year(w.m)) ? 'Yasak! Ruhsatsız ekilir' : 'Ruhsatın yok, ruhsatsız ekilir') : 'Ruhsatlı') : `${d.need} işçi ister`;
+        return `<button class="sow${ill ? ' risky' : ''}" data-sow="${f.id}:${c}"><b>${d.ad}</b><span>Tohum ${lira(seedCost(w, c))}</span><span>${esc(note)}</span></button>`;
+      }).join('')}</div>`;
+    } else {
+      const next = monthsUntilSow(w.m);
+      status = `<div class="crop">Tarla nadasta. Sonraki ekim ${next}.</div>`;
+    }
+    const pool = hhMembers(w).filter((q) => !q.away && age(w, q) >= 10 && !(q.job === 'kendi' && q.parcel === f.id));
+    const needTxt = need > 0
+      ? `<div class="labor"><span>Bu ay gereken iş gücü ${fmt1(need)}, gelen ${fmt1(f.lastGot || 0)}</span><div class="meter${(f.lastGot || 0) < need * 0.97 ? ' short' : ''}"><i style="width:${Math.min(100, Math.round(((f.lastGot || 0) / need) * 100))}%"></i></div></div>`
+      : `<p class="note">Bu ay parselde iş yok. Buradaki işçiler başkasının tarlasına gündeliğe gidiyor.</p>`;
+    return `<section class="parcel">
+      <div class="prow"><span class="pname">${f.no}. parsel</span><span class="prel">5 dönüm${f.price ? `, ${year(f.boughtM)}'de ${lira(f.price)}` : ''}</span></div>
+      ${status}
+      ${f.crop ? needTxt : ''}
+      <div class="group">Çalışanlar</div>
+      <div class="chips">${ws.map((q) => `<span class="chip">${esc(q.first)} (${age(w, q)}), tarım ${Math.round(q.sk.tarim)} <button class="x" data-unassign="${q.id}" aria-label="${esc(q.first)} geri çağır">Geri çağır</button></span>`).join('') || '<span class="note">Kimse yok</span>'}</div>
+      <div class="btnrow">
+        ${pool.length ? `<select data-assign="${f.id}" aria-label="Aileden işçi gönder"><option value="">Aileden birini gönder…</option>${pool.map((q) => `<option value="${q.id}">${esc(q.first)}, ${age(w, q)} yaşında, şu an ${esc(q.job === 'kendi' ? personFieldLabel(w, q) : JOBS[q.job].ad.toLowerCase())}</option>`).join('')}</select>` : ''}
+      </div>
+      <div class="hire"><span>Irgat ${f.hired} kişi, iş aylarında kişi başı ${lira(irgatWage(w))}</span>
+        <button class="small" data-hire="${f.id}:-1"${f.hired <= 0 ? ' disabled' : ''} aria-label="Bir ırgat az">−</button>
+        <button class="small" data-hire="${f.id}:1"${f.hired >= 4 ? ' disabled' : ''} aria-label="Bir ırgat fazla">+</button></div>
+      ${f.hist.length ? `<div class="hist">Son hasatlar: ${f.hist.slice(0, 4).map((h) => `${year(h.m)} ${CROPS[h.crop].ad.toLowerCase()}, ${esc(h.t)}`).join('; ')}</div>` : ''}
+    </section>`;
   }
 
   private familyHTML(): string {
@@ -250,25 +331,34 @@ export class App {
   // ---------- Hane ----------
   private householdHTML(): string {
     const w = this.w!;
-    const price = landPrice(w);
-    const goal = w.hh.land === 0
-      ? `<p class="note">İlk tapuya ${lira(price)} gerekiyor. ${w.hh.cash >= price ? 'Para hazır; satılık tarla çıkınca haber gelir.' : `${lira(price - w.hh.cash)} daha biriktirmelisin.`}</p>`
-      : `<p class="note">Kendi tarlanın hasadı her yıl Eylül'de kasaya girer. Tarımı en iyi bilen aile üyesi verimi artırır.</p>`;
+    const inc = w.lines.filter((l) => l.v > 0);
+    const out = w.lines.filter((l) => l.v < 0);
+    const net = w.lines.reduce((a, l) => a + l.v, 0);
+    const row = (l: { t: string; v: number }) => `<tr><td>${esc(l.t)}</td><td class="${l.v < 0 ? 'neg' : 'pos'}">${l.v < 0 ? '−' : '+'}${lira(Math.abs(l.v))}</td></tr>`;
+    const heatPct = Math.round(w.heat);
     return `
+      <div class="group">Geçen ayın hesabı</div>
+      <table class="ledger">${inc.map(row).join('')}${out.map(row).join('')}
+        <tr class="sum"><td>Net</td><td class="${net < 0 ? 'neg' : 'pos'}">${net < 0 ? '−' : '+'}${lira(Math.abs(net))}</td></tr></table>
+      <div class="group">Varlık</div>
       <table class="ledger">
-        <tr><td>Geçen ay gelir</td><td>${lira(w.lastIncome)}</td></tr>
-        <tr><td>Geçen ay gider (faiz dahil)</td><td>${lira(w.lastExpense)}</td></tr>
         <tr><td>Kasa</td><td>${lira(w.hh.cash)}</td></tr>
-        <tr><td>Ağaya borç (aylık %2 faiz)</td><td>${lira(w.hh.debt)}</td></tr>
+        <tr><td>Ağaya borç (aylık %2 faiz)</td><td class="${w.hh.debt ? 'neg' : ''}">${lira(w.hh.debt)}</td></tr>
         <tr><td>Kendi toprağı</td><td>${w.hh.land} dönüm</td></tr>
-        <tr><td>5 dönüm tarla fiyatı</td><td>${lira(price)}</td></tr>
+        <tr><td>Ev kirası</td><td>${lira(w.hh.rent * Math.pow(1.045, year(w.m) - 1965))}</td></tr>
+        <tr><td>Haşhaş ruhsatı</td><td>${hasRuhsat(w) ? year(w.m) + ' için var' : isBanYear(year(w.m)) ? 'Yasak' : 'Yok'}</td></tr>
       </table>
-      ${goal}
       ${w.hh.debt > 0 ? `<div class="group">Borç öde</div><div class="btnrow">
         <button class="small" data-pay="100"${w.hh.cash < 1 ? ' disabled' : ''}>100 lira</button>
-        <button class="small" data-pay="500"${w.hh.cash < 1 ? ' disabled' : ''}>500 lira</button>
+        <button class="small" data-pay="1000"${w.hh.cash < 1 ? ' disabled' : ''}>1.000 lira</button>
         <button class="small" data-pay="all"${w.hh.cash < 1 ? ' disabled' : ''}>Ödeyebildiğim kadar</button></div>
-        <p class="note">Borç beklerse faiz büyür; 3.000 lirayı aşınca hanede yokluk başlar ve sağlıklar bozulur.</p>` : ''}`;
+        <p class="note">Borç kapanmadan kimse sana toprak satmaz. 3.000 lirayı aşarsa hanede yokluk başlar.</p>` : ''}
+      <div class="group">Karanlık defter</div>
+      <div class="labor"><span>Jandarmanın dikkati: ${esc(heatLabel(w.heat))}</span><div class="meter heat"><i style="width:${heatPct}%"></i></div></div>
+      <p class="note">${w.hh.stash > 0 ? `Samanlığın altındaki zulada ${w.hh.stash} çuval mal var. Durdukça dikkat çeker.` : 'Zula boş.'}
+        ${w.flags.kacakci ? ` Kara Rıza çuvalı ${lira(kacakPrice(w))} liradan alıyor.` : ' Kayıt dışı bir alıcı tanımıyorsun.'}</p>
+      ${w.hh.stash > 0 && w.flags.kacakci ? `<div class="btnrow"><button class="small danger" data-stash="sell">Zulayı Kara Rıza'ya sat (${lira(w.hh.stash * kacakPrice(w))})</button></div>` : ''}
+      ${(w.flags.kacakToplam as number) ? `<p class="note">Bugüne kadar kayıt dışına çıkan: ${w.flags.kacakToplam} çuval.</p>` : ''}`;
   }
 
   // ---------- Kronik ----------
@@ -295,12 +385,60 @@ export class App {
       save(w);
       this.renderPanel(true);
     }));
+    panel.querySelectorAll<HTMLButtonElement>('[data-sow]').forEach((b) => (b.onclick = () => {
+      const [fid, c] = b.dataset.sow!.split(':');
+      const err = sow(w, fid, c as CropId);
+      if (err) this.toast(err);
+      save(w);
+      this.renderPanel(true);
+    }));
+    panel.querySelectorAll<HTMLSelectElement>('[data-assign]').forEach((sel) => {
+      sel.onchange = () => {
+        if (sel.value) assignWorker(w, sel.value, sel.dataset.assign!);
+        save(w);
+        this.renderPanel(true);
+      };
+      sel.onblur = () => {
+        if (this.pendingPanel) this.renderPanel(false);
+      };
+    });
+    panel.querySelectorAll<HTMLButtonElement>('[data-unassign]').forEach((b) => (b.onclick = () => {
+      assignWorker(w, b.dataset.unassign!, null);
+      save(w);
+      this.renderPanel(true);
+    }));
+    panel.querySelectorAll<HTMLButtonElement>('[data-hire]').forEach((b) => (b.onclick = () => {
+      const [fid, d] = b.dataset.hire!.split(':');
+      const f = w.hh.parcels.find((x) => x.id === fid);
+      if (f) setHired(w, fid, f.hired + Number(d));
+      save(w);
+      this.renderPanel(true);
+    }));
+    panel.querySelectorAll<HTMLButtonElement>('[data-stash]').forEach((b) => (b.onclick = () => {
+      const v = sellStash(w);
+      if (v) this.toast(`Zula satıldı: ${lira(v)}`);
+      save(w);
+      this.renderPanel(true);
+    }));
     panel.querySelectorAll<HTMLButtonElement>('[data-pay]').forEach((b) => (b.onclick = () => {
       const v = b.dataset.pay === 'all' ? w.hh.cash : Number(b.dataset.pay);
       payDebt(w, v);
       save(w);
       this.renderPanel(true);
     }));
+  }
+
+  private toast(msg: string) {
+    let t = document.getElementById('toast');
+    if (!t) {
+      t = document.createElement('div');
+      t.id = 'toast';
+      t.setAttribute('role', 'status');
+      document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.className = 'show';
+    window.setTimeout(() => t && (t.className = ''), 2600);
   }
 
   // ---------- Olay kartı ----------
@@ -366,4 +504,13 @@ export class App {
       this.showStart();
     };
   }
+}
+
+const fmt1 = (n: number) => (Math.round(n * 10) / 10).toLocaleString('tr-TR');
+
+function monthsUntilSow(m: number): string {
+  const mo = ((m % 12) + 12) % 12;
+  if (mo < 2) return 'Mart ayında (nohut)';
+  if (mo < 9) return mo <= 3 ? 'bu ay' : 'Ekim ayında (buğday, arpa, haşhaş)';
+  return 'Mart ayında (nohut)';
 }

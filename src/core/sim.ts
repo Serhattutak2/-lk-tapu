@@ -1,11 +1,14 @@
 // Aylık simülasyon adımı ve oyuncu eylemleri.
-import type { JobId, World } from './types';
+import type { JobId, LedgerLine, World } from './types';
 import { chance, clamp, gauss, rint } from './rng';
 import { age, alive, fullName, hhMembers, log, P } from './people';
 import { JOBS, jobAllowed, wage } from './jobs';
 import { monthlyLife } from './life';
 import { generateCards, gurbetReturns, resolveCard, seasonalNotes } from './cards';
 import { infl, monthOf, year } from './calendar';
+import { assignWorker, CROPS, hasRuhsat, idleWage, laborNeed, monthlyFields, sow, sowableNow, workersOf } from './fields';
+import { monthlyCrime } from './crime';
+import type { CropId } from './types';
 
 export const DEBT_RATE = 0.02; // ağa faizi, aylık
 
@@ -18,59 +21,84 @@ export function advance(w: World): boolean {
   if (monthOf(w.m) === 2) w.rain = clamp(gauss(w, 1, 0.2), 0.5, 1.4);
 
   gurbetReturns(w);
+  monthlyCrime(w);
   const harvestBonus = seasonalNotes(w);
   economy(w, harvestBonus);
   growth(w);
   monthlyLife(w);
+  if (w.hh.cash < 0) {
+    w.hh.debt += -w.hh.cash;
+    w.hh.cash = 0;
+  }
   if (w.over) return true;
   generateCards(w);
   return true;
 }
 
+const JOBWORD: Partial<Record<JobId, string>> = { tarla: 'gündelik', coban: 'çobanlık', insaat: 'inşaat', cirak: 'çıraklık', usta: 'demircilik', tuccar: 'tüccar yanında' };
+
 function economy(w: World, harvestBonus: number) {
   const mem = hhMembers(w);
-  let income = 0;
+  const lines: LedgerLine[] = [];
+  const cash0 = w.hh.cash;
   for (const p of mem) {
     if (p.away === 'gurbet') {
-      income += Math.round(rint(w, 25, 40) * 10 * infl(w.m)); // her ay gelen mark
+      const v = Math.round(rint(w, 25, 40) * 10 * infl(w.m)); // her ay gelen mark
+      w.hh.cash += v;
+      lines.push({ t: `${p.first}: Almanya'dan gelen para`, v });
       continue;
     }
-    let pay = wage(w, p);
-    if (pay && p.job === 'tarla') pay += harvestBonus;
-    income += pay;
-  }
-  // Kendi tarlası: Eylül'de hasat
-  if (w.hh.land > 0 && monthOf(w.m) === 8) {
-    const best = Math.max(0, ...mem.filter((p) => !p.away).map((p) => p.sk.tarim));
-    const crop = Math.round(w.hh.land * 95 * w.rain * (0.7 + best / 200) * infl(w.m));
-    income += crop;
-    log(w, `Kendi tarlamızın hasadı: ${crop} lira${w.rain < 0.8 ? ' (kurak bir yıl)' : w.rain > 1.2 ? ' (bereketli bir yıl)' : ''}.`, 'para');
+    if (p.away) continue;
+    let pay = p.job === 'kendi' ? idleWage(w, p) : wage(w, p);
+    if (pay && (p.job === 'tarla' || p.job === 'kendi')) pay += harvestBonus;
+    if (pay) {
+      w.hh.cash += pay;
+      lines.push({ t: `${p.first}: ${p.job === 'kendi' ? 'boş ayda gündelik' : JOBWORD[p.job] ?? JOBS[p.job].ad}`, v: pay });
+    }
   }
 
-  let expense = w.hh.rent;
+  monthlyFields(w, lines);
+
+  let food = 0;
   let housework = false;
+  let sick = 0;
+  let school = 0;
   for (const p of mem) {
     if (p.away) continue;
     const a = age(w, p);
-    expense += a >= 12 ? 70 : 35;
-    if (p.job === 'okul') expense += 10;
+    food += a >= 12 ? 70 : 35;
+    if (p.job === 'okul') school += 10;
     if (p.job === 'ev' && a >= 12) housework = true;
-    if (p.sick) expense += 15;
+    if (p.sick) sick += 15;
   }
-  if (housework) expense -= 45;
-  expense = Math.round(expense * infl(w.m));
-  if (w.flags.sertKis === year(w.m) && monthOf(w.m) <= 1) expense = Math.round(expense * 1.3);
-
+  if (housework) food -= 45;
+  const k = infl(w.m) * (w.flags.sertKis === year(w.m) && monthOf(w.m) <= 1 ? 1.3 : 1);
+  const exp: LedgerLine[] = [
+    { t: `Mutfak ve ev (${mem.filter((p) => !p.away).length} boğaz)${housework ? ', ev işleriyle' : ''}`, v: -Math.round(food * k) },
+    { t: 'Ağaya ev kirası', v: -Math.round(w.hh.rent * infl(w.m)) },
+  ];
+  if (school) exp.push({ t: 'Okul masrafı', v: -Math.round(school * k) });
+  if (sick) exp.push({ t: 'Hasta bakımı', v: -Math.round(sick * k) });
   const interest = Math.round(w.hh.debt * DEBT_RATE);
-  w.hh.debt += interest;
-  w.hh.cash += income - expense;
-  w.lastIncome = income;
-  w.lastExpense = expense + interest;
+  if (interest) {
+    w.hh.debt += interest;
+    exp.push({ t: 'Borcun faizi (borca eklendi)', v: -interest });
+  }
+  for (const e of exp) {
+    if (e.t.startsWith('Borcun')) continue;
+    w.hh.cash += e.v;
+  }
+  lines.push(...exp);
+  w.lines = lines;
+  w.lastIncome = lines.filter((l) => l.v > 0).reduce((a, l) => a + l.v, 0);
+  w.lastExpense = -lines.filter((l) => l.v < 0).reduce((a, l) => a + l.v, 0);
+  void cash0;
 
   if (w.hh.cash < 0) {
     const need = -w.hh.cash;
     w.hh.debt += need;
     w.hh.cash = 0;
+    lines.push({ t: 'Ağadan alınan borç', v: need });
     if (!w.flags.borcUyari || (w.flags.borcUyari as number) < w.m - 12) {
       w.flags.borcUyari = w.m;
       log(w, `Para yetmedi; ağadan ${need} lira daha borç alındı. Toplam borç ${w.hh.debt} lira.`, 'para');
@@ -118,7 +146,14 @@ export function setJob(w: World, pid: string, job: JobId): boolean {
   const p = P(w, pid);
   if (!alive(p) || !p.inHH || p.away) return false;
   if (!jobAllowed(w, p, job)) return false;
+  if (job === 'kendi') {
+    // En çok işçiye ihtiyaç duyan parsele gönder
+    const best = [...w.hh.parcels].sort((a, b) => workersOf(w, a).length - workersOf(w, b).length)[0];
+    if (!best) return false;
+    return assignWorker(w, pid, best.id);
+  }
   p.job = job;
+  p.parcel = undefined;
   return true;
 }
 
@@ -164,12 +199,34 @@ export function botTurn(w: World) {
     let k = c.opts[0].k;
     if (c.id === 'hastalik') k = w.hh.cash > 250 ? 'doktor' : 'bekle';
     if (c.id === 'gurbet') k = chance(w, 0.5) ? 'gonder' : 'kalsin';
+    if (c.id === 'kacakci') k = chance(w, 0.5) ? 'evet' : 'hayir';
+    if (c.id === 'hashas_hasat') k = c.opts[Math.min(c.opts.length - 1, chance(w, 0.6) ? 0 : 1)].k;
+    if (c.id === 'aga_kiz') k = chance(w, 0.5) ? 'ver' : 'ret';
     resolveCard(w, c.uid, k);
   }
+  botFields(w);
   const pl = P(w, w.playerId);
   if (alive(pl) && age(w, pl) >= 38 && !alive(P(w, w.heirId))) {
     const kid = pl.kids.map((k) => w.people[k]).filter(alive).sort((a, b) => a.b - b.b)[0];
     if (kid) w.heirId = kid.id;
   }
   if (w.hh.debt > 0 && w.hh.cash > 500) payDebt(w, w.hh.cash - 400);
+}
+
+function botFields(w: World) {
+  const now = sowableNow(w);
+  for (const f of w.hh.parcels) {
+    if (!f.crop && now.length) {
+      const pref: CropId[] = hasRuhsat(w) ? ['hashas', 'pancar', 'bugday', 'nohut', 'arpa'] : ['pancar', 'bugday', 'nohut', 'arpa'];
+      const c = pref.find((x) => now.includes(x) && CROPS[x].seed * infl(w.m) < w.hh.cash);
+      if (c) sow(w, f.id, c);
+    }
+    if (f.crop && workersOf(w, f).length < CROPS[f.crop].need) {
+      const cand = hhMembers(w).filter((q) => !q.away && q.job === 'tarla' && age(w, q) >= 14 && age(w, q) <= 60)[0];
+      if (cand) assignWorker(w, cand.id, f.id);
+    }
+    if (!f.crop && laborNeed(w, f) === 0) {
+      for (const q of workersOf(w, f)) assignWorker(w, q.id, null);
+    }
+  }
 }

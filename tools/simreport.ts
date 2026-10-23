@@ -23,6 +23,7 @@ for (let i = 0; i < N; i++) {
     donum: w.hh.land, nakit: w.hh.cash, borc: w.hh.debt, borcluYil: debtYears,
     hane: w.hh.members.length, kan: bloodLiving(w).length, kisi: Object.keys(w.people).length,
     olu: Object.values(w.people).filter((p) => !alive(p)).length,
+    kacak: (w.flags.kacakToplam as number) || 0, hapis: w.chronicle.filter((e) => e.t.includes('hapis yattı')).length, baskin: w.chronicle.filter((e) => e.t.includes('aksın')).length, isi: Math.round(w.heat),
   });
 }
 const avg = (k: string) => (rows.reduce((s, r) => s + r[k], 0) / rows.length).toFixed(1);

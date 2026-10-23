@@ -18,13 +18,17 @@ Bu dosya projeyi başka bir yapay zekâ ya da geliştiriciyle sürdürmek için 
 | `core/jobs.ts` | Meslekler (`JOBS`), ücret (`wage`, mevsim ve enflasyon `infl`), varsayılan iş |
 | `core/life.ts` | Ölüm olasılığı, `die` → `succeed` (veraset), `setPlayer`, evlilik, doğum, aile kolu ayrılması (`splitBranch`), yakın çevre sınırı `isNear` |
 | `core/cards.ts` | Olay kartları: üretim (`generateCards`), çözüm (`RESOLVE`), tapu fiyatı, gurbet dönüşleri, mevsim notları |
+| `core/fields.ts` | Kendi tarlalarımız: ekinler (`CROPS`), parsel, ekim (`sow`), işçi atama (`assignWorker`, iş `kendi`), ırgat, aylık iş gücü ve bakım, hasat; haşhaş hasadı kartı ve devlet/kaçak/zula seçimi, `sellStash` |
+| `core/crime.ts` | Karanlık taraf: Isı (`w.heat`), ruhsat (Ağustos), 1972–1974 yasağı, Kara Rıza, jandarma baskını ve hapis, ağanın kira ve kız istemesi, dolu |
 | `core/sim.ts` | Aylık adım `advance`: ekonomi, beceri ve sağlık, yaşam, kartlar. Oyuncu eylemleri: `setJob`, `setHeir`, `payDebt`, `resolveCard`. Test botu `botTurn` |
 | `ui/app.ts` | Açılış, oyun ekranı, Aile/Hane/Kronik panelleri, olay kartı (evrak görünümü), ilk tapu töreni, son ekranı. Kayıt anahtarı `ilktapu_v1` |
 | `ui/map.ts` | İzometrik piksel köy; 320×196 tampona çizilir, ekrana büyütülür. `SLOTS` oyuncunun parselleri |
 | `ui/styles.css` | Renk belirteçleri: toprak, buğday, kökboya, çini |
 
-## Denge (Faz 0 hedefleri)
-- Bot ile ilk tapu çoğunlukla 1968–1975 arasında. İnsan oyuncu daha geç almalı.
+## Denge
+- İlk tapu için borcun sıfır olması ve ağanın engel koymaması gerekir (`landBlockers`). Bot ortalaması 1973–1974; insan oyuncu biraz daha geç.
+- Kaçak satış Isıyı artırır; Isı 12'yi geçince baskın olasılığı başlar. Zula durdukça Isı üretir.
+- Haşhaş tamamen soyut: çuval, devlet fiyatı, kaçak fiyatı. Gerçek üretim ya da işleme yöntemi oyunda yoktur ve eklenmeyecek.
 - Enflasyon yılda %4,5 (`infl`); ücret, gider ve toprak fiyatı birlikte artar.
 - Toprak sahipliğinin ötesinde yatırım yok; geç oyunda para birikir. Faz 2'de işletmeler bu parayı emecek.
 
