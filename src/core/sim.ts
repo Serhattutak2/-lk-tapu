@@ -8,8 +8,12 @@ import { generateCards, gurbetReturns, resolveCard, seasonalNotes } from './card
 import { infl, monthOf, year } from './calendar';
 import { assignWorker, CROPS, hasRuhsat, idleWage, laborNeed, monthlyFields, sow, sowableNow, staffAll, workersOf } from './fields';
 import { monthlyCrime } from './crime';
+import { monthlyLab } from './lab';
+import { lockedOut, monthlyFeud, setLock } from './feud';
+import { buildRoom, canBuild, crowded, monthlyHome, roomPrice } from './home';
+import { AGIL_PRICE, buildLab, buyAgil, buyRaw, cevdetPay, hamPrice, hireCevdet, labPrice, moveStash, sellProduct, unlocked } from './lab';
 import { BIZ, bizManager, buyBiz, buyHouse, buyPlot, buyVehicle, housePrice, monthlyAssets, nam, setManager, vehiclePrice } from './assets';
-import { offerChance, offerPrice, yearlyMarket } from './plots';
+import { landBase, offerChance, offerPrice, PLOTS, yearlyMarket } from './plots';
 import type { BizId } from './types';
 import type { CropId } from './types';
 
@@ -53,6 +57,7 @@ function economy(w: World, harvestBonus: number) {
       continue;
     }
     if (p.away) continue;
+    if (lockedOut(w, p)) continue;
     let pay = p.job === 'kendi' ? idleWage(w, p) : wage(w, p);
     if (pay && (p.job === 'tarla' || p.job === 'kendi')) pay += harvestBonus;
     if (pay) {
@@ -63,6 +68,9 @@ function economy(w: World, harvestBonus: number) {
 
   monthlyFields(w, lines);
   monthlyAssets(w, lines);
+  monthlyHome(w, lines);
+  monthlyLab(w, lines);
+  monthlyFeud(w, lines);
 
   let food = 0;
   let housework = false;
@@ -71,7 +79,7 @@ function economy(w: World, harvestBonus: number) {
   for (const p of mem) {
     if (p.away) continue;
     const a = age(w, p);
-    food += a >= 12 ? 70 : 35;
+    food += a >= 12 ? 80 : 40;
     if (p.job === 'okul') school += 10;
     if (p.job === 'ev' && a >= 12) housework = true;
     if (p.sick) sick += 15;
@@ -84,7 +92,20 @@ function economy(w: World, harvestBonus: number) {
   if (w.hh.house === 0 && w.hh.rent > 0) exp.push({ t: 'Ağaya ev kirası', v: -Math.round(w.hh.rent * infl(w.m)) });
   if (school) exp.push({ t: 'Okul masrafı', v: -Math.round(school * k) });
   if (sick) exp.push({ t: 'Hasta bakımı', v: -Math.round(sick * k) });
-  const interest = Math.round(w.hh.debt * DEBT_RATE);
+  // Borç büyüdükçe ağa haciz yapar; tefeci faizi yine de sonsuz büyümez
+  const limit = 9000 * infl(w.m);
+  if (w.hh.debt > limit) seize(w);
+  const bonded = w.hh.debt > limit && !w.hh.parcels.length && !Object.values(w.hh.veh).some((n) => (n || 0) > 0);
+  const interest = bonded ? 0 : Math.round(w.hh.debt * (w.hh.debt > limit ? DEBT_RATE / 2 : DEBT_RATE));
+  if (bonded) {
+    // Borç köleliği: kazancın üçte biri doğrudan ağaya gider, faiz işlemez
+    const g = Math.round(lines.filter((l) => l.v > 0).reduce((a, l) => a + l.v, 0) / 3);
+    if (g > 0) {
+      w.hh.cash -= g;
+      w.hh.debt = Math.max(0, w.hh.debt - g);
+      lines.push({ t: 'Ağa kazancın üçte birini borca saydı', v: -g });
+    }
+  }
   if (interest) {
     w.hh.debt += interest;
     exp.push({ t: 'Borcun faizi (borca eklendi)', v: -interest });
@@ -213,6 +234,7 @@ export function botTurn(w: World) {
     if (c.id === 'kacakci') k = chance(w, 0.5) ? 'evet' : 'hayir';
     if (c.id === 'hashas_hasat') k = c.opts[Math.min(c.opts.length - 1, chance(w, 0.6) ? 0 : 1)].k;
     if (c.id === 'aga_kiz') k = chance(w, 0.5) ? 'ver' : 'ret';
+    if (c.id === 'kan' || c.id === 'kacirma' || c.id === 'sinir' || c.id === 'ayri_ev' || c.id === 'cevdet_ihanet') k = c.opts[Math.floor(rint(w, 0, c.opts.length - 1))].k;
     resolveCard(w, c.uid, k);
   }
   botFields(w);
@@ -238,7 +260,12 @@ function botFields(w: World) {
       if (cand) assignWorker(w, cand.id, f.id);
     }
     if (!f.crop && laborNeed(w, f) === 0) {
-      for (const q of workersOf(w, f)) assignWorker(w, q.id, null);
+      for (const q of Object.values(w.people)) {
+      if (q.job === 'kendi' && q.parcel === f.id) {
+        q.job = 'tarla';
+        q.parcel = undefined;
+      }
+    }
     }
   }
 }
@@ -261,5 +288,58 @@ function botEstate(w: World) {
       }
     }
   }
+  // Odalar
+  for (const r of ['oda', 'ahir', 'samanlik', 'misafir', 'bodrum'] as const) {
+    if (canBuild(w, r) === null && w.hh.cash > roomPrice(w, r) * 3 + reserve && (r !== 'oda' || crowded(w))) buildRoom(w, r);
+  }
+  // Kan davası: husumet çok yüksekse erkekleri eve kapat
+  if (w.rival.feud >= 75 && !w.rival.lock) setLock(w, true);
+  if (w.rival.feud < 40 && w.rival.lock) setLock(w, false);
+  // Atölye
+  if (!unlocked(w) && chance(w, 0.5)) {
+    if (!w.hh.agil && w.hh.cash > 4 * AGIL_PRICE * infl(w.m)) buyAgil(w);
+    const lvl = w.lab?.lvl || 0;
+    if (w.hh.agil && lvl < 3 && w.hh.cash > labPrice(w, lvl + 1) * 2) buildLab(w, 'agil');
+  }
+  if (w.lab) {
+    if (!w.lab.chem && w.hh.cash > cevdetPay(w) * 12) hireCevdet(w, true);
+    moveStash(w);
+    if (w.lab.raw < 2 && w.hh.cash > hamPrice(w) * 6 + reserve) buyRaw(w, 3);
+    if (w.lab.prod + w.lab.hap >= 4 && w.heat < 70) sellProduct(w);
+  }
   staffAll(w);
+}
+
+/** Haciz: ağa önce taşıtı, sonra tarlayı alır; hiçbiri yoksa aile ağanın tarlasında borç için çalışır. */
+function seize(w: World) {
+  const ve = (['kamyon', 'otomobil', 'traktor', 'araba', 'esek'] as const).find((v) => (w.hh.veh[v] || 0) > 0);
+  if (ve) {
+    const val = Math.round(vehiclePrice(w, ve) * 0.5);
+    w.hh.veh[ve] = (w.hh.veh[ve] || 0) - 1;
+    w.hh.debt = Math.max(0, w.hh.debt - val);
+    log(w, `Haciz: ağanın adamları ${ve === 'esek' ? 'eşeği' : ve === 'araba' ? 'at arabasını' : ve === 'traktor' ? 'traktörü' : ve === 'otomobil' ? 'otomobili' : 'kamyonu'} götürdü; borçtan ${val} lira düşüldü.`, 'para');
+    return;
+  }
+  const f = [...w.hh.parcels].sort((a, b) => a.price - b.price)[0];
+  if (f) {
+    const i = w.plots.findIndex((x) => x.pid === f.id);
+    const val = Math.round(landBase(w) * 0.6);
+    for (const q of Object.values(w.people)) {
+      if (q.job === 'kendi' && q.parcel === f.id) {
+        q.job = 'tarla';
+        q.parcel = undefined;
+      }
+    }
+    w.hh.parcels = w.hh.parcels.filter((x) => x.id !== f.id);
+    w.hh.parcels.forEach((x, k) => (x.no = k + 1));
+    w.hh.land = w.hh.parcels.length * 5;
+    if (i >= 0) w.plots[i] = { o: 'aga', ask: 1, sale: false, mad: 0 };
+    w.hh.debt = Math.max(0, w.hh.debt - val);
+    log(w, `Haciz: borç ödenemedi, ağa ${i >= 0 ? PLOTS[i].yer + ' mevkiindeki ' : ''}tarlaya el koydu. Borçtan ${val} lira düşüldü. Tapu artık ağanın.`, 'tapu');
+    return;
+  }
+  if (!w.flags.irgatlik || Number(w.flags.irgatlik) < w.m - 24) {
+    w.flags.irgatlik = w.m;
+    log(w, `Borç o kadar büyüdü ki aile artık ağanın tarlasında yalnızca borcuna çalışıyor.`, 'para');
+  }
 }

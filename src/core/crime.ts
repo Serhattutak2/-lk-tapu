@@ -6,6 +6,7 @@ import { addToHH, age, alive, fullName, hhMembers, log, P, removeFromHH } from '
 import { dateText, infl, monthOf, year } from './calendar';
 import { BAN_FROM, BAN_TO, isBanYear } from './fields';
 import { pushCard } from './cards';
+import { SITES } from './lab';
 import { makeSpouseFor, marry } from './life';
 
 export const heatLabel = (h: number) => (h < 15 ? 'Kimse bakmıyor' : h < 35 ? 'Adın geçiyor' : h < 60 ? 'Jandarma soruyor' : 'Gözetim altındasın');
@@ -60,7 +61,11 @@ export function crimeCards(w: World): boolean {
   const pl = P(w, w.playerId);
   if (!alive(pl)) return false;
   const pa = age(w, pl);
-  const evidence = w.hh.stash > 0 || w.hh.parcels.some((p) => p.illegal && p.crop);
+  // Samanlık zulayı, uzak atölye kendini gizler: baskında bulunma ihtimali
+  const stashFound = w.hh.stash > 0 && chance(w, w.hh.rooms?.samanlik ? 0.45 : 0.9);
+  const labFound = !!w.lab && chance(w, SITES[w.lab.site].find);
+  const fieldFound = w.hh.parcels.some((p) => p.illegal && p.crop);
+  const evidence = stashFound || labFound || fieldFound;
 
   // Jandarma baskını
   const raidP = Math.max(0, w.heat - 12) / 100 * 0.09 + (evidence ? 0.004 : 0);
@@ -70,7 +75,7 @@ export function crimeCards(w: World): boolean {
       pushCard(w, { id: 'bilgi', text: `Gece yarısı jandarma kapıya dayandı. Ahırı, samanlığı, yüklüğü aradılar. Bir şey bulamadılar ama komutan giderken "Gözümüz üstünde" dedi.`, opts: [{ t: 'Kapıyı kapat', k: 'ok' }] });
       return true;
     }
-    const bc = bribeCost(w);
+    const bc = bribeCost(w) * (labFound ? 2 : 1);
     const sg = scapegoats(w)[0];
     const opts: { t: string; k: string }[] = [];
     if (w.hh.cash >= bc) opts.push({ t: `Komutana zarf ver (${fmt(bc)} lira)`, k: 'rusvet' });
@@ -78,9 +83,9 @@ export function crimeCards(w: World): boolean {
     opts.push({ t: 'Suçu ben üstleneyim', k: 'ustlen:' + pl.id });
     pushCard(w, {
       id: 'baskin',
-      text: `Jandarma baskını. ${w.hh.stash > 0 ? `Samanlığın altındaki zulada ${w.hh.stash} çuval mal bulundu. ` : ''}${w.hh.parcels.some((p) => p.illegal && p.crop) ? 'Ruhsatsız tarla tutanağa geçti. ' : ''}Komutan birinin götürüleceğini söylüyor.`,
+      text: `Jandarma baskını. ${stashFound ? `Zulada ${w.hh.stash} çuval mal bulundu. ` : ''}${labFound ? `${SITES[w.lab!.site].ad} basıldı: atölye, kazanlar ve ${w.lab!.prod + w.lab!.hap} birim ürün tutanağa geçti. ` : ''}${fieldFound ? 'Ruhsatsız tarla tutanağa geçti. ' : ''}Komutan birinin götürüleceğini söylüyor.${labFound ? ' Atölye için zarf da kalın olmalı.' : ''}`,
       opts,
-      data: { bribe: bc },
+      data: { bribe: bc, stash: stashFound, lab: labFound },
     });
     return true;
   }
@@ -182,8 +187,13 @@ export function resolveCrime(w: World, c: Card, k: string): boolean {
       }
       const pid = k.split(':')[1];
       const p = P(w, pid);
-      const seized = w.hh.stash;
-      w.hh.stash = 0;
+      const seized = c.data?.stash ? w.hh.stash : 0;
+      if (c.data?.stash) w.hh.stash = 0;
+      const labHit = !!c.data?.lab && !!w.lab;
+      if (labHit) {
+        log(w, `Atölye mühürlendi, içindeki her şeye el konuldu.`, 'olay');
+        w.lab = null;
+      }
       for (const f of w.hh.parcels) {
         if (f.illegal && f.crop) {
           f.crop = null;
@@ -193,7 +203,7 @@ export function resolveCrime(w: World, c: Card, k: string): boolean {
       w.ruhsat = 0;
       w.heat = clamp(w.heat * 0.35, 0, 100);
       if (alive(p)) {
-        const yrs = rint(w, 2, 4) + (seized > 20 ? 2 : 0);
+        const yrs = rint(w, 2, 4) + (seized > 20 ? 2 : 0) + (labHit ? 4 : 0);
         p.away = 'hapis';
         p.awayUntil = w.m + yrs * 12;
         p.job = 'yok';

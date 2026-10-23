@@ -26,11 +26,19 @@ function check(w: World) {
   expect(w.hh.stash).toBeGreaterThanOrEqual(0);
   expect(w.hh.land).toBe(w.hh.parcels.length * 5);
   for (const p of Object.values(w.people)) {
+    if (p.job === 'lab' && p.inHH && p.d === undefined && !p.away) expect(w.lab).toBeTruthy();
     if (p.job === 'isletme') expect(p.biz && w.hh.biz[p.biz]).toBeTruthy();
     if (p.job === 'kendi') expect(w.hh.parcels.some((f) => f.id === p.parcel), `${p.id} parseli var`).toBe(true);
     if (p.away === 'hapis' && p.d === undefined) expect(p.awayUntil).toBeGreaterThan(w.m - 1);
   }
   expect(w.plots.filter((x) => x.o === 'biz').length).toBe(w.hh.parcels.length);
+  if (w.lab) {
+    expect(w.lab.raw).toBeGreaterThanOrEqual(0);
+    expect(w.lab.lvl).toBeGreaterThanOrEqual(1);
+    expect(w.lab.lvl).toBeLessThanOrEqual(3);
+  }
+  expect(w.rival.feud).toBeGreaterThanOrEqual(0);
+  expect(w.rival.feud).toBeLessThanOrEqual(100);
   for (const f of w.hh.parcels) {
     expect(w.plots.some((x) => x.pid === f.id), `parsel ${f.id} haritada`).toBe(true);
     expect(Number.isFinite(f.careSum)).toBe(true);

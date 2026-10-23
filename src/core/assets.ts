@@ -12,20 +12,20 @@ const fmt = (n: number) => Math.round(n).toLocaleString('tr-TR');
 export interface HouseDef { lvl: number; ad: string; price: number; nam: number; desc: string; }
 export const HOUSES: HouseDef[] = [
   { lvl: 0, ad: 'Ağanın kira evi', price: 0, nam: 0, desc: 'Tek göz, toprak damlı. Her ay ağaya kira.' },
-  { lvl: 1, ad: 'Kendi kerpiç evimiz', price: 7000, nam: 6, desc: 'Kira biter. Kapının önünde kimseye hesap vermezsin.' },
-  { lvl: 2, ad: 'İki katlı taş ev', price: 22000, nam: 16, desc: 'Sobalı, camlı. Kışın hastalık azalır, köyde sözün dinlenir.' },
-  { lvl: 3, ad: 'Konak', price: 75000, nam: 40, desc: 'Avlulu, misafir odalı. Ağanın konağından büyük.' },
+  { lvl: 1, ad: 'Kendi kerpiç evimiz', price: 9000, nam: 6, desc: 'Kira biter. Kapının önünde kimseye hesap vermezsin.' },
+  { lvl: 2, ad: 'İki katlı taş ev', price: 29000, nam: 16, desc: 'Sobalı, camlı. Kışın hastalık azalır, köyde sözün dinlenir.' },
+  { lvl: 3, ad: 'Konak', price: 98000, nam: 40, desc: 'Avlulu, misafir odalı. Ağanın konağından büyük.' },
 ];
 export const housePrice = (w: World, lvl: number) => Math.round((HOUSES[lvl].price * infl(w.m)) / 100) * 100;
 
 // ---------- Taşıtlar ----------
 export interface VehicleDef { id: VehicleId; ad: string; price: number; from: number; nam: number; upkeep: number; desc: string; }
 export const VEHICLES: Record<VehicleId, VehicleDef> = {
-  esek: { id: 'esek', ad: 'Eşek', price: 250, from: 1965, nam: 1, upkeep: 8, desc: 'Tarlaya yük taşır. Parsellerde iş gücüne +0,3.' },
-  araba: { id: 'araba', ad: 'At arabası', price: 1500, from: 1965, nam: 3, upkeep: 25, desc: 'Ürünü ilçe pazarına sen götürürsün: bütün hasat satışları %6 daha fazla.' },
-  traktor: { id: 'traktor', ad: 'Traktör', price: 26000, from: 1967, nam: 12, upkeep: 0, desc: 'Her traktör 2,5 işçi gücü verir; işçisi eksik parsellere kendiliğinden gider. Çalıştığı ay mazot yakar.' },
-  otomobil: { id: 'otomobil', ad: 'Otomobil', price: 34000, from: 1967, nam: 15, upkeep: 120, desc: 'Hastayı doktora vaktinde yetiştirir; ağır hastalıkta ölüm riski düşer. Köy herkes kimin geldiğini bilir.' },
-  kamyon: { id: 'kamyon', ad: 'Kamyon', price: 52000, from: 1970, nam: 10, upkeep: 180, desc: 'Bir aile üyesi şoför olursa nakliyeden aylık kazanç. Kara Rıza\'nın malı da kasada gider: kaçak fiyat %20 artar.' },
+  esek: { id: 'esek', ad: 'Eşek', price: 320, from: 1965, nam: 1, upkeep: 8, desc: 'Tarlaya yük taşır. Parsellerde iş gücüne +0,3.' },
+  araba: { id: 'araba', ad: 'At arabası', price: 1900, from: 1965, nam: 3, upkeep: 25, desc: 'Ürünü ilçe pazarına sen götürürsün: bütün hasat satışları %6 daha fazla.' },
+  traktor: { id: 'traktor', ad: 'Traktör', price: 33000, from: 1967, nam: 12, upkeep: 0, desc: 'Her traktör 2,5 işçi gücü verir; işçisi eksik parsellere kendiliğinden gider. Çalıştığı ay mazot yakar.' },
+  otomobil: { id: 'otomobil', ad: 'Otomobil', price: 43000, from: 1967, nam: 15, upkeep: 120, desc: 'Hastayı doktora vaktinde yetiştirir; ağır hastalıkta ölüm riski düşer. Köy herkes kimin geldiğini bilir.' },
+  kamyon: { id: 'kamyon', ad: 'Kamyon', price: 66000, from: 1970, nam: 10, upkeep: 180, desc: 'Bir aile üyesi şoför olursa nakliyeden aylık kazanç. Kara Rıza\'nın malı da kasada gider: kaçak fiyat %20 artar.' },
 };
 export const vehiclePrice = (w: World, v: VehicleId) => Math.round((VEHICLES[v].price * infl(w.m)) / 10) * 10;
 export const TRACTOR_POWER = 2.5;
@@ -34,9 +34,9 @@ export const tractorFuel = (w: World) => Math.round(140 * infl(w.m));
 // ---------- İşletmeler ----------
 export interface BizDef { id: BizId; ad: string; price: number; income: number; from: number; namReq: number; nam: number; desc: string; }
 export const BIZ: Record<BizId, BizDef> = {
-  bakkal: { id: 'bakkal', ad: 'Köy bakkalı', price: 9000, income: 300, from: 1965, namReq: 0, nam: 6, desc: 'Yaşlı Bakkal Nuri dükkânı devretmek istiyor. Başına aileden biri geçerse tam kazanç; geçmezse çırağı yarısını çalar.' },
-  kahve: { id: 'kahve', ad: 'Kahvehane', price: 14000, income: 360, from: 1967, namReq: 10, nam: 8, desc: 'Köyün bütün sözü burada döner. Sahibi her şeyi duyar: Kara Rıza ile tanışmak kolaylaşır, ihbarlar önceden kulağına gelir.' },
-  degirmen: { id: 'degirmen', ad: 'Değirmen', price: 32000, income: 520, from: 1969, namReq: 30, nam: 18, desc: 'Köyün bütün buğdayı burada öğütülür. Temmuz–Ekim arası kazanç iki katına çıkar.' },
+  bakkal: { id: 'bakkal', ad: 'Köy bakkalı', price: 12000, income: 300, from: 1965, namReq: 0, nam: 6, desc: 'Yaşlı Bakkal Nuri dükkânı devretmek istiyor. Başına aileden biri geçerse tam kazanç; geçmezse çırağı yarısını çalar.' },
+  kahve: { id: 'kahve', ad: 'Kahvehane', price: 18500, income: 360, from: 1967, namReq: 10, nam: 8, desc: 'Köyün bütün sözü burada döner. Sahibi her şeyi duyar: Kara Rıza ile tanışmak kolaylaşır, ihbarlar önceden kulağına gelir.' },
+  degirmen: { id: 'degirmen', ad: 'Değirmen', price: 42000, income: 520, from: 1969, namReq: 30, nam: 18, desc: 'Köyün bütün buğdayı burada öğütülür. Temmuz–Ekim arası kazanç iki katına çıkar.' },
 };
 export const bizPrice = (w: World, b: BizId) => Math.round((BIZ[b].price * infl(w.m)) / 100) * 100;
 

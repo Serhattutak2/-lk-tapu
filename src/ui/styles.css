@@ -207,3 +207,26 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
   #sheet .sheet { left: 16px; right: auto; bottom: 16px; width: 380px; border-radius: 8px; max-height: 70%; }
 }
 .tabs button { padding-left: 2px; padding-right: 2px; }
+
+/* ---------- 0.4: yeraltı, ev planı, yenilikler ---------- */
+.tabs { overflow-x: auto; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tabs button { flex: 1 0 auto; min-width: 58px; font-size: 14.5px; }
+.sow.off { opacity: .55; }
+.floor { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; margin: 8px 0; }
+.room { min-height: 64px; border-radius: 4px; padding: 8px; display: grid; align-content: space-between; font-size: 13px; }
+.room b { font: 700 14px var(--serif); }
+.room span { color: var(--straw-dim); font-size: 12px; }
+.room.core { background: #5a4630; border: 1px solid #7a6040; }
+.room.built { background: #4a3a28; border: 1px solid #6a5238; }
+.room.empty { border: 1px dashed var(--soil-3); color: var(--straw-dim); }
+.room.r-ahir { background: #4e4426; }
+.room.r-bodrum { background: #2f2a26; border-color: var(--madder); }
+.room.r-misafir { background: #5d3a2f; }
+.room.r-samanlik { background: #66572e; }
+details summary.group { cursor: pointer; }
+.linkish { background: none; border: 0; color: var(--straw-dim); text-decoration: underline; margin-top: 14px; font-size: 14px; display: block; }
+.doc.news h2 { font: 800 26px/1.1 var(--serif); margin: 4px 20px 6px; }
+.doc.news ul { margin: 8px 0 0; padding: 0 20px 0 38px; font: 500 16px/1.45 var(--serif); }
+.doc.news li { margin: 6px 0; }
+.doc.news { max-height: 88vh; overflow-y: auto; }

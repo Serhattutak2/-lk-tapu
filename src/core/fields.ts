@@ -8,6 +8,7 @@ import { dateText, infl, monthOf, year } from './calendar';
 import { JOBS, wage } from './jobs';
 import { pushCard } from './cards';
 import { PLOTS } from './plots';
+import { lockedOut } from './feud';
 
 export interface CropDef {
   id: CropId;
@@ -33,7 +34,7 @@ export const CROPS: Record<CropId, CropDef> = {
 export const HASHAS_SACKS = 12;
 export const DEVLET_PRICE = 275;
 export const KACAK_PRICE = 1050;
-export const IRGAT_WAGE = 190;
+export const IRGAT_WAGE = 220;
 
 export const BAN_FROM = 1972;
 export const BAN_TO = 1974;
@@ -71,7 +72,7 @@ export function laborNeed(w: World, p: Parcel): number {
 }
 
 export function workersOf(w: World, p: Parcel): Person[] {
-  return hhMembers(w).filter((q) => q.job === 'kendi' && q.parcel === p.id && !q.away);
+  return hhMembers(w).filter((q) => q.job === 'kendi' && q.parcel === p.id && !q.away && !lockedOut(w, q));
 }
 
 export function workerPower(w: World, q: Person): number {

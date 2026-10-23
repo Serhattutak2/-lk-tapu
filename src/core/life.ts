@@ -233,15 +233,7 @@ export function monthlyLife(w: World) {
     }
   }
 
-  // Aile kolları ayrılır: evli, çocuklu, oyuncu ya da varis olmayan erkekler
-  const pl = P(w, w.playerId);
-  for (const p of hhMembers(w)) {
-    if (!p.blood || p.id === w.playerId || p.id === w.heirId || p.sex !== 'E') continue;
-    if (pl && isAncestor(w, p, pl)) continue;
-    if (!alive(P(w, p.sp))) continue;
-    const kids = p.kids.filter((k) => alive(w.people[k])).length;
-    if (kids >= 2 && age(w, p) >= 25 && chance(w, 0.012 + (p.rel < 0 ? 0.02 : 0))) splitBranch(w, p, 'çoluk çocuğuyla');
-  }
+  // Aile kolları artık kendiliğinden ayrılmaz; ayrılmak isteyen kart ile sorar (home.ts).
 
   // Büyüyen çocuklar işe başlar
   for (const p of hhMembers(w)) {

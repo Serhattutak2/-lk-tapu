@@ -53,7 +53,7 @@ export function initPlots(w: World) {
   if (k >= 0) w.plots[k].sale = true;
 }
 
-export const landBase = (w: World) => 12500 * infl(w.m);
+export const landBase = (w: World) => 14500 * infl(w.m);
 
 export function plotPrice(w: World, i: number): number {
   const d = PLOTS[i];
@@ -65,6 +65,7 @@ export function plotOwnerName(w: World, i: number): string {
   const s = w.plots[i];
   if (s.o === 'biz') return `${w.surname} ailesi`;
   if (s.o === 'aga') return 'Bozbey Ağa';
+  if (s.o === 'rakip') return 'Kocabaş ailesi';
   return (w.flags['sahip' + i] as string) || PLOTS[i].owner;
 }
 
@@ -95,6 +96,7 @@ export function offerChance(w: World, i: number, nam: number): number {
   if (s.o === 'biz') return 0;
   if (s.sale) return 1;
   if (s.mad >= year(w.m)) return 0;
+  if (s.o === 'rakip') return w.rival.feud < 10 && nam >= 30 ? 0.2 : 0;
   if (s.o === 'aga') return nam >= 40 ? clamp(0.15 + (nam - 40) / 100, 0, 0.6) : 0;
   return clamp(0.3 + nam / 250, 0.3, 0.6);
 }

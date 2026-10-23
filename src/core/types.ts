@@ -4,9 +4,11 @@
 
 export type Sex = 'E' | 'K';
 export type SkillId = 'tarim' | 'insaat' | 'zanaat' | 'ticaret';
-export type JobId = 'tarla' | 'kendi' | 'isletme' | 'sofor' | 'coban' | 'insaat' | 'cirak' | 'usta' | 'tuccar' | 'ev' | 'okul' | 'yok';
+export type JobId = 'tarla' | 'kendi' | 'isletme' | 'sofor' | 'lab' | 'coban' | 'insaat' | 'cirak' | 'usta' | 'tuccar' | 'ev' | 'okul' | 'yok';
 export type VehicleId = 'esek' | 'araba' | 'traktor' | 'otomobil' | 'kamyon';
 export type BizId = 'bakkal' | 'kahve' | 'degirmen';
+export type RoomId = 'oda' | 'ahir' | 'samanlik' | 'misafir' | 'bodrum';
+export type LabSite = 'bodrum' | 'degirmen' | 'agil';
 export type CropId = 'bugday' | 'arpa' | 'nohut' | 'pancar' | 'hashas';
 
 export interface Traits {
@@ -92,10 +94,36 @@ export interface Household {
   house: number;        // 0 kira evi, 1 kerpiç, 2 taş ev, 3 konak
   veh: Partial<Record<VehicleId, number>>;
   biz: Partial<Record<BizId, number>>; // sahip olunan işletmeler: alındığı ay
+  rooms: Partial<Record<RoomId, number>>; // evdeki ek odalar
+  agil: boolean;        // dağdaki ağıl
+}
+
+/** Gizli atölye: soyut bir üretim zinciri (ham mal → paket → hap). */
+export interface LabState {
+  lvl: number;          // 1 atölye, 2 laboratuvar, 3 hap imalathanesi
+  site: LabSite;
+  raw: number;          // bekleyen ham mal (çuval)
+  prod: number;         // hazır paket
+  hap: number;          // hazır hap kolisi
+  chem: 'cevdet' | null; // dışarıdan kimyager
+  q: number;            // son partinin kalitesi 0-1
+  made: number;         // bugüne kadar üretilen
+}
+
+/** Rakip aile ve kan davası. */
+export interface RivalState {
+  name: string;
+  power: number;        // 0-100
+  feud: number;         // 0-100 husumet
+  blood: number;        // >0: onlar bize kan borçlu, <0: biz onlara
+  lock: boolean;        // erkekler evden çıkmıyor
+  dead: number;         // bizden kaybedilen
+  theirDead: number;    // onlardan
+  peaceM: number;       // son barış ayı
 }
 
 export interface PlotState {
-  o: 'aga' | 'koy' | 'biz';
+  o: 'aga' | 'koy' | 'biz' | 'rakip';
   pid?: string;         // bizimse parsel kimliği
   ask: number;          // sahibinin fiyat çarpanı
   sale: boolean;        // satışta mı
@@ -129,5 +157,7 @@ export interface World {
   heat: number;         // jandarmanın dikkati 0-100
   ruhsat: number;       // haşhaş ruhsatının geçerli olduğu yıl (0 = yok)
   plots: PlotState[];   // köydeki bütün tarlaların sahipliği ve satış durumu
+  lab: LabState | null;
+  rival: RivalState;
   over: null | { m: number; reason: string };
 }

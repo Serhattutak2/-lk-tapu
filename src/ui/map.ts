@@ -5,15 +5,17 @@ import { hhMembers } from '../core/people';
 import { CROPS } from '../core/fields';
 import { PLOTS } from '../core/plots';
 
-const W = 320;
-const H = 196;
+const W = 480;
+const H = 300;
 const N = 18;
 const OX = W / 2;
-const OY = 26;
+const OY = 70;
+const HORIZON = 58;
+const R = 11; // köyün dışındaki bozkır halkası (karo)
 
 type Tile = 'g' | 'r' | 'f' | 'h' | 'p'; // çimen, yol, ağa tarlası, haşhaş, oyuncu parseli yuvası
-type Kind = 'ev' | 'evOyuncu' | 'kahve' | 'cami' | 'okul' | 'konak' | 'cesme' | 'kavak' | 'ahir' | 'bakkal' | 'degirmen';
-export type Pick = { kind: 'plot'; i: number } | { kind: 'bld'; k: 'evOyuncu' | 'kahve' | 'bakkal' | 'degirmen' | 'konak' };
+type Kind = 'ev' | 'evOyuncu' | 'kahve' | 'cami' | 'okul' | 'konak' | 'cesme' | 'kavak' | 'ahir' | 'bakkal' | 'degirmen' | 'agil';
+export type Pick = { kind: 'plot'; i: number } | { kind: 'bld'; k: 'evOyuncu' | 'kahve' | 'bakkal' | 'degirmen' | 'konak' | 'agil' };
 interface Bld { x: number; y: number; k: Kind; }
 
 const grid: Tile[][] = [];
@@ -43,7 +45,7 @@ PLOTS.forEach((d, i) => {
 const BLD: Bld[] = [
   { x: 6, y: 6, k: 'ev' }, { x: 7, y: 6, k: 'kahve' }, { x: 9, y: 6, k: 'cami' }, { x: 10, y: 7, k: 'bakkal' },
   { x: 6, y: 7, k: 'ev' }, { x: 9, y: 9, k: 'okul' }, { x: 7, y: 9, k: 'cesme' }, { x: 6, y: 10, k: 'evOyuncu' },
-  { x: 10, y: 9, k: 'ev' }, { x: 7, y: 10, k: 'ahir' }, { x: 11, y: 6, k: 'konak' }, { x: 5, y: 9, k: 'ev' }, { x: 1, y: 9, k: 'degirmen' },
+  { x: 10, y: 9, k: 'ev' }, { x: 7, y: 10, k: 'ahir' }, { x: 11, y: 6, k: 'konak' }, { x: 5, y: 9, k: 'ev' }, { x: 1, y: 9, k: 'degirmen' }, { x: -5, y: 5, k: 'agil' },
   { x: 6, y: 4, k: 'kavak' }, { x: 10, y: 4, k: 'kavak' }, { x: 4, y: 7, k: 'kavak' }, { x: 13, y: 8, k: 'kavak' },
   { x: 5, y: 12, k: 'kavak' }, { x: 9, y: 13, k: 'kavak' }, { x: 14, y: 9, k: 'kavak' }, { x: 3, y: 9, k: 'ev' },
 ];
@@ -208,6 +210,24 @@ function building(g: CanvasRenderingContext2D, b: Bld, p: Palette, t: number, w:
       }
       break;
     }
+    case 'agil': {
+      block(g, b.x, b.y, 6, '#9a948a', '#7f796f', p.snow ? '#eef1f1' : '#6e5a43', 1);
+      g.fillStyle = '#5a4128';
+      for (let i = 0; i < 6; i++) g.fillRect(X - 14 + i * 2, Y + 4 + Math.floor(i / 2), 1, 3);
+      if (w.hh.agil) {
+        g.fillStyle = '#a3322a';
+        g.fillRect(X + 4, Y - 14, 3, 2);
+        g.fillRect(X + 3, Y - 14, 1, 7);
+      }
+      if (w.lab && w.lab.site === 'agil') {
+        for (let i = 0; i < 5; i++) {
+          const k = (t / 2 + i * 4) % 22;
+          g.fillStyle = `rgba(190,190,200,${0.6 - k / 40})`;
+          g.fillRect(X - 2 + Math.round(Math.sin((t + i * 5) / 5) * 2), Y - 12 - k, 2, 2);
+        }
+      }
+      break;
+    }
     case 'ahir':
       block(g, b.x, b.y, 5, '#9c7d55', '#7d6342', p.snow ? '#eef1f1' : '#6e5436', 1);
       break;
@@ -272,6 +292,57 @@ function parcelTile(w: World, f: World['hh']['parcels'][number], alt: boolean, s
   return pick('#6b4f33', '#5e452d');
 }
 
+/** Deterministik karo gürültüsü */
+const hash = (x: number, y: number) => {
+  let h = (x * 374761393 + y * 668265263) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+};
+const isRiver = (x: number, y: number) => y < 0 && y === -2 - (((x % 9) + 9) % 9 < 4 ? 0 : 1) && x > -R;
+const isOutRoad = (x: number, y: number) => (y === 8 && (x < 0 || x >= N)) || (x === 8 && (y < 0 || y >= N));
+
+function sky(g: CanvasRenderingContext2D, m: number, t: number) {
+  const mo = monthOf(m);
+  const winter = mo === 11 || mo <= 1;
+  const top = winter ? '#9fb2bd' : mo >= 8 && mo <= 10 ? '#a9bccb' : '#8fbfdc';
+  const low = winter ? '#d9dfe1' : mo >= 8 && mo <= 10 ? '#e4d3a8' : '#dfe6d2';
+  const gr = g.createLinearGradient(0, 0, 0, HORIZON + 10);
+  gr.addColorStop(0, top);
+  gr.addColorStop(1, low);
+  g.fillStyle = gr;
+  g.fillRect(0, 0, W, HORIZON + 12);
+  // bulutlar
+  g.fillStyle = 'rgba(255,255,255,0.75)';
+  for (let i = 0; i < 4; i++) {
+    const cx = ((i * 137 + t * (0.15 + i * 0.05)) % (W + 60)) - 30;
+    const cy = 10 + i * 7;
+    g.fillRect(cx, cy, 18, 3);
+    g.fillRect(cx + 4, cy - 2, 9, 2);
+  }
+  // uzak dağlar
+  for (let x = 0; x < W; x++) {
+    const h1 = 30 + 9 * Math.sin(x / 37) + 6 * Math.sin(x / 13 + 1) + 2 * Math.sin(x / 5.3);
+    g.fillStyle = winter ? '#8e9ca6' : '#8b98a3';
+    g.fillRect(x, h1, 1, HORIZON + 14 - h1);
+    if (h1 < 27 || winter) {
+      g.fillStyle = '#eef2f3';
+      g.fillRect(x, h1, 1, winter ? 4 : 2);
+    }
+    const h2 = 44 + 5 * Math.sin(x / 29 + 2) + 3 * Math.sin(x / 9);
+    g.fillStyle = winter ? '#b9c2c2' : mo >= 5 && mo <= 9 ? '#9c8f5c' : '#7c8a52';
+    g.fillRect(x, h2, 1, HORIZON + 14 - h2);
+  }
+}
+
+function steppe(m: number, alt: boolean): string {
+  const mo = monthOf(m);
+  if (mo === 11 || mo <= 1) return alt ? '#e2e7e7' : '#d4dbdc';
+  if (mo === 2) return alt ? '#8d9150' : '#82864a';
+  if (mo <= 4) return alt ? '#8aa451' : '#7e9849';
+  if (mo <= 7) return alt ? '#b8a865' : '#ab9b5c';
+  return alt ? '#a39058' : '#978550';
+}
+
 function shade(hex: string, d: number): string {
   const n = parseInt(hex.slice(1), 16);
   const c = (v: number) => Math.max(0, Math.min(255, v + d));
@@ -290,7 +361,7 @@ function outline(g: CanvasRenderingContext2D, x0: number, y0: number, x1: number
   }
 }
 
-const TAPPABLE: string[] = ['evOyuncu', 'kahve', 'bakkal', 'degirmen', 'konak'];
+const TAPPABLE: string[] = ['evOyuncu', 'kahve', 'bakkal', 'degirmen', 'konak', 'agil'];
 
 export class VillageMap {
   selected: Pick | null = null;
@@ -382,15 +453,59 @@ export class VillageMap {
     if (!w) return;
     const g = this.g;
     const p = palette(w.m);
-    g.fillStyle = p.snow ? '#b9c3c6' : '#3d4f2f';
+    g.fillStyle = steppe(w.m, false);
     g.fillRect(0, 0, W, H);
+    sky(g, w.m, this.t);
     const parcelOf = (i: number) => {
       const st = w.plots?.[i];
       return st && st.o === 'biz' ? w.hh.parcels.find((f) => f.id === st.pid) : undefined;
     };
     const mo = monthOf(w.m);
 
-    // Zemin
+    // Zemin: önce köyün dışındaki bozkır, dere ve yollar
+    for (let s = -2 * R; s < 2 * (N + R); s++) {
+      for (let y = -R; y < N + R; y++) {
+        const x = s - y;
+        if (x < -R || x >= N + R) continue;
+        if (x >= 0 && x < N && y >= 0 && y < N) continue;
+        if (sy(x, y) + 8 < HORIZON + 2 || sy(x, y) > H || sx(x, y) < -10 || sx(x, y) > W + 10) continue;
+        const alt = (x + y) % 2 === 0;
+        let c = steppe(w.m, alt);
+        if (isOutRoad(x, y)) c = p.road;
+        if (isRiver(x, y)) c = p.snow ? (alt ? '#c9dbe3' : '#bcd0d9') : alt ? '#4f8fb0' : '#4785a6';
+        diamond(g, x, y, c);
+        const X = sx(x, y);
+        const Y = sy(x, y);
+        if (isRiver(x, y) && !p.snow && (Math.floor(this.t / 6) + x) % 5 === 0) {
+          g.fillStyle = '#9fd0e6';
+          g.fillRect(X - 2, Y + 3, 3, 1);
+        } else if (!isOutRoad(x, y) && !isRiver(x, y)) {
+          const h = hash(x, y);
+          if (h < 0.08) {
+            g.fillStyle = '#8f8a80';
+            g.fillRect(X - 2, Y + 3, 3, 2);
+            g.fillStyle = '#b3ada2';
+            g.fillRect(X - 2, Y + 3, 2, 1);
+          } else if (h < 0.16 && !p.snow) {
+            g.fillStyle = '#5f7a3a';
+            g.fillRect(X + 1, Y + 2, 3, 2);
+            g.fillRect(X + 2, Y + 1, 1, 1);
+          } else if (h < 0.19) {
+            g.fillStyle = '#5d4a33';
+            g.fillRect(X, Y - 3, 1, 6);
+            g.fillStyle = p.leaf ?? '#7a6a52';
+            g.fillRect(X - 2, Y - 8, 5, 5);
+          } else if (h > 0.985 && !p.snow) {
+            const dx = Math.round(Math.sin(this.t / 25 + x) * 3);
+            g.fillStyle = '#f2eee2';
+            g.fillRect(X - 3 + dx, Y + 3, 2, 1);
+            g.fillRect(X + dx, Y + 4, 2, 1);
+            g.fillRect(X + 3 + dx, Y + 2, 2, 1);
+          }
+        }
+      }
+    }
+    // Köy
     for (let s = 0; s < N * 2; s++) {
       for (let y = 0; y < N; y++) {
         const x = s - y;
@@ -426,6 +541,13 @@ export class VillageMap {
         g.fillRect(X, Y - 9, 1, 9);
         g.fillStyle = '#a3322a';
         g.fillRect(X + 1, Y - 9 + (Math.floor(this.t / 6) % 2), 4, 3);
+      } else if (st.o === 'rakip') {
+        const X = sx(x + 1, y);
+        const Y = sy(x + 1, y);
+        g.fillStyle = '#3a3026';
+        g.fillRect(X, Y - 9, 1, 9);
+        g.fillStyle = '#2f5d8a';
+        g.fillRect(X + 1, Y - 9, 4, 3);
       } else if (st.sale) {
         const X = sx(x + 1, y + 1);
         const Y = sy(x + 1, y + 1);
@@ -536,14 +658,20 @@ export class VillageMap {
     }
     const o = this.out;
     o.imageSmoothingEnabled = false;
-    o.fillStyle = p.snow ? '#b9c3c6' : '#3d4f2f';
+    o.fillStyle = steppe(w.m, false);
     o.fillRect(0, 0, cw, ch);
-    // Köyün kapladığı alan (yaklaşık 300x185) ekrana sığacak kadar büyütülür
-    const s = Math.min(cw / 300, ch / 185);
+    // Köyün kapladığı alan (yaklaşık 300x170) ekrana sığar; çevresi bozkır ve dağlarla dolar
+    const s = Math.min(cw / 300, ch / 170);
     const dw = Math.round(W * s);
     const dh = Math.round(H * s);
-    const ox = Math.round((cw - dw) / 2);
-    const oy = Math.round((ch - dh) / 2 - 6 * s);
+    const ox = Math.round(cw / 2 - OX * s);
+    const oy = Math.round(ch / 2 - (OY + 72) * s);
+    if (oy > 0) {
+      // Tamponun üstünde kalan boşluk gökyüzüyle dolsun
+      const mo = monthOf(w.m);
+      o.fillStyle = mo === 11 || mo <= 1 ? '#9fb2bd' : mo >= 8 && mo <= 10 ? '#a9bccb' : '#8fbfdc';
+      o.fillRect(0, 0, cw, oy + 2);
+    }
     o.drawImage(this.buf, ox, oy, dw, dh);
     this.tx = { ox, oy, s, dpr };
   }

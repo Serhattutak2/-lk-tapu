@@ -10,6 +10,9 @@ import { resolveHashas } from './fields';
 import { buyPlot, landBlockers } from './assets';
 import { landBase, PLOTS, plotOwnerName, plotPrice } from './plots';
 import { crimeCards, resolveCrime } from './crime';
+import { labCards, resolveLab } from './lab';
+import { feudCards, resolveFeud } from './feud';
+import { homeCards, resolveHome } from './home';
 
 export function pushCard(w: World, c: Omit<Card, 'uid' | 'm'>) {
   w.cards.push({ ...c, uid: w.nextCard++, m: w.m });
@@ -99,7 +102,7 @@ export function resolveCard(w: World, uid: number, k: string) {
   if (i < 0) return;
   const [c] = w.cards.splice(i, 1);
   if (RESOLVE[c.id]) RESOLVE[c.id](w, c, k);
-  else resolveCrime(w, c, k);
+  else if (!resolveCrime(w, c, k) && !resolveLab(w, c.id, k) && !resolveFeud(w, c.id, c.pid, k, c.data)) resolveHome(w, c.id, c.pid, k, c.data);
   if (w.hh.cash < 0) {
     // Kasada olmayan para ağadan borç alınır
     w.hh.debt += -w.hh.cash;
@@ -116,6 +119,9 @@ export function generateCards(w: World) {
   const pa = age(w, pl);
   const yr = year(w.m);
   if (crimeCards(w)) return;
+  if (feudCards(w) || w.over) return;
+  if (labCards(w)) return;
+  if (homeCards(w)) return;
 
   // Görücü
   if (pa >= 18 && pa <= 45 && !alive(P(w, pl.sp)) && !pl.sp && chance(w, 0.08)) {
@@ -215,7 +221,7 @@ export function gurbetReturns(w: World) {
     if (!alive(p) || p.away !== 'gurbet' || (p.awayUntil ?? 0) > w.m) continue;
     p.away = undefined;
     p.awayUntil = undefined;
-    if (chance(w, 0.7)) {
+    if (chance(w, 0.85)) {
       const sav = Math.round(rint(w, 30, 60) * 100 * infl(w.m));
       w.hh.cash += sav;
       p.job = 'tarla';

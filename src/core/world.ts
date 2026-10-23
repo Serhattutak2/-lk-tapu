@@ -6,7 +6,7 @@ import { log, makePerson, seedSkills } from './people';
 import { defaultJob } from './jobs';
 import { initPlots, PLOTS } from './plots';
 
-export const VERSION = 3;
+export const VERSION = 4;
 export const START_M = 2; // Mart 1965
 
 export interface NewGameOpts {
@@ -27,7 +27,7 @@ export function newWorld(o: NewGameOpts = {}): World {
     nextCard: 1,
     surname: '',
     people: {},
-    hh: { cash: 0, debt: 0, rent: 50, land: 0, members: [], parcels: [], stash: 0, house: 0, veh: {}, biz: {} },
+    hh: { cash: 0, debt: 0, rent: 50, land: 0, members: [], parcels: [], stash: 0, house: 0, veh: {}, biz: {}, rooms: {}, agil: false },
     playerId: '',
     heirId: null,
     cards: [],
@@ -40,6 +40,8 @@ export function newWorld(o: NewGameOpts = {}): World {
     heat: 0,
     ruhsat: 0,
     plots: [],
+    lab: null,
+    rival: newRival(),
     over: null,
   };
   const surname = o.surname?.trim() || pick(w, SURNAMES);
@@ -83,6 +85,10 @@ export function newWorld(o: NewGameOpts = {}): World {
   return w;
 }
 
+export function newRival() {
+  return { name: 'Kocabaş', power: 25, feud: 0, blood: 0, lock: false, dead: 0, theirDead: 0, peaceM: 0 };
+}
+
 /** Eski kayıtları güncel veri modeline taşır. */
 export function migrate(w: World): World {
   if (!w.hh.parcels) {
@@ -99,6 +105,10 @@ export function migrate(w: World): World {
   w.hh.house ??= 0;
   w.hh.veh ??= {};
   w.hh.biz ??= {};
+  w.hh.rooms ??= {};
+  w.hh.agil ??= false;
+  w.lab ??= null;
+  w.rival ??= newRival();
   for (const f of w.hh.parcels) {
     f.mode ??= 'kendi';
     f.trac ??= 0;
