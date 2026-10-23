@@ -28,7 +28,7 @@ if (ai >= 0) {
   let [head, body] = html.split('</head><body>');
   head = head.slice(head.indexOf('<title>'));
   body = body.replace('</body></html>', '');
-  const art = head.replace('</title>', '</title><meta name="claude:viewport-fit-sides" content="cover">') + '\n' + body;
+  const art = head + '\n' + body;
   writeFileSync(out, art);
   console.log('artifact ->', out, art.length);
 } else {
