@@ -30,10 +30,11 @@ import type { CropId, Parcel } from '../core/types';
 import { dateText, infl, year } from '../core/calendar';
 import { VillageMap } from './map';
 import { Muzik } from './music';
+import { portraitSVG, sceneSVG } from './portrait';
 import { buySheep, coban, sellSheep, sheepPrice, suru, suruCap } from '../core/suru';
 import { buildEkEv, EKEV_MAX, ekEvPrice } from '../core/home';
 import { NIYET, niyet } from '../core/yil';
-import { kademe, kademeProgress, korku, korkuLabel, nextKademe, saygi } from '../core/guc';
+import { kademe, kademeProgress, korku, korkuLabel, nextKademe, nextObjective, saygi } from '../core/guc';
 import { konseyLabel, surgunEt } from '../core/konsey';
 import { sadakat, sagkol, setSagkol, toggleYetki, yetkiVar, YETKI_AD } from '../core/sagkol';
 import type { Yetki } from '../core/sagkol';
@@ -42,16 +43,11 @@ import { agaOlu, konakBizim } from '../core/aga';
 const SAVE_KEY = 'ilktapu_v1';
 const NEWS_KEY = 'ilktapu_haber';
 export const NEWS = {
-  v: '2.0',
+  v: '2.1',
   items: [
-    ['Gücün merdiveni', 'Aile sekmesinin başında artık kademen yazıyor: gündelikçiden toprak sahibine, kabadayıdan şehrin babasına, Konsey üyeliğine kadar on iki basamak. Her kademenin kendi işleri ve düşmanları var; bir sonrakine ne kadar kaldığını çubuk gösteriyor.'],
-    ['Korku ve saygı', 'İki ayrı güç: korku zorla iş yaptırır, saygı gönülden bağlar. Dengeyi korku lehine bozarsan köy meclisi önce uyarır, sonra seni köyden sürmeye kalkar. Güçlüysen sen de rakip aileyi köyden sürdürürsün (Yeraltı sekmesi).'],
-    ['Seçimden sonra sonuç', 'Artık büyük kararlardan sonra bir sonuç kartı geliyor: ne oldu, para, korku, saygı, dikkat, husumet ve can kaybı tek tek yazıyor.'],
-    ['Sağ kol', 'Güvendiğin birine yetki ver (Aile sekmesi): meslek atamaları, köy gelenekleri, tarla ve küçük olayları senin yerine o kapatsın. Becerisi işi iyi yaptırır; ama sadakati düşerse kasandan çalar, hatta adamlarını alıp düşmana geçer.'],
-    ['Konsey ve Büyük Baba', 'En tepede büyük ailelerin gizli masası Konsey. Ya aralarına girersin, ya aidat ödeyip bağımsız kalırsın, ya da masayı devirip hepsiyle savaşırsın. Beş aileyi de dağıtırsan unvanın Büyük Baba olur. Oyunun sonu yok.'],
-    ['On bir yeni meslek', 'Berber, aşçı, ebe, imam, postacı, terzi, gazeteci, mimar, banka müdürü, şarkıcı. Kimi saygı getirir, kimi manşeti yumuşatır, kimi doğumları kolaylaştırır, kimi fabrikayı büyütür.'],
-    ['Anadolu noir', 'Yeni renk paleti: gece laciverdi, bakır, eski altın, kurumuş kan kırmızısı. Bir de oyunun içinde üretilen bağlama ve darbuka müziği; sağ alttaki ♪ ile aç. Köyde sakin, kan davasında gergin, şehirde ağır çalar.'],
-    ['Deneme modu', 'Yeni oyunda "Deneme modu" kutusunu işaretle: kasa hiç bitmez, borç olmaz; her şeyi özgürce dene. Bu modda hedef puanı sayılmaz.'],
+    ['Herkesin bir yüzü var', 'Ailenin her ferdinin yaşına, cinsiyetine, huyuna ve çağına göre oluşan bir piksel portresi var. Yaşlanınca saçı ağarır, hastalanınca solar, küsünce surat asar. Aile listesinde ve olay kartlarında görünür.'],
+    ['Olaylar artık bir sahneyle geliyor', 'Her olay kartının başında küçük bir resim var: cenaze, gece baskını, düğün, kahvehane, karakol, tarla, şehir. Gece olayları kararır, gündüz açılır.'],
+    ['Sıradaki hedef', 'Haritanın altında artık seni yönlendiren bir şerit var: o an ne yapman gerektiğini söyler. Borcunu kapat, ilk tapunu al, Rıza\'yı devir, şehre taşın, Konsey\'e otur... Amaçsız dolaşmak yok.'],
   ] as [string, string][],
 };
 const SPEEDS = [0, 4200, 1500, 500];
@@ -173,6 +169,7 @@ export class App {
           <button role="tab" data-tab="hane">Hane</button>
           <button role="tab" data-tab="kronik">Kronik</button>
         </nav>
+        <div class="hedef" id="hedef"></div>
         <section class="panel" id="panel"></section>
       </div>
       <div id="sheet"></div>
@@ -307,6 +304,8 @@ export class App {
       ? `<b>${esc(fullName(pl))}</b>, ${age(w, pl)} yaşında, ${JOBS[pl.job].ad.toLowerCase()}<span class="ttl">${esc(tt.ad)} · nam ${nam(w)}${tt.next ? ` / ${tt.next.min}` : ''}${underTitle(w).ad !== 'Temiz' ? ` · ${esc(underTitle(w).ad)}` : ''}${w.pol.seat ? ` · ${w.pol.seat === 'muhtar' ? 'Muhtar' : w.pol.seat === 'belediye' ? 'Belediye başkanı' : 'Milletvekili'}` : ''}</span>`
       : 'Aile yasta';
     this.root.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === this.tab)));
+    const hb = document.getElementById('hedef');
+    if (hb) { const o = nextObjective(w); hb.innerHTML = o ? `<span class="ok">Sıradaki</span> ${esc(o)}` : ''; hb.style.display = o ? '' : 'none'; }
     const ts = document.getElementById('tabSehir');
     if (ts) ts.hidden = !w.city.open;
     const mt = document.getElementById('maptog');
@@ -384,13 +383,16 @@ export class App {
       .sort((x, y) => y[1] - x[1])
       .map(([k, v]) => `${({ tarim: 'Tarım', insaat: 'İnşaat', zanaat: 'Zanaat', ticaret: 'Ticaret' })[k]} ${Math.round(v)}`)
       .join(', ');
-    return `<div class="person">
+    return `<div class="person withface">
+      <div class="face">${portraitSVG(p, w, 48)}</div>
+      <div class="pbody">
       <div class="prow"><span class="pname">${esc(fullName(p))}</span>${badges}</div>
       <div class="prow"><span class="prel">${isMe ? '' : esc(rel) + ', '}${a} yaşında</span></div>
       <div class="pmeta"><span class="hp${hp < 40 ? ' low' : ''}" title="Sağlık ${hp}"><i style="width:${hp}%"></i></span>${jobCtl}
         ${canHeir ? `<button class="small" data-heir="${p.id}">Varis yap</button>` : ''}</div>
       ${sk ? `<div class="skills">${sk}</div>` : ''}
       ${inHouse && !p.away ? `<div class="earn">${this.earnText(p)}</div>` : ''}
+      </div>
     </div>`;
   }
 
@@ -1187,9 +1189,12 @@ export class App {
       return;
     }
     const delta = (c.data?.delta as { t: string; up: boolean }[] | undefined) || [];
+    const per = c.pid ? P(w, c.pid) : null;
     ov.innerHTML = `<div class="veil"><article class="doc${c.id === 'sonuc' ? ' sonuc' : ''}" role="dialog" aria-labelledby="ct">
+      ${c.id === 'sonuc' ? '' : sceneSVG(c.id, w)}
       <div class="kilim"></div>
       <div class="head">${KIND[c.id] ?? (c.id.startsWith('meslek:') ? 'Meslek' : c.id.startsWith('q:') ? 'Hikâye' : c.id.startsWith('km_') ? 'Komşu' : c.id.startsWith('it_') ? 'İttifak' : c.id.startsWith('sg_') ? 'Sağ kol' : c.id.startsWith('kv_') ? 'Köy' : c.id.startsWith('hi:') ? 'Tarih' : c.id.startsWith('ev:') ? 'Köyden' : 'Haber')}, ${dateText(c.m)}</div>
+      ${per && alive(per) ? `<div class="cardface">${portraitSVG(per, w, 44)}<span>${esc(fullName(per))}</span></div>` : ''}
       <p id="ct">${esc(c.text)}</p>
       ${delta.length ? `<div class="delta">${delta.map((x) => `<span class="${x.up ? 'up' : 'down'}">${esc(x.t)}</span>`).join('')}</div>` : ''}
       <div class="opts">${c.opts.map((o) => `<button data-opt="${esc(o.k)}">${esc(o.t)}</button>`).join('')}</div>

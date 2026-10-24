@@ -294,3 +294,18 @@ details summary.group { cursor: pointer; }
 .delta { display: inline-flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
 .delta span { font-size: 13px; padding: 2px 7px; border-radius: 10px; background: var(--soil-3); }
 .delta .up { color: var(--leaf); } .delta .down { color: var(--madder); }
+
+/* 2.1: portreler ve kart sahneleri */
+.person.withface { display: flex; gap: 10px; align-items: flex-start; }
+.person .face { flex: none; }
+.person .pbody { flex: 1; min-width: 0; }
+.portre { border-radius: 8px; border: 1px solid var(--soil-3); image-rendering: pixelated; background: #161a22; vertical-align: middle; }
+.who .portre { display: none; }
+.doc .scene { width: 100%; height: 70px; display: block; border-radius: 10px 10px 0 0; margin: -4px 0 6px; image-rendering: pixelated; }
+.cardface { display: flex; align-items: center; gap: 8px; margin: 2px 0 8px; }
+.cardface .portre { width: 44px; height: 44px; }
+.cardface span { color: var(--straw-dim); font-size: 14px; }
+
+/* 2.1: sıradaki hedef bandı */
+.hedef { padding: 7px 14px; font-size: 13.5px; color: var(--straw); background: linear-gradient(90deg, rgba(192,107,62,.18), transparent); border-bottom: 1px solid var(--soil-3); line-height: 1.35; }
+.hedef .ok { color: var(--copper); font-weight: 600; margin-right: 6px; text-transform: uppercase; font-size: 11px; letter-spacing: .5px; }

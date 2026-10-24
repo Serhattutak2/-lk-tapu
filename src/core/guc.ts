@@ -91,3 +91,24 @@ export const korkuLabel = (w: World) => {
 };
 
 export const KADEME_SAYISI = LADDER.length;
+
+/** Oyuncuya yol gösteren, o anki duruma göre tek cümlelik hedef. */
+export function nextObjective(w: World): string {
+  if (w.over) return '';
+  if (w.hh.debt > 0 && w.hh.parcels.length === 0) return 'Ağaya olan borcunu kapat; borçluyken kimse sana toprak satmaz.';
+  if (w.hh.parcels.length === 0) return 'İlk tapunu al: Tarla sekmesinden ya da haritadan bir tarla satın al.';
+  if (w.hh.house === 0) return 'Kendi evini al, ağaya kira ödemekten kurtul (Mülk sekmesi).';
+  if (!w.flags.kacakci && w.hh.parcels.length >= 1) return 'Kahvede Kara Rıza ile tanış; kayıt dışı işin kapısı oradan açılır.';
+  if (w.flags.kacakci && !w.flags.rizaFedai) return 'Rıza\'ya mal taşı, güvenini kazan; adamı ol.';
+  if (w.flags.rizaFedai && !w.lab && !w.hh.agil) return 'Dağdaki ağılı al; ilk atölyeni kurabileceğin yer orası (Yeraltı).';
+  if (w.hh.agil && (w.lab?.lvl || 0) < 1) return 'Gizli atölyeni kur ve ilk malını çıkar (Yeraltı).';
+  if ((w.lab?.lvl || 0) >= 1 && !w.city.net) return 'Adam topla, Kara Rıza\'yı devir; şebeke senin olsun.';
+  if (w.city.net && !w.city.open) return 'Servetini büyüt; şehir kapıları adın duyulunca açılır.';
+  if (w.city.open && !w.city.moved) return 'Şehirde ev al ve aileyi taşı; fabrika ve mahalle işleri orada döner.';
+  if (w.city.moved && Object.keys(w.city.facs).length < 2) return 'Şehirde fabrika kur; kara paranı aklayacak temiz bir vitrin lazım.';
+  if (w.city.turf < 3) return 'Mahalleleri ele geçir; şehrin yeraltında tek isim ol.';
+  if (!w.flags.konsey) return 'Büyük ailelerin masası Konsey seni bekliyor; ya katıl ya karşılarına geç.';
+  if (w.flags.konsey === 'dusman') return 'Konsey\'in beş ailesini tek tek dağıt; güçlü bir adam kadrosu tut.';
+  if (w.flags.konsey !== 'baba') return 'Tahtı al: Büyük Baba olmanın yolu Konsey\'i dağıtmaktan geçer.';
+  return 'En tepedesin. Şimdi orada kalmak için kan davalarını, ihanetleri ve yeni nesil düşmanları yönet.';
+}
