@@ -41,6 +41,7 @@ describe('rakip aileler ve şehir', () => {
 
   it('fabrika kara parayla alınamaz', () => {
     const w = newWorld({ seed: 79 });
+    w.m = (1960 - (w.y0 || 1925)) * 12;
     w.city.open = true;
     w.dirty = 10_000_000;
     w.hh.cash = 0;

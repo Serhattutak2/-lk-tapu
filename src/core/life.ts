@@ -53,7 +53,7 @@ export function succeed(w: World, dead: Person) {
     const kin = makePerson(w, { sex, b: w.m - rint(w, 22, 34) * 12 - rint(w, 0, 11), last: w.surname, blood: true, inHH: true });
     kin.sk.tarim = clamp(Math.round(gauss(w, 35, 10)), 5, 80);
     kin.sk.ticaret = clamp(Math.round(gauss(w, 15, 8)), 0, 60);
-    kin.job = defaultJob(w, kin);
+    kin.job = 'yok';
     const loss = Math.round(Math.max(0, w.hh.cash) * 0.45);
     w.hh.cash -= loss;
     w.dirty = Math.round(w.dirty * 0.5);
@@ -167,7 +167,7 @@ export function marry(w: World, p: Person, spouse: Person) {
   if (p.inHH && keepHome) addToHH(w, spouse);
   else if (p.inHH) removeFromHH(w, p);
   if (spouse.inHH && !p.inHH) removeFromHH(w, spouse);
-  if (spouse.inHH && spouse.job === 'yok') spouse.job = defaultJob(w, spouse);
+  // Gelinin/damadın işi meslek kartıyla sorulur
 }
 
 export function makeSpouseFor(w: World, p: Person, inHH: boolean): Person {
@@ -257,7 +257,8 @@ export function monthlyLife(w: World) {
   // Aile kolları artık kendiliğinden ayrılmaz; ayrılmak isteyen kart ile sorar (home.ts).
 
   // Büyüyen çocuklar işe başlar
-  for (const p of hhMembers(w)) {
+  for (const p of Object.values(w.people)) {
+    if (!alive(p) || p.away || p.inHH) continue; // hanedekiler meslek kartıyla sorulur
     const a = age(w, p);
     if (p.job === 'okul' && a > 15) p.job = defaultJob(w, p);
     if (p.job === 'yok' && a >= 7 && a <= 66 && !p.sick) p.job = defaultJob(w, p);

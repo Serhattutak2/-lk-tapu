@@ -598,7 +598,7 @@ export function monthlyHistory(w: World) {
     p.away = undefined;
     p.awayUntil = undefined;
     p.dip = 'ogret';
-    p.job = p.inHH ? 'ogretmen' : 'yok';
+    p.job = p.inHH ? 'yok' : 'ogretmen';
     p.sk.ticaret = clamp(p.sk.ticaret + 25, 0, 100);
     p.sk.zanaat = clamp(p.sk.zanaat + 15, 0, 100);
     bonus(w, 3);

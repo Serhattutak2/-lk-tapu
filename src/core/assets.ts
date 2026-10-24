@@ -13,9 +13,9 @@ const fmt = (n: number) => Math.round(n).toLocaleString('tr-TR');
 export interface HouseDef { lvl: number; ad: string; price: number; nam: number; desc: string; }
 export const HOUSES: HouseDef[] = [
   { lvl: 0, ad: 'Ağanın kira evi', price: 0, nam: 0, desc: 'Tek göz, toprak damlı. Her ay ağaya kira.' },
-  { lvl: 1, ad: 'Kendi kerpiç evimiz', price: 9000, nam: 6, desc: 'Kira biter. Kapının önünde kimseye hesap vermezsin.' },
-  { lvl: 2, ad: 'İki katlı taş ev', price: 29000, nam: 16, desc: 'Sobalı, camlı. Kışın hastalık azalır, köyde sözün dinlenir.' },
-  { lvl: 3, ad: 'Konak', price: 98000, nam: 40, desc: 'Avlulu, misafir odalı. Ağanın konağından büyük.' },
+  { lvl: 1, ad: 'Kendi kerpiç evimiz', price: 12500, nam: 6, desc: 'Kira biter. Kapının önünde kimseye hesap vermezsin.' },
+  { lvl: 2, ad: 'İki katlı taş ev', price: 39000, nam: 16, desc: 'Sobalı, camlı. Kışın hastalık azalır, köyde sözün dinlenir.' },
+  { lvl: 3, ad: 'Konak', price: 130000, nam: 40, desc: 'Avlulu, misafir odalı. Ağanın konağından büyük.' },
 ];
 export const housePrice = (w: World, lvl: number) => Math.round((HOUSES[lvl].price * infl(w.m)) / 100) * 100;
 

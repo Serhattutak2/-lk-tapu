@@ -403,7 +403,7 @@ function outline(g: CanvasRenderingContext2D, x0: number, y0: number, x1: number
 const TAPPABLE: string[] = ['evOyuncu', 'kahve', 'bakkal', 'degirmen', 'konak', 'agil'];
 
 /** Şehir: Çukurkent. Aynı izometrik ızgarada apartmanlar, sanayi, gazino, liman. */
-const FAC_AT: Record<FacId, [number, number]> = { un: [2, 8], tekstil: [4, 8], nakliye: [2, 10], insaat: [4, 10], gazino: [9, 9] };
+const FAC_AT: Partial<Record<FacId, [number, number]>> = { un: [2, 8], tekstil: [4, 8], nakliye: [2, 10], insaat: [4, 10], gazino: [9, 9], sarap: [1, 9], konserve: [5, 9], cimento: [1, 11], otel: [13, 7], liman: [13, 11], banka: [6, 6], medya: [8, 6] };
 const isCRoad = (x: number, y: number) => x % 6 === 0 || y % 6 === 0;
 const isSea = (x: number, y: number) => x >= 15;
 
@@ -445,6 +445,7 @@ export class VillageMap {
   private hit(X: number, Y: number): Pick | null {
     if (this.mode === 'sehir') {
       for (const f of Object.keys(FAC_AT) as FacId[]) {
+        if (!FAC_AT[f]) continue;
         const [fx, fy] = FAC_AT[f];
         if (Math.abs(X - sx(fx, fy)) <= 10 && Y >= sy(fx, fy) - 26 && Y <= sy(fx, fy) + 8) return { kind: 'fac', f };
       }
@@ -783,7 +784,7 @@ export class VillageMap {
     for (let y = 0; y < N; y++) {
       for (let x = 0; x < N; x++) {
         if (isCRoad(x, y) || isSea(x, y) || (x < 4 && y < 4)) continue;
-        const fac = (Object.keys(FAC_AT) as FacId[]).find((f) => FAC_AT[f][0] === x && FAC_AT[f][1] === y);
+        const fac = (Object.keys(FAC_AT) as FacId[]).find((f) => FAC_AT[f] && FAC_AT[f]![0] === x && FAC_AT[f]![1] === y);
         const d = x + y;
         if (fac) {
           items.push({ d, f: () => this.facSprite(w, fac, x, y) });
@@ -861,8 +862,8 @@ export class VillageMap {
     g.fillRect(sxp - 8, sy(16, 4 + ((t / 30) % 8)) + 2, 14, 3);
     g.fillStyle = '#c0392b';
     g.fillRect(sxp - 2, sy(16, 4 + ((t / 30) % 8)) - 2, 3, 4);
-    if (this.selected && this.selected.kind === 'fac') {
-      const [fx, fy] = FAC_AT[this.selected.f];
+    if (this.selected && this.selected.kind === 'fac' && FAC_AT[this.selected.f]) {
+      const [fx, fy] = FAC_AT[this.selected.f]!;
       if (Math.floor(t / 4) % 2 === 0) outline(g, fx, fy, fx, fy);
     }
   }

@@ -21,10 +21,11 @@ import { crimeCards, resolveCrime } from './crime';
 import { labCards, resolveLab } from './lab';
 import { feudCards, resolveFeud, resolveRivalCard, rivalCards } from './feud';
 import { homeCards, resolveHome } from './home';
-import { crewCards, netCards, resolveBaron, rizaCards } from './baron';
+import { crewCards, denizCards, netCards, resolveBaron, resolveDeniz, rizaCards } from './baron';
 import { eventCards, resolveEvent } from './events';
 import { districtCards, resolveDistrict } from './district';
 import { resolveSick, sickCard } from './health';
+import { jobCards, resolveJobCard } from './jobcard';
 import { historyCards, resolveHistory } from './history';
 
 export function pushCard(w: World, c: Omit<Card, 'uid' | 'm'>) {
@@ -132,7 +133,11 @@ export function resolveCard(w: World, uid: number, k: string) {
   if (i < 0) return;
   const [c] = w.cards.splice(i, 1);
   if (RESOLVE[c.id]) RESOLVE[c.id](w, c, k);
-  else if (!resolveCrime(w, c, k) && !resolveLab(w, c.id, k) && !resolveFeud(w, c.id, c.pid, k, c.data) && !resolveBaron(w, c.id, k) && !resolveEvent(w, c.id, k, c.pid, c.data) && !resolveHistory(w, c.id, k, c.pid, c.data) && !resolveKomutan(w, c.id, k) && !resolveYear(w, c.id, k) && !resolveQuest(w, c.id, k, c.pid, c.data) && !resolveKomsu(w, c.id, k) && !resolveNews(w, c.id, k) && !resolveAga(w, c.id, k) && !resolveRivalCard(w, c.id, k, c.pid) && !resolveFamily(w, c.id, k, c.pid, c.data) && !resolveDistrict(w, c.id, k, c.data)) resolveHome(w, c.id, c.pid, k, c.data);
+  else if (c.id.startsWith('meslek:')) {
+    resolveJobCard(w, c.id, k);
+    if (!w.cards.length) jobCards(w); // sıradaki kişiyi hemen sor
+  }
+  else if (!resolveCrime(w, c, k) && !resolveLab(w, c.id, k) && !resolveFeud(w, c.id, c.pid, k, c.data) && !resolveBaron(w, c.id, k) && !resolveDeniz(w, c.id, k) && !resolveEvent(w, c.id, k, c.pid, c.data) && !resolveJobCard(w, c.id, k) && !resolveHistory(w, c.id, k, c.pid, c.data) && !resolveKomutan(w, c.id, k) && !resolveYear(w, c.id, k) && !resolveQuest(w, c.id, k, c.pid, c.data) && !resolveKomsu(w, c.id, k) && !resolveNews(w, c.id, k) && !resolveAga(w, c.id, k) && !resolveRivalCard(w, c.id, k, c.pid) && !resolveFamily(w, c.id, k, c.pid, c.data) && !resolveDistrict(w, c.id, k, c.data)) resolveHome(w, c.id, c.pid, k, c.data);
   if (w.hh.cash < 0) {
     // Kasada olmayan para ağadan borç alınır
     w.hh.debt += -w.hh.cash;
@@ -156,10 +161,11 @@ export function generateCards(w: World) {
   if (feudCards(w) || w.over) return;
   if (rivalCards(w)) return;
   if (labCards(w)) return;
-  if (netCards(w) || crewCards(w) || rizaCards(w)) return;
+  if (netCards(w) || crewCards(w) || rizaCards(w) || denizCards(w)) return;
   if (districtCards(w)) return;
   if (historyCards(w) || w.over) return;
   if (eventCards(w) || w.over) return;
+  if (jobCards(w)) return;
   if (homeCards(w)) return;
   if (familyCards(w)) return;
   if (komsuCards(w)) return;
@@ -268,7 +274,7 @@ export function gurbetReturns(w: World) {
     if (chance(w, ist ? 0.93 : 0.85)) {
       const sav = Math.round(rint(w, 30, 60) * (ist ? 35 : 100) * infl(w.m));
       w.hh.cash += sav;
-      p.job = 'tarla';
+      p.job = 'yok';
       p.parcel = undefined;
       log(w, `${fullName(p)} ${ist ? 'İstanbul' : 'Almanya'}'dan döndü; yanında ${sav} lira birikim getirdi.`, 'para');
     } else {

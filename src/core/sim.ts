@@ -5,7 +5,7 @@ import { monthlyQuests } from './quests';
 import type { JobId, LedgerLine, World } from './types';
 import { chance, clamp, gauss, rint } from './rng';
 import { age, alive, fullName, hhMembers, log, P } from './people';
-import { JOBS, jobAllowed, wage } from './jobs';
+import { JOBS, jobAllowed, defaultJob, wage } from './jobs';
 import { monthlyLife } from './life';
 import { generateCards, gurbetReturns, resolveCard, seasonalNotes } from './cards';
 import { infl, monthOf, setBase, year } from './calendar';
@@ -283,6 +283,10 @@ export function botTurn(w: World) {
     if (c.id === 'kacakci') k = chance(w, 0.5) ? 'evet' : 'hayir';
     if (c.id === 'hashas_hasat') k = c.opts[Math.min(c.opts.length - 1, chance(w, 0.6) ? 0 : 1)].k;
     if (c.id === 'aga_kiz') k = chance(w, 0.5) ? 'ver' : 'ret';
+    if (c.id.startsWith('meslek:')) {
+      const want = defaultJob(w, P(w, c.pid)!);
+      k = (c.opts.find((o) => o.k === want) ?? c.opts[0]).k;
+    }
     if (c.id.startsWith('ev:') || c.id.startsWith('hi:') || c.id.startsWith('q:') || c.id.startsWith('km_') || c.id.startsWith('nw_') || c.id.startsWith('fa_') || c.id.startsWith('kmt') || c.id.startsWith('rk_') || c.id.startsWith('ce_') || c.id === 'plan_hashas' || c.id === 'ruhsat_red') {
       const cheap = c.opts.filter((o) => !/\(\d/.test(o.t) && !/lira\)/.test(o.t));
       const pool = w.hh.cash > 20000 * infl(w.m) ? c.opts : cheap.length ? cheap : c.opts;

@@ -15,7 +15,7 @@ import { BASE_CAP, buildRoom, canBuild, capacity, crowded, residents, roomPrice,
 import { AGIL_PRICE, buildLab, buyAgil, buyRaw, cevdetPay, hamPrice, hapPrice, hireCevdet, LAB_LEVELS, labCapacity, labPrice, labSkill, labWorkers, moveStash, paketPrice, sellProduct, siteOk, SITES, unlocked } from '../core/lab';
 import { attackRival, doRivalMove, feudLabel, gangPay, lockedOut, rivalMoves, rP, scuffle, targets, setLock } from '../core/feud';
 import { HUY_AD, kmtAd, kmtDost, kmtFactor, kmtFollow, kmtGift, kmtHuy, kmtKnown, kmtOurs, ozelTim } from '../core/jandarma';
-import { buyCityHome, buyFac, CITY, FACS, facIncome, facPrice, hire, HOMES, homePrice, launderCap, launderFee, moveToCity, setFacMgr, takeTurf, underTitle } from '../core/baron';
+import { buyGemi, denizOpen, facDown, facN, facTotal, gemiPrice, rebuildFac, setFacGuard, buyCityHome, buyFac, CITY, FACS, facIncome, facPrice, hire, HOMES, homePrice, launderCap, launderFee, moveToCity, setFacMgr, takeTurf, underTitle } from '../core/baron';
 import type { DInv, DistId, FacId, TechId } from '../core/types';
 import { buyTech, eraOf, TECHS, techPrice } from '../core/era';
 import { DISTS, distIncome, invest, invPrice, INVS, menNeeded, takeDistrict } from '../core/district';
@@ -37,14 +37,13 @@ import { agaOlu, konakBizim } from '../core/aga';
 const SAVE_KEY = 'ilktapu_v1';
 const NEWS_KEY = 'ilktapu_haber';
 export const NEWS = {
-  v: '1.0',
+  v: '1.1',
   items: [
-    ['İki hata düzeldi', 'Görücüye çık düğmesi sayfayı kilitliyordu; bekârken ekim planı seçimi de bu yüzden kaydedilmiyordu. İkisi de düzeldi. Artık her sürümden önce gerçek bir tarayıcıda bütün sekmeler, bütün düğmeler ve otomatik ekim tek tek deneniyor.'],
-    ['Komşular ve hatır', 'Köyün sekiz ailesi artık adıyla var: Deli Hamza, gazi Topal Osman, Dul Hatice, dedikoducu Berber Sami, Hacı Ömer, Kör Veli, Bekçi Nuri, Muhtar Rıfat. Aile sekmesinden ayda bir ziyarete gidersin. Hatırı yüksek komşu tarlasını önce sana ve ucuza satar, teklifini kolay kabul eder. Bekçi baskından önce haber verir, muhtar seçimde arkanda durur, Hacı Ömer faizsiz borç verir. Kırk yıl sonra yerlerini çocukları alır; hatır aileye geçer.'],
-    ['Yıllara yayılan hikâyeler', 'Deli Hamza\'nın vasiyeti: yıllarca bakarsan tarlasını sana bırakır, ama şehirden bir yeğen çıkagelir. Ahlatın dibindeki küp: Kör Veli\'nin eşkıya altını masalı gerçek mi? Öğretmen Nazmiye: köye gelen genç öğretmeni evinde ağırlarsan çocuğunun hayatı değişir. Uzaktaki akrabanın mektubu, dere köprüsü, köyde film çekimi, demiryolu inşaatı.'],
-    ['Gazete, radyo, televizyon', 'Ülkenin büyük günleri köye ulaşıyor: Medeni Kanun, kadınlara seçme hakkı, Atatürk\'ün vefatı, Erzincan depremi, Ay\'a iniş, Boğaziçi Köprüsü, Marmara depremi, 2002 Dünya Kupası, 2023 depremleri, Cumhuriyet\'in yüzüncü yılı.'],
-    ['2020 salgını', 'Okullar kapanır, dükkânlar ve fabrikalar yarım çalışır. Yaşlıları korumak, işçileri kollamak ya da hayatı sürdürmek senin kararın.'],
-    ['Ağanın toprakları', 'Bozbey Ağa öldükten sonra toprakları artık gerçekten her yıl satışa çıkıyor.'],
+    ['Herkesin işini sen seçiyorsun', 'Artık kimse kendiliğinden bir işe atanmıyor. Oyun başında ailenin her ferdi için, sonra büyüyen çocuk, okulu bitiren, askerden, gurbetten ya da cezaevinden dönen, eve gelen gelin için bir meslek kartı geliyor. Her seçenekte işin ne getirdiği yazıyor; istersen "bir yıl boşta kalsın" da diyebilirsin.'],
+    ['Sınırsız fabrika', 'Aynı fabrikadan istediğin kadar kurabilirsin; her yenisi daha pahalı. Yeni fabrikalar: şarap, konserve, çimento, turizm oteli, liman işletmesi, özel banka, gazete ve televizyon. Her biri kendi yılında açılıyor.'],
+    ['Korumalar ve kundaklama', 'Rakip çete fabrikalarını gece ateşe vermeye çalışıyor. Adamlarını fabrikaların önüne koruma koy; koruma ne kadar çoksa saldırı o kadar boşa çıkar. Yanan fabrika onarılana kadar para getirmez; Şehir sekmesinden yeniden ayağa kaldırırsın.'],
+    ['Ticaret filosu', 'Liman işletmen varsa istediğin kadar yük gemisi alabilirsin. Gemiler fabrikalarının buğdayını, tekstilini, şarabını taşır; navlun temiz para olarak kasaya girer. Fırtınalar da olur.'],
+    ['Ev artık satın alınıyor ve zor', 'Köyde de şehirde de evler satın alınıyor, sınırsız; ama pahalı ve her yenisi daha pahalı. Şehirde fazla konutların kiraya verilip her ay kira getiriyor. Köydeki ana ev de eskisinden pahalı.'],
   ] as [string, string][],
 };
 const SPEEDS = [0, 4200, 1500, 500];
@@ -500,10 +499,10 @@ export class App {
       <div class="group">Ev: ${residents(w)} kişi, ${capacity(w)} kişilik${crowded(w) ? ' (kalabalık!)' : ''}</div>
       ${this.floorHTML()}
       <div class="asset"><div class="prow"><span class="pname">${esc(hv.ad)}</span></div><p class="note">${esc(hv.desc)}</p>
-        ${nh ? `<p class="note">Sıradaki: ${esc(nh.ad)}. ${esc(nh.desc)}</p><button class="small" data-house="1"${w.hh.cash < housePrice(w, nh.lvl) ? ' disabled' : ''}>${w.hh.house === 0 ? 'Satın al' : 'Yaptır'} (${lira(housePrice(w, nh.lvl))})</button>` : ''}</div>
-      <div class="asset"><div class="prow"><span class="pname">Köyde ek evler</span>${w.hh.ekEv ? `<span class="badge sen">${w.hh.ekEv} ev</span>` : ''}</div>
-        <p class="note">Avlunun yanına, köyün içine ayrı ev: evlenen oğullar ayrılmadan kendi kapılarını kapatır. Her ev 6 kişi daha sığdırır.</p>
-        ${(w.hh.ekEv || 0) < EKEV_MAX ? `<button class="small" data-ekev="1"${w.hh.cash < ekEvPrice(w) ? ' disabled' : ''}>Ev yaptır (${lira(ekEvPrice(w))})</button>` : '<p class="note">Köyde arsa kalmadı.</p>'}</div>
+        ${nh ? `<p class="note">Sıradaki: ${esc(nh.ad)}. ${esc(nh.desc)}</p><button class="small" data-house="1"${w.hh.cash < housePrice(w, nh.lvl) ? ' disabled' : ''}>Satın al (${lira(housePrice(w, nh.lvl))})</button>` : ''}</div>
+      <div class="asset"><div class="prow"><span class="pname">Köydeki evlerimiz</span>${w.hh.ekEv ? `<span class="badge sen">${w.hh.ekEv} ev</span>` : ''}</div>
+        <p class="note">Köyün içinde satılık evler: evlenen oğullar ayrılmadan kendi kapılarını kapatır. Her ev 6 kişi daha sığdırır; istediğin kadar alabilirsin, her biri öncekinden pahalı.</p>
+        ${(w.hh.ekEv || 0) < EKEV_MAX ? `<button class="small" data-ekev="1"${w.hh.cash < ekEvPrice(w) ? ' disabled' : ''}>Köyde bir ev daha al (${lira(ekEvPrice(w))})</button>` : '<p class="note">Köyde arsa kalmadı.</p>'}</div>
       ${konakBizim(w) ? `<p class="note">Bozbey konağı artık senin. Köyde bütün yollar senin avluna çıkıyor.</p>` : agaOlu(w) ? `<p class="note">Bozbey Ağa öldü; oğulları toprakları parça parça satıyor.</p>` : ''}
       <div class="group">Sürü: ${suru(w)} koyun${suruCap(w) ? ` / ${suruCap(w)} yer` : ''}</div>
       <p class="note">${suruCap(w) ? `Koyun ${lira(sheepPrice(w))} (hayvan piyasası %${Math.round(mk(w, 'hayvan') * 100)}). Baharda kuzu, yazın süt, haziranda yün getirir; kışın yem ister. ${coban(w) ? 'Ailede çoban var: tam verim.' : 'Ailede çoban yok; verim yarıya iner, kışın kayıp olur. Birini çobanlığa ver.'}` : 'Koyun beslemek için ahır yap (12 koyun) ya da dağdaki ağılı al (40 koyun daha).'}</p>
@@ -688,21 +687,31 @@ export class App {
   private cityHTML(): string {
     const w = this.w!;
     if (!w.city.open) return `<p class="note">${CITY} henüz kapılarını açmadı. Kasanla kara kasan birlikte büyük bir servete ulaşınca ya da on iki tarlaya sahip olunca şehir seni tanır.</p>`;
-    const nh = HOMES[w.city.home + 1];
     const cand = hhMembers(w).filter((q) => !q.away && age(w, q) >= 18);
-    const facs = (Object.keys(FACS) as FacId[]).map((f) => {
+    const y = year(w.m);
+    const facs = (Object.keys(FACS) as FacId[]).filter((f) => FACS[f].from <= y + 5 || w.city.facs[f]).map((f) => {
       const d = FACS[f];
       const st = w.city.facs[f];
-      return `<div class="asset"><div class="prow"><span class="pname">${esc(d.ad)}</span>${st ? '<span class="badge sen">Bizim</span>' : ''}</div><p class="note">${esc(d.desc)}</p>
-        ${st ? `<p class="note">Bu ay kazancı ${lira(facIncome(w, f))}.</p><select data-facmgr="${f}" aria-label="${esc(d.ad)} müdürü"><option value="">Müdür yok (kazanç düşük)</option>${cand.map((q) => `<option value="${q.id}"${st.mgr === q.id ? ' selected' : ''}>${esc(q.first)}, ticaret ${Math.round(q.sk.ticaret)}</option>`).join('')}</select>`
-        : `<button class="small" data-fac="${f}"${w.hh.cash < facPrice(w, f) ? ' disabled' : ''}>Satın al (${lira(facPrice(w, f))})</button>`}</div>`;
+      const n = facN(w, f);
+      const down = facDown(w, f);
+      const soon = y < d.from;
+      return `<div class="asset${down ? ' burnt' : ''}"><div class="prow"><span class="pname">${esc(d.ad)}</span>${n ? `<span class="badge sen">${n} tane</span>` : ''}${down ? '<span class="badge hasta">Yanık, kapalı</span>' : ''}</div><p class="note">${esc(d.desc)}</p>
+        ${st && n ? `<p class="note">${down ? 'Üretim durdu; onarılmadıkça para getirmez.' : `Bu ay kazancı ${lira(facIncome(w, f))}.`} Koruma: ${Number(st.guard || 0)} adam.</p>
+          <select data-facmgr="${f}" aria-label="${esc(d.ad)} müdürü"><option value="">Müdür yok (kazanç düşük)</option>${cand.map((q) => `<option value="${q.id}"${st.mgr === q.id ? ' selected' : ''}>${esc(q.first)}, ticaret ${Math.round(q.sk.ticaret)}</option>`).join('')}</select>
+          <div class="btnrow"><button class="small" data-guard="${f}:1"${w.gang ? '' : ' disabled'}>Koruma ekle</button><button class="small" data-guard="${f}:-1"${Number(st.guard || 0) ? '' : ' disabled'}>Koruma çek</button>${down ? `<button class="small danger" data-rebuild="${f}">Onar (${lira(Math.round(facPrice(w, f) * 0.3))})</button>` : ''}</div>` : ''}
+        ${soon ? `<p class="note">${d.from}'de kurulabilir.</p>` : `<button class="small" data-fac="${f}"${w.hh.cash < facPrice(w, f) ? ' disabled' : ''}>${n ? `Bir tane daha kur` : 'Satın al'} (${lira(facPrice(w, f))})</button>`}</div>`;
     }).join('');
-    return `<div class="rank"><div class="pname">${CITY}</div><p class="note">Fabrikalar temiz parayla alınır; kara parayı da aklarlar. Şehre taşınırsan köydeki tarlalar yarıcıya geçer, hayat pahalanır ama mahalle tutup haraç toplayabilirsin.</p></div>
-      <div class="group">Ev</div>
-      <p class="note">${w.city.home ? `${esc(HOMES[w.city.home].ad)} senin. ${w.city.moved ? 'Aile şehirde yaşıyor.' : 'Aile hâlâ köyde.'}` : 'Şehirde evin yok.'}</p>
-      <div class="btnrow">${nh ? `<button class="small" data-chome="1"${w.hh.cash < homePrice(w, nh.lvl) ? ' disabled' : ''}>${esc(nh.ad)} al (${lira(homePrice(w, nh.lvl))})</button>` : ''}
+    const nextLvl = Math.min(3, (w.city.homes || 0) + 1);
+    const dz = w.city.deniz;
+    return `<div class="rank"><div class="pname">${CITY}</div><p class="note">Fabrikalar temiz parayla alınır; kara parayı da aklarlar. Aynı fabrikadan istediğin kadar kurabilirsin, her yenisi daha pahalı. Rakip çete fabrikalarını ateşe vermeye çalışır: önlerine koruma koy, yanarsa onar.</p></div>
+      <div class="group">Konutlar: ${w.city.homes || 0}</div>
+      <p class="note">${w.city.home ? `En iyisi: ${esc(HOMES[w.city.home].ad)}. ${w.city.moved ? 'Aile şehirde yaşıyor.' : 'Aile hâlâ köyde.'} Fazla konutlar kiraya verilir, her ay kira getirir.` : 'Şehirde evin yok.'}</p>
+      <div class="btnrow"><button class="small" data-chome="1"${w.hh.cash < homePrice(w, nextLvl) ? ' disabled' : ''}>${esc(HOMES[nextLvl].ad)} satın al (${lira(homePrice(w, nextLvl))})</button>
         ${w.city.home ? `<button class="small" data-move="${w.city.moved ? 0 : 1}">${w.city.moved ? 'Köye geri dön' : 'Şehre taşın'}</button>` : ''}</div>
-      <div class="group">Fabrikalar ve şirketler</div>${facs}
+      <div class="group">Fabrikalar ve şirketler: ${facTotal(w)}</div>${facs}
+      <div class="group">Ticaret filosu: ${dz?.gemi || 0} gemi</div>
+      <p class="note">${denizOpen(w) ? `Yük gemileri limanından buğday, tekstil ve şarap taşır; navlun temiz para olarak kasaya girer.${dz?.kazanc ? ` Bugüne kadar ${lira(dz.kazanc)} kazandırdı.` : ''}` : 'Gemi almak için önce bir liman işletmesi kur (1985 sonrası).'}</p>
+      ${denizOpen(w) ? `<div class="btnrow"><button class="small" data-gemi="1"${w.hh.cash < gemiPrice(w) ? ' disabled' : ''}>Yük gemisi al (${lira(gemiPrice(w))})</button></div>` : ''}
       <div class="group">Mahalleler: ${w.city.turf} / ${w.city.dist.length}</div>
       <p class="note">Mahallelerden gelen haraç ve kazanç kara kasaya girer. Esnafın bağlılığı düşerse isyan çıkar; polis varlığı arttıkça hem almak hem tutmak zorlaşır. Yatırımlar kazancı ve aklama kapasitesini büyütür.</p>
       ${this.distHTML()}`;
@@ -910,6 +919,12 @@ export class App {
     panel.querySelectorAll<HTMLSelectElement>('[data-facmgr]').forEach((sel) => {
       sel.onchange = act(() => setFacMgr(w, sel.dataset.facmgr as FacId, sel.value || null));
     });
+    panel.querySelectorAll<HTMLButtonElement>('[data-guard]').forEach((b) => (b.onclick = act(() => {
+      const [f, d] = b.dataset.guard!.split(':');
+      this.toast(setFacGuard(w, f as FacId, Number(w.city.facs[f as FacId]?.guard || 0) + Number(d)).msg);
+    })));
+    panel.querySelectorAll<HTMLButtonElement>('[data-rebuild]').forEach((b) => (b.onclick = act(() => this.toast(rebuildFac(w, b.dataset.rebuild as FacId).msg))));
+    panel.querySelectorAll<HTMLButtonElement>('[data-gemi]').forEach((b) => (b.onclick = act(() => this.toast(buyGemi(w).msg))));
     panel.querySelectorAll<HTMLButtonElement>('[data-chome]').forEach((b) => (b.onclick = act(() => this.toast(buyCityHome(w).msg))));
     panel.querySelectorAll<HTMLButtonElement>('[data-move]').forEach((b) => (b.onclick = act(() => {
       this.toast(moveToCity(w, b.dataset.move === '1').msg);
@@ -1021,7 +1036,7 @@ export class App {
         const hv = HOUSES[w.hh.house];
         const nh = HOUSES[w.hh.house + 1];
         body = `<h3>${esc(hv.ad)}</h3><p>${esc(hv.desc)}</p>
-          ${nh ? `<p>Sıradaki: <b>${esc(nh.ad)}</b>. ${esc(nh.desc)}</p><div class="btnrow"><button class="primary sm" data-sheet="house"${w.hh.cash < housePrice(w, nh.lvl) ? ' disabled' : ''}>${w.hh.house === 0 ? 'Satın al' : 'Yaptır'} (${lira(housePrice(w, nh.lvl))})</button><button class="small" data-sheet="tab:mulk">Bütün mülk</button></div>` : ''}`;
+          ${nh ? `<p>Sıradaki: <b>${esc(nh.ad)}</b>. ${esc(nh.desc)}</p><div class="btnrow"><button class="primary sm" data-sheet="house"${w.hh.cash < housePrice(w, nh.lvl) ? ' disabled' : ''}>Satın al (${lira(housePrice(w, nh.lvl))})</button><button class="small" data-sheet="tab:mulk">Bütün mülk</button></div>` : ''}`;
       } else if (k === 'agil') {
         body = `<h3>Dağdaki ağıl</h3><p>Köyden görünmeyen, yıkık bir taş ağıl. ${w.hh.agil ? 'Artık senin.' : 'Sahibi gurbette; ucuza satar.'} ${w.lab?.site === 'agil' ? `İçinde ${esc(LAB_LEVELS[w.lab.lvl].ad.toLowerCase())} çalışıyor.` : 'Gizli bir atölye için köydeki en güvenli yer.'}</p>
           <div class="btnrow">${!w.hh.agil ? `<button class="primary sm" data-sheet="agil">Satın al (${lira(AGIL_PRICE * infl(w.m))})</button>` : ''}<button class="small" data-sheet="tab:yeralti">Yeraltı sekmesi</button></div>`;
@@ -1117,7 +1132,7 @@ export class App {
     }
     ov.innerHTML = `<div class="veil"><article class="doc" role="dialog" aria-labelledby="ct">
       <div class="kilim"></div>
-      <div class="head">${KIND[c.id] ?? (c.id.startsWith('q:') ? 'Hikâye' : c.id.startsWith('km_') ? 'Komşu' : c.id.startsWith('hi:') ? 'Tarih' : c.id.startsWith('ev:') ? 'Köyden' : 'Haber')}, ${dateText(c.m)}</div>
+      <div class="head">${KIND[c.id] ?? (c.id.startsWith('meslek:') ? 'Meslek' : c.id.startsWith('q:') ? 'Hikâye' : c.id.startsWith('km_') ? 'Komşu' : c.id.startsWith('hi:') ? 'Tarih' : c.id.startsWith('ev:') ? 'Köyden' : 'Haber')}, ${dateText(c.m)}</div>
       <p id="ct">${esc(c.text)}</p>
       <div class="opts">${c.opts.map((o) => `<button data-opt="${esc(o.k)}">${esc(o.t)}</button>`).join('')}</div>
     </article></div>`;

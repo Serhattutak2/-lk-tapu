@@ -821,14 +821,14 @@ export function monthlyStories(w: World, lines: { t: string; v: number }[]) {
     if (p.away === 'asker' && (p.awayUntil ?? 0) <= w.m) {
       p.away = undefined;
       p.awayUntil = undefined;
-      p.job = 'tarla';
+      p.job = 'yok';
       log(w, `${fullName(p)} askerden döndü; bıyıklanmış, büyümüş.`, 'olay');
     }
     if (p.job === 'univ' && p.inHH) {
       const since = Number(w.flags['okul' + p.id] || w.m);
       if (w.m - since >= 48) {
         p.dip = p.tr.zeka >= 9 ? 'tip' : p.tr.hirs >= 6 ? 'hukuk' : 'muh';
-        p.job = p.dip === 'tip' ? 'doktor' : p.dip === 'hukuk' ? 'avukat' : 'muhendis';
+        p.job = 'yok';
         w.flags.namBonus = Number(w.flags.namBonus || 0) + 3;
         log(w, `${fullName(p)} üniversiteyi bitirdi: ailenin ilk ${p.dip === 'tip' ? 'doktoru' : p.dip === 'hukuk' ? 'avukatı' : 'mühendisi'}.`, 'is');
       }

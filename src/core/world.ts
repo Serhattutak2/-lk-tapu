@@ -6,6 +6,7 @@ import { log, makePerson, seedSkills } from './people';
 import { defaultJob } from './jobs';
 import { initPlots, PLOTS } from './plots';
 import { initDistricts, syncTurf } from './district';
+import { jobCards, seedJobMilestone } from './jobcard';
 import { setBase, START_YEAR } from './calendar';
 import { initMarket } from './market';
 
@@ -88,14 +89,18 @@ export function newWorld(o: NewGameOpts = {}): World {
 
   for (const id of w.hh.members) {
     const p = w.people[id];
-    p.job = defaultJob(w, p);
+    // Herkesin işini oyuncu seçer: ilk ay meslek kartları sırayla gelir
+    p.job = 'yok';
+    void defaultJob;
+    void seedJobMilestone;
   }
-  nine.job = 'ev';
+  void nine;
   initPlots(w);
   initMarket(w);
 
   log(w, `Savaş yılları geride kaldı, Cumhuriyet yeni kuruldu. Şubat'ta aşar vergisi kaldırıldı; köylü artık ürününün onda birini devlete vermiyor.`, 'olay');
   log(w, `${surname} ailesi, Karaçam köyünde kirada oturdukları eski evde yaşıyor. Kendilerine ait bir karış toprakları yok; ağaya ${w.hh.debt} lira borçlular.`, 'olay');
+  jobCards(w);
   return w;
 }
 
@@ -142,6 +147,8 @@ export function migrate(w: World): World {
   w.tech ??= {};
   w.pol ??= { seat: null, until: 0, tried: 0 };
   w.city.dist ??= initDistricts();
+  w.city.homes ??= w.city.home > 0 ? w.city.home : 0;
+  for (const f of Object.keys(w.city.facs) as (keyof typeof w.city.facs)[]) if (w.city.facs[f] && w.city.facs[f]!.n === undefined) w.city.facs[f]!.n = 1;
   if (w.city.turf > 0 && !w.city.dist.some((d) => d.o === 'biz')) {
     let n = w.city.turf;
     for (const d of w.city.dist) if (n > 0 && d.o === 'serbest') { d.o = 'biz'; n--; }

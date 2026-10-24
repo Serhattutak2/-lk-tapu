@@ -24,17 +24,17 @@ export const roomCount = (w: World) => Object.values(w.hh.rooms).reduce((a: numb
 export const capacity = (w: World) => BASE_CAP[w.hh.house] + (w.hh.rooms.oda || 0) * 3 + (w.hh.ekEv || 0) * 6;
 
 /** Köyün içinde ikinci, üçüncü ev: aile aynı avluda dağılmadan büyür. */
-export const EKEV_MAX = 3;
-export const ekEvPrice = (w: World) => Math.round((7200 * infl(w.m) * (1 + (w.hh.ekEv || 0) * 0.25)) / 100) * 100;
+export const EKEV_MAX = 999;
+export const ekEvPrice = (w: World) => Math.round((11500 * infl(w.m) * (1 + (w.hh.ekEv || 0) * 0.35)) / 100) * 100;
 export function buildEkEv(w: World): { ok: boolean; msg: string } {
-  if ((w.hh.ekEv || 0) >= EKEV_MAX) return { ok: false, msg: 'Köyde daha fazla ev yapacak arsa kalmadı.' };
+  if ((w.hh.ekEv || 0) >= EKEV_MAX) return { ok: false, msg: 'Köyde satılık ev kalmadı.' };
   const p = ekEvPrice(w);
   if (w.hh.cash < p) return { ok: false, msg: `${(p - w.hh.cash).toLocaleString('tr-TR')} lira eksik.` };
   w.hh.cash -= p;
   w.hh.ekEv = (w.hh.ekEv || 0) + 1;
   for (const q of hhMembers(w)) q.rel = clamp(q.rel + 4, -100, 100);
-  log(w, `Köyün içinde ${w.surname} ailesine ${w.hh.ekEv}. ev yapıldı (${p.toLocaleString('tr-TR')} lira). Aile aynı mahallede, dağılmadan büyüyor.`, 'tapu');
-  return { ok: true, msg: 'Yeni ev hazır; altı kişi daha sığar.' };
+  log(w, `Köyde ${w.surname} ailesi ${w.hh.ekEv}. evini satın aldı (${p.toLocaleString('tr-TR')} lira). Aile aynı mahallede, dağılmadan büyüyor.`, 'tapu');
+  return { ok: true, msg: 'Ev alındı; altı kişi daha sığar.' };
 }
 export const residents = (w: World) => hhMembers(w).filter((p) => p.away !== 'gurbet' && p.away !== 'hapis').length;
 export const crowded = (w: World) => residents(w) > capacity(w);
@@ -85,7 +85,7 @@ export function homeCards(w: World): boolean {
     if (!chance(w, push)) continue;
     const why = crowded(w) ? `Ev dar geliyor; ${residents(w)} kişi ${capacity(w)} kişilik evde yaşıyor.` : p.rel < 0 ? 'Seninle arası bozuk.' : 'Kendi ocağını tütürmek istiyor.';
     const opts = [{ t: 'Gönlünü al, kalsın (rızasını parayla al)', k: 'para' }, { t: 'Baba ocağından ayrılınmaz de', k: 'emir' }, { t: 'İzin ver, kendi evini açsın', k: 'izin' }];
-    if ((w.hh.ekEv || 0) < EKEV_MAX && w.hh.cash >= ekEvPrice(w)) opts.unshift({ t: `Köyde ona ayrı ev yap, aile dağılmasın (${ekEvPrice(w).toLocaleString('tr-TR')} lira)`, k: 'ekev' });
+    if ((w.hh.ekEv || 0) < EKEV_MAX && w.hh.cash >= ekEvPrice(w)) opts.unshift({ t: `Köyde ona ayrı bir ev al, aile dağılmasın (${ekEvPrice(w).toLocaleString('tr-TR')} lira)`, k: 'ekev' });
     const r = canBuildRoomNow(w);
     if (r) opts.unshift({ t: `Ona bir oda yap (${roomPrice(w, 'oda').toLocaleString('tr-TR')} lira)`, k: 'oda' });
     pushCard(w, {

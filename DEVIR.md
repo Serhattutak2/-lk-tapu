@@ -2,6 +2,7 @@
 
 0.8: Karakol komutanı sistemi, aile içi küsme/barışma/düğünler, rakip aileye karşı kansız hamleler (`rivalMoves`/`doRivalMove`) ve çatışmalar (`scuffle`), köyde ikinci ev (`buildEkEv`), son varis ölünce uzak akraba devralır. Tarla satışı yeniden zorlaştırıldı, hız yavaşlatıldı.
 
+1.1: Meslekleri oyuncu seçer (`core/jobcard.ts`, kart `meslek:<id>`, sırayla sorulur; bot `defaultJob`). Fabrikalar çoklu (`facs[f].n`), koruma (`guard`), kundaklama (`down`) ve onarım; yeni fabrika türleri; yasal ticaret filosu (`city.deniz.gemi`); köyde ve şehirde sınırsız, pahalı ev alımı, şehirde kira geliri.
 1.0: Arayüz duman testi `npm run test:ui` (tarayıcıda bütün düğmeler, donma ve ekim planı kontrolü) her sürümden önce çalıştırılır. Komşular, hikâye zincirleri, manşetler, salgın; açık bölümler yeniden çizimde açık kalır.
 0.9: Yıl niyeti, sürü, tütün/ayçiçeği, ağanın sonu, Kara Rıza'nın veda zinciri ve oğlu Selim (`ce_*` kartları baron.ts'te), çete dağılınca mahalleler ve `crewGone`, yeni çete `flags.nextCrew`, unvan Çukurkent'in Babası, soy kütüğü.
 0.7: Oyun Mart 1925'te başlar. Ekim planı (`Parcel.plan`, `autoSow`), ambar (`hh.ambar`), değişen fiyatlar, çağa göre sağlık. Ağa kirası `RENT_CAP` ile sınırlı.

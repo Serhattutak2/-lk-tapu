@@ -12,7 +12,7 @@ export type LabSite = 'bodrum' | 'degirmen' | 'agil';
 export type TechId = 'pulluk' | 'gramofon' | 'dikis' | 'kinin' | 'penisilin' | 'bisiklet' | 'koyyolu' | 'radyo' | 'elektrik' | 'telefon' | 'buzdolabi' | 'tv' | 'telsiz' | 'bicer' | 'asfalt' | 'sulama' | 'bilgisayar' | 'cep' | 'kamera' | 'dinleme' | 'kripto' | 'dron' | 'uydu';
 export type DistId = 'liman' | 'carsi' | 'sanayi' | 'gecekondu' | 'yenisehir' | 'kordon';
 export type DInv = 'kahvehane' | 'galeri' | 'otel' | 'pavyon' | 'site';
-export type FacId = 'un' | 'nakliye' | 'tekstil' | 'gazino' | 'insaat';
+export type FacId = 'un' | 'nakliye' | 'tekstil' | 'gazino' | 'insaat' | 'sarap' | 'konserve' | 'cimento' | 'liman' | 'otel' | 'banka' | 'medya';
 export type CropId = 'bugday' | 'arpa' | 'nohut' | 'pancar' | 'hashas' | 'tutun' | 'aycicegi';
 
 export interface Traits {
@@ -137,9 +137,11 @@ export interface RivalState {
 
 export interface CityState {
   open: boolean;        // şehir açıldı mı
-  home: number;         // 0 yok, 1 apartman dairesi, 2 villa
+  home: number;         // şehirdeki ev kademesi (en iyi daire)
+  homes?: number;       // şehirde sahip olunan toplam konut sayısı
   moved: boolean;       // aile şehre taşındı mı
-  facs: Partial<Record<FacId, { since: number; mgr?: string }>>;
+  facs: Partial<Record<FacId, { since: number; mgr?: string; n?: number; guard?: number; down?: number }>>;
+  deniz?: { gemi: number; ihracat: number; kazanc: number }; // deniz aşırı operasyonlar
   turf: number;         // kontrol edilen mahalle
   net: boolean;         // Kara Rıza'nın şebekesi artık bizim
   laundered: number;    // bugüne kadar aklanan

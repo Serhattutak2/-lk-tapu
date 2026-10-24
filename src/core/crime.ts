@@ -31,7 +31,7 @@ export function monthlyCrime(w: World) {
     if (!alive(p) || p.away !== 'hapis' || (p.awayUntil ?? 0) > w.m) continue;
     p.away = undefined;
     p.awayUntil = undefined;
-    p.job = 'tarla';
+    p.job = 'yok'; // işini oyuncu seçer
     p.parcel = undefined;
     if (!p.inHH && (p.id === w.playerId || p.blood)) addToHH(w, p);
     p.hp = clamp(p.hp - 8, 5, 100);

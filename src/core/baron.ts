@@ -30,7 +30,8 @@ export const canPay = (w: World, amount: number) => w.dirty + w.hh.cash >= amoun
 export function launderCap(w: World): number {
   let c = 0;
   for (const b of Object.keys(BIZ) as (keyof typeof BIZ)[]) if (w.hh.biz[b]) c += b === 'bakkal' ? 1500 : b === 'kahve' ? 2500 : 4000;
-  for (const f of Object.keys(w.city.facs) as FacId[]) c += FACS[f].launder;
+  for (const f of Object.keys(w.city.facs) as FacId[]) if (!facDown(w, f)) c += FACS[f].launder * facN(w, f);
+  if (w.flags.medyaVar) c += 0;
   return Math.round((c * infl(w.m) + distLaunder(w)) * (has(w, 'bilgisayar') ? 1.25 : 1));
 }
 export const launderFee = (w: World) => (w.city.facs.gazino ? 0.08 : 0.14) - (has(w, 'kripto') ? 0.04 : 0);
@@ -75,13 +76,25 @@ export function monthlyBaron(w: World, lines: LedgerLine[]) {
 
   // Fabrikalar
   for (const f of Object.keys(w.city.facs) as FacId[]) {
+    if (facN(w, f) <= 0) continue;
     const v = facIncome(w, f);
     w.hh.cash += v;
     const st = w.city.facs[f]!;
     const mgr = P(w, st.mgr);
-    lines.push({ t: `${FACS[f].ad}${alive(mgr) && mgr.job === 'isletme' ? ` (${mgr.first})` : ''}`, v });
+    const n = facN(w, f);
+    lines.push({ t: `${FACS[f].ad}${n > 1 ? ` ×${n}` : ''}${facDown(w, f) ? ' (yanmış, kapalı)' : alive(mgr) && mgr.job === 'isletme' ? ` (${mgr.first})` : ''}`, v });
   }
+  facAttacks(w);
+  monthlyDeniz(w, lines);
 
+
+  // Şehirdeki fazla konutlar kiraya verilir
+  const kira = Math.max(0, (w.city.homes || 0) - (w.city.moved ? 1 : 0));
+  if (kira > 0) {
+    const v = Math.round(kira * 320 * infl(w.m));
+    w.hh.cash += v;
+    lines.push({ t: `Şehirde kiraya verilen ${kira} konut`, v });
+  }
 
   // Şehir yaşamı pahalı
   if (w.city.moved) {
@@ -100,8 +113,9 @@ export function monthlyBaron(w: World, lines: LedgerLine[]) {
 // ---------- Unvan ----------
 export function underTitle(w: World): { ad: string; next: string } {
   const lab = w.lab?.lvl || 0;
+  const baba = w.city.net && lab >= 3 && w.gang >= 10 && w.city.turf >= 2 && Number(w.flags.ceteYok || 0) >= 1 && w.city.turf >= 4;
+  if (baba) return { ad: `${CITY}'in Babası`, next: '' };
   const baron = w.city.net && lab >= 3 && w.gang >= 10 && w.city.turf >= 2;
-  if (baron && Number(w.flags.ceteYok || 0) >= 1 && w.city.turf >= 4) return { ad: `${CITY}'in Babası`, next: '' };
   if (baron) return { ad: 'Baron', next: `${CITY}'in Babası için: bir şehir çetesini dağıt ve dört mahalleyi elinde tut.` };
   if (w.city.net) return { ad: 'Şebeke sahibi', next: 'Baron için: hap imalathanesi, 10 adam ve şehirde iki mahalle.' };
   if (lab >= 1) return { ad: 'İmalatçı', next: 'Şebeke sahibi için: Kara Rıza\'nın şebekesini ele geçir.' };
@@ -113,7 +127,7 @@ export function underTitle(w: World): { ad: string; next: string } {
 export function hire(w: World, d: number): { ok: boolean; msg: string } {
   if (d > 0 && !w.flags.kacakci) return { ok: false, msg: 'Silahlı adam bulmak için önce yeraltında tanıdık gerekir.' };
   if (d > 0 && !canPay(w, gangPay(w) * 3)) return { ok: false, msg: 'Üç aylık maaşı peşin vermeden kimse gelmez.' };
-  w.gang = clamp(w.gang + d, 0, 30);
+  w.gang = clamp(w.gang + d, 0, 60);
   return { ok: true, msg: d > 0 ? `Bir adam daha tuttun (${w.gang}).` : `Bir adamı gönderdin (${w.gang}).` };
 }
 
@@ -293,39 +307,57 @@ export function resolveBaron(w: World, id: string, k: string): boolean {
 }
 
 // ---------- Şehir: fabrikalar, ev, taşınma ----------
-export interface FacDef { id: FacId; ad: string; price: number; income: number; launder: number; desc: string; }
+export interface FacDef { id: FacId; ad: string; price: number; income: number; launder: number; from: number; desc: string; }
 export const FACS: Record<FacId, FacDef> = {
-  un: { id: 'un', ad: 'Un fabrikası', price: 130000, income: 2600, launder: 9000, desc: 'Köyün buğdayını alır, ekmek fırınlarına un satar. Kendi tarlalarında buğday ekiyorsan kârı artar.' },
-  nakliye: { id: 'nakliye', ad: 'Nakliye şirketi', price: 110000, income: 2100, launder: 7000, desc: 'Otuz kamyonluk filo. Gündüz domates, gece başka şey taşır: kaçak ürün fiyatı %15 artar.' },
-  tekstil: { id: 'tekstil', ad: 'Tekstil atölyesi', price: 180000, income: 3700, launder: 12000, desc: 'İki yüz dikiş makinesi. Grev ve sipariş dalgalanması olur ama düzenli para getirir.' },
-  gazino: { id: 'gazino', ad: 'Gazino', price: 160000, income: 2400, launder: 26000, desc: 'Sahne, masa, çok nakit. Kara parayı en ucuza aklar; komisyon %14\'ten %8\'e iner. Polis de buraya gelir.' },
-  insaat: { id: 'insaat', ad: 'İnşaat şirketi', price: 260000, income: 5200, launder: 32000, desc: 'Belediyeden ihale, kat karşılığı apartmanlar. Kazancı yıla göre çok oynar ama büyük para burada.' },
+  un: { id: 'un', ad: 'Un fabrikası', price: 130000, income: 2600, launder: 9000, from: 1950, desc: 'Köyün buğdayını alır, ekmek fırınlarına un satar. Kendi tarlalarında buğday ekiyorsan kârı artar.' },
+  konserve: { id: 'konserve', ad: 'Konserve fabrikası', price: 150000, income: 3000, launder: 10000, from: 1955, desc: 'Domates, biber, bezelye. Kendi tarlalarının ürününü işler; yazın kazanç artar.' },
+  nakliye: { id: 'nakliye', ad: 'Nakliye şirketi', price: 110000, income: 2100, launder: 7000, from: 1950, desc: 'Kamyon filosu. Gündüz yük, gece başka şey taşır: kaçak ürün fiyatı %15 artar.' },
+  tekstil: { id: 'tekstil', ad: 'Tekstil fabrikası', price: 180000, income: 3700, launder: 12000, from: 1960, desc: 'Yüzlerce dikiş makinesi, ihracat siparişleri. Grev olur ama düzenli para getirir.' },
+  sarap: { id: 'sarap', ad: 'Şarap fabrikası', price: 170000, income: 3400, launder: 15000, from: 1955, desc: 'Üzüm bağları ve şişeleme hattı. Çok nakit döner; kara parayı iyi aklar, ihracatı da vardır.' },
+  cimento: { id: 'cimento', ad: 'Çimento fabrikası', price: 320000, income: 6200, launder: 20000, from: 1965, desc: 'Ülke betonlaşıyor. Devasa yatırım, devasa kazanç; inşaat şirketin varsa daha da artar.' },
+  gazino: { id: 'gazino', ad: 'Gazino', price: 160000, income: 2400, launder: 26000, from: 1960, desc: 'Sahne, masa, çok nakit. Kara parayı en ucuza aklar; komisyon düşer. Polis de buraya gelir.' },
+  otel: { id: 'otel', ad: 'Turizm oteli', price: 400000, income: 7000, launder: 34000, from: 1980, desc: 'Deniz kenarında tatil köyü. Yazın dolar yağar, çok para aklanır.' },
+  insaat: { id: 'insaat', ad: 'İnşaat şirketi', price: 260000, income: 5200, launder: 32000, from: 1965, desc: 'Belediyeden ihale, kat karşılığı apartmanlar. Kazancı yıla göre oynar ama büyük para burada.' },
+  liman: { id: 'liman', ad: 'Liman işletmesi', price: 550000, income: 9000, launder: 50000, from: 1985, desc: 'Rıhtım, vinçler, konteynerler. Gemilerin yanaştığı yer senin; deniz aşırı işin kapısı buradan açılır.' },
+  banka: { id: 'banka', ad: 'Özel banka', price: 900000, income: 14000, launder: 90000, from: 1990, desc: 'Kendi bankan. Para artık görünmez yollardan akıyor; aklama kapasitesi uçar.' },
+  medya: { id: 'medya', ad: 'Gazete ve televizyon', price: 700000, income: 6000, launder: 40000, from: 1992, desc: 'Manşet senin elinde. Hakkındaki haberler susar, siyasette elin güçlenir; dikkat yavaş söner.' },
 };
-export const facPrice = (w: World, f: FacId) => Math.round((FACS[f].price * infl(w.m)) / 1000) * 1000;
+export const facN = (w: World, f: FacId) => (w.city.facs[f]?.n ?? (w.city.facs[f] ? 1 : 0));
+export const facDown = (w: World, f: FacId) => Number(w.city.facs[f]?.down || 0) > w.m;
+export const facTotal = (w: World) => (Object.keys(FACS) as FacId[]).reduce((a, f) => a + facN(w, f), 0);
+/** Fiyat her yeni fabrikada biraz artar (ilk ucuz, sonrakiler pahalı). */
+export const facPrice = (w: World, f: FacId) => Math.round((FACS[f].price * (1 + facN(w, f) * 0.35) * infl(w.m)) / 1000) * 1000;
 
 export function facIncome(w: World, f: FacId): number {
   const st = w.city.facs[f];
-  if (!st) return 0;
+  if (!st || facDown(w, f)) return 0;
+  const n = facN(w, f);
   const mgr = P(w, st.mgr);
   const good = alive(mgr) && mgr.job === 'isletme' && mgr.inHH && !mgr.away;
-  let k = good ? 0.75 + (mgr!.sk.ticaret / 100) * 0.5 : 0.55;
+  let k = good ? 0.8 + (mgr!.sk.ticaret / 100) * 0.5 : 0.55;
   if (f === 'un') k *= 1 + Math.min(0.4, w.hh.parcels.filter((p) => p.crop === 'bugday').length * 0.05);
+  if (f === 'konserve') { k *= 1 + Math.min(0.3, w.hh.parcels.filter((p) => p.crop === 'pancar' || p.crop === 'nohut').length * 0.04); if ([6, 7, 8].includes((w.m % 12))) k *= 1.3; }
+  if (f === 'sarap' || f === 'otel') { if ([5, 6, 7, 8].includes((w.m % 12))) k *= 1.25; }
+  if (f === 'cimento') k *= 1 + (w.city.facs.insaat ? 0.25 : 0);
   if (f === 'insaat') k *= 0.6 + ((year(w.m) * 7) % 10) / 10;
   if (f === 'tekstil' && w.flags.grev === year(w.m)) k *= 0.3;
   if (has(w, 'bilgisayar')) k *= 1.1;
   if (hasEngineer(w)) k *= 1.1;
-  return Math.round(FACS[f].income * k * infl(w.m) * (niyetIs(w, 'ticaret') ? 1.12 : 1) * (Number(w.flags.salgin || 0) > w.m ? 0.7 : 1));
+  // Çok fabrikada ölçek: her ek fabrika tam değil, biraz azalan verimle gelir
+  const scale = n <= 1 ? 1 : 1 + (n - 1) * 0.8;
+  return Math.round(FACS[f].income * k * scale * infl(w.m) * (niyetIs(w, 'ticaret') ? 1.12 : 1) * (Number(w.flags.salgin || 0) > w.m ? 0.7 : 1));
 }
 
 export function buyFac(w: World, f: FacId): { ok: boolean; msg: string } {
   if (!w.city.open) return { ok: false, msg: 'Şehir henüz sana kapılarını açmadı.' };
-  if (w.city.facs[f]) return { ok: false, msg: 'Zaten senin.' };
+  if (year(w.m) < FACS[f].from) return { ok: false, msg: `${FACS[f].ad} ancak ${FACS[f].from}'den sonra kurulur.` };
   const p = facPrice(w, f);
   if (w.hh.cash < p) return { ok: false, msg: `Temiz parada ${fmt(p - w.hh.cash)} lira eksik. Kara para tapuya geçmez; önce akla.` };
   w.hh.cash -= p;
-  w.city.facs[f] = { since: w.m };
-  log(w, `${CITY}'te ${FACS[f].ad.toLowerCase()} satın alındı: ${fmt(p)} lira.`, 'tapu');
-  return { ok: true, msg: `${FACS[f].ad} senin.` };
+  const had = facN(w, f);
+  w.city.facs[f] = { ...(w.city.facs[f] || { since: w.m }), n: had + 1 };
+  log(w, `${CITY}'te ${had ? `${had + 1}. ${FACS[f].ad.toLowerCase()}` : FACS[f].ad.toLowerCase()} ${fmt(p)} liraya ${had ? 'açıldı' : 'kuruldu'}.`, 'tapu');
+  return { ok: true, msg: had ? `${had + 1}. ${FACS[f].ad.toLowerCase()} senin.` : `${FACS[f].ad} senin.` };
 }
 
 export function setFacMgr(w: World, f: FacId, pid: string | null) {
@@ -343,24 +375,68 @@ export function setFacMgr(w: World, f: FacId, pid: string | null) {
   st.mgr = p.id;
 }
 
+/** Fabrikaya adamlardan koruma koy (saldırı ve yangını zorlaştırır). */
+export function setFacGuard(w: World, f: FacId, n: number): { ok: boolean; msg: string } {
+  if (!w.city.facs[f]) return { ok: false, msg: 'Böyle bir fabrikan yok.' };
+  const used = (Object.keys(FACS) as FacId[]).reduce((a, x) => a + (x === f ? 0 : Number(w.city.facs[x]?.guard || 0)), 0);
+  const want = clamp(Math.round(n), 0, 6);
+  if (want > Number(w.city.facs[f]?.guard || 0) && used + want > w.gang) return { ok: false, msg: 'O kadar boşta adamın yok.' };
+  w.city.facs[f]!.guard = want;
+  return { ok: true, msg: want ? `${FACS[f].ad} önünde ${want} korumamız var.` : 'Koruma kaldırıldı.' };
+}
+
+/** Rakip çete ya da Selim fabrikaları yakmaya/basmaya çalışır. */
+export function facAttacks(w: World) {
+  const owned = (Object.keys(FACS) as FacId[]).filter((f) => facN(w, f) > 0 && !facDown(w, f));
+  if (!owned.length) return;
+  const enemyFeud = (w.crew && !w.crew.gone ? w.crew.feud : 0) + (w.flags.rizaOgul === 'dusman' ? 40 : 0);
+  if (enemyFeud < 30) return;
+  if (!chance(w, 0.006 + enemyFeud / 4000)) return;
+  const f = pick(w, owned);
+  const guard = Number(w.city.facs[f]?.guard || 0);
+  const who = w.crew && !w.crew.gone ? w.crew.name : 'Selim\'in adamları';
+  if (chance(w, clamp(0.3 + guard * 0.18, 0.3, 0.92))) {
+    if (guard) w.city.facs[f]!.guard = Math.max(0, guard - (chance(w, 0.3) ? 1 : 0));
+    log(w, `${who} ${FACS[f].ad.toLowerCase()}ni ateşe vermeye geldi ama korumaların püskürttü.`, 'olay');
+    if (w.crew && !w.crew.gone) w.crew.men = Math.max(0, w.crew.men - 1);
+  } else {
+    w.city.facs[f]!.down = w.m + rint(w, 4, 10);
+    w.heat = clamp(w.heat + 8, 0, 100);
+    log(w, `${who} gece ${FACS[f].ad.toLowerCase()}ni ateşe verdi. Üretim durdu; onarılması gerekiyor.`, 'olay');
+  }
+}
+
+/** Yanan/basılan fabrikayı onar (yeniden çalıştır). */
+export function rebuildFac(w: World, f: FacId): { ok: boolean; msg: string } {
+  if (!facDown(w, f)) return { ok: false, msg: 'Onarılacak bir şey yok.' };
+  const c = Math.round(facPrice(w, f) * 0.3);
+  if (w.hh.cash < c) return { ok: false, msg: `Onarım için ${fmt(c - w.hh.cash)} lira eksik.` };
+  w.hh.cash -= c;
+  w.city.facs[f]!.down = 0;
+  log(w, `${FACS[f].ad} onarıldı ve yeniden üretime geçti (${fmt(c)} lira).`, 'tapu');
+  return { ok: true, msg: `${FACS[f].ad} yeniden çalışıyor.` };
+}
+
 export const HOMES = [
   { lvl: 0, ad: '', price: 0 },
-  { lvl: 1, ad: 'Apartman dairesi', price: 55000 },
-  { lvl: 2, ad: 'Bahçeli villa', price: 190000 },
+  { lvl: 1, ad: 'Apartman dairesi', price: 70000 },
+  { lvl: 2, ad: 'Bahçeli villa', price: 240000 },
+  { lvl: 3, ad: 'Boğaz\'da yalı', price: 850000 },
 ];
-export const homePrice = (w: World, l: number) => Math.round((HOMES[l].price * infl(w.m)) / 1000) * 1000;
+export const homePrice = (w: World, l: number) => Math.round((HOMES[Math.min(l, 3)].price * (1 + (w.city.homes || 0) * 0.3) * infl(w.m)) / 1000) * 1000;
 
+/** Şehirde konut al: pahalı ve her yenisi daha pahalı. İstediğin kadar alabilirsin. */
 export function buyCityHome(w: World): { ok: boolean; msg: string } {
-  const n = w.city.home + 1;
-  if (n > 2) return { ok: false, msg: 'Daha iyisi yok.' };
   if (!w.city.open) return { ok: false, msg: 'Şehir henüz açılmadı.' };
-  const p = homePrice(w, n);
+  const lvl = Math.min(3, (w.city.homes || 0) + 1);
+  const p = homePrice(w, lvl);
   if (w.hh.cash < p) return { ok: false, msg: `Temiz parada ${fmt(p - w.hh.cash)} lira eksik.` };
   w.hh.cash -= p;
-  w.city.home = n;
-  w.flags.namBonus = Number(w.flags.namBonus || 0) + (n === 2 ? 12 : 5);
-  log(w, `${CITY}'te ${HOMES[n].ad.toLowerCase()} alındı: ${fmt(p)} lira.`, 'tapu');
-  return { ok: true, msg: `${HOMES[n].ad} senin.` };
+  w.city.homes = (w.city.homes || 0) + 1;
+  w.city.home = Math.max(w.city.home, lvl);
+  w.flags.namBonus = Number(w.flags.namBonus || 0) + (lvl >= 3 ? 20 : lvl === 2 ? 12 : 5);
+  log(w, `${CITY}'te ${HOMES[lvl].ad.toLowerCase()} alındı: ${fmt(p)} lira. Şehirde ${w.city.homes} konutun var.`, 'tapu');
+  return { ok: true, msg: `${HOMES[lvl].ad} senin.` };
 }
 
 export function moveToCity(w: World, on: boolean): { ok: boolean; msg: string } {
@@ -511,6 +587,51 @@ export function cityEvents(w: World) {
     w.flags.grev = year(w.m);
     log(w, `Tekstil atölyesinde grev: işçiler zam istiyor. Bu yıl üretim düşük.`, 'olay');
   }
+}
+
+// ---------- Ticaret filosu: limandan kalkan yasal yük gemileri ----------
+export const denizOpen = (w: World) => !!w.city.facs.liman;
+export const initDeniz = (w: World) => (w.city.deniz ??= { gemi: 0, ihracat: 0, kazanc: 0 });
+export const gemiPrice = (w: World) => Math.round((450000 * (1 + (w.city.deniz?.gemi || 0) * 0.35) * infl(w.m)) / 1000) * 1000;
+
+/** Yük gemisi al: temiz parayla, her yenisi daha pahalı, sınırsız. */
+export function buyGemi(w: World): { ok: boolean; msg: string } {
+  if (!denizOpen(w)) return { ok: false, msg: 'Önce bir liman işletmesi al.' };
+  const d = initDeniz(w);
+  const c = gemiPrice(w);
+  if (w.hh.cash < c) return { ok: false, msg: `Temiz parada ${fmt(c - w.hh.cash)} lira eksik.` };
+  w.hh.cash -= c;
+  d.gemi++;
+  w.flags.namBonus = Number(w.flags.namBonus || 0) + 2;
+  log(w, `Ticaret filosuna bir yük gemisi katıldı (${fmt(c)} lira). Filoda ${d.gemi} gemi var; bacalarında ${w.surname} ailesinin harfleri.`, 'tapu');
+  return { ok: true, msg: `${d.gemi}. gemi senin.` };
+}
+
+/** Aylık: gemiler buğday, tekstil ve şarap taşır; navlun geliri kasaya girer. Fırtına ve arıza riski vardır. */
+export function monthlyDeniz(w: World, lines: LedgerLine[]) {
+  const d = w.city.deniz;
+  if (!d || d.gemi <= 0) return;
+  const cargo = 1 + (w.city.facs.tekstil ? 0.15 : 0) + (w.city.facs.sarap ? 0.15 : 0) + (w.city.facs.un ? 0.1 : 0);
+  const v = Math.round(d.gemi * 5200 * cargo * infl(w.m) * (Number(w.flags.salgin || 0) > w.m ? 0.6 : 1));
+  w.hh.cash += v;
+  d.kazanc += v;
+  lines.push({ t: `Ticaret filosu: ${d.gemi} geminin navlunu`, v });
+  const bakim = Math.round(d.gemi * 1400 * infl(w.m));
+  w.hh.cash -= bakim;
+  lines.push({ t: 'Gemilerin mürettebatı ve yakıtı', v: -bakim });
+  if (chance(w, 0.004 * d.gemi)) {
+    w.flags.gemiArizali = w.m + 3;
+    const c = Math.round(gemiPrice(w) * 0.12);
+    w.hh.cash -= c;
+    log(w, `Gemilerinden biri Biskay körfezinde fırtınaya yakalandı; tamiri ${fmt(c)} lira tuttu.`, 'olay');
+  }
+}
+
+export function denizCards(_w: World): boolean {
+  return false;
+}
+export function resolveDeniz(_w: World, _id: string, _k: string): boolean {
+  return false;
 }
 
 export function cityMembers(w: World) {
