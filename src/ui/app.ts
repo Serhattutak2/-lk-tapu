@@ -300,9 +300,12 @@ export class App {
     const pl = P(w, w.playerId);
     const who = $('#who');
     const tt = title(w);
-    if (who) who.innerHTML = alive(pl)
-      ? `<b>${esc(fullName(pl))}</b>, ${age(w, pl)} yaşında, ${JOBS[pl.job].ad.toLowerCase()}<span class="ttl">${esc(tt.ad)} · nam ${nam(w)}${tt.next ? ` / ${tt.next.min}` : ''}${underTitle(w).ad !== 'Temiz' ? ` · ${esc(underTitle(w).ad)}` : ''}${w.pol.seat ? ` · ${w.pol.seat === 'muhtar' ? 'Muhtar' : w.pol.seat === 'belediye' ? 'Belediye başkanı' : 'Milletvekili'}` : ''}</span>`
-      : 'Aile yasta';
+    if (who) {
+      who.classList.toggle('hasface', alive(pl));
+      who.innerHTML = alive(pl)
+        ? `${portraitSVG(pl!, w, 46)}<div class="whotxt"><b>${esc(fullName(pl))}</b>, ${age(w, pl)} yaşında, ${JOBS[pl.job].ad.toLowerCase()}<span class="ttl">${esc(tt.ad)} · nam ${nam(w)}${tt.next ? ` / ${tt.next.min}` : ''}${underTitle(w).ad !== 'Temiz' ? ` · ${esc(underTitle(w).ad)}` : ''}${w.pol.seat ? ` · ${w.pol.seat === 'muhtar' ? 'Muhtar' : w.pol.seat === 'belediye' ? 'Belediye başkanı' : 'Milletvekili'}` : ''}</span></div>`
+        : 'Aile yasta';
+    }
     this.root.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === this.tab)));
     const hb = document.getElementById('hedef');
     if (hb) { const o = nextObjective(w); hb.innerHTML = o ? `<span class="ok">Sıradaki</span> ${esc(o)}` : ''; hb.style.display = o ? '' : 'none'; }

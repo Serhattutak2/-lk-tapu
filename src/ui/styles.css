@@ -300,7 +300,9 @@ details summary.group { cursor: pointer; }
 .person .face { flex: none; }
 .person .pbody { flex: 1; min-width: 0; }
 .portre { border-radius: 8px; border: 1px solid var(--soil-3); image-rendering: pixelated; background: #161a22; vertical-align: middle; }
-.who .portre { display: none; }
+.who.hasface { display: flex; align-items: center; gap: 9px; }
+.who .portre { display: block; flex: none; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+.who .whotxt { min-width: 0; }
 .doc .scene { width: 100%; height: 70px; display: block; border-radius: 10px 10px 0 0; margin: -4px 0 6px; image-rendering: pixelated; }
 .cardface { display: flex; align-items: center; gap: 8px; margin: 2px 0 8px; }
 .cardface .portre { width: 44px; height: 44px; }
