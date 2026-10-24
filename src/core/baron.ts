@@ -314,7 +314,7 @@ export function facIncome(w: World, f: FacId): number {
   if (f === 'tekstil' && w.flags.grev === year(w.m)) k *= 0.3;
   if (has(w, 'bilgisayar')) k *= 1.1;
   if (hasEngineer(w)) k *= 1.1;
-  return Math.round(FACS[f].income * k * infl(w.m) * (niyetIs(w, 'ticaret') ? 1.12 : 1));
+  return Math.round(FACS[f].income * k * infl(w.m) * (niyetIs(w, 'ticaret') ? 1.12 : 1) * (Number(w.flags.salgin || 0) > w.m ? 0.7 : 1));
 }
 
 export function buyFac(w: World, f: FacId): { ok: boolean; msg: string } {

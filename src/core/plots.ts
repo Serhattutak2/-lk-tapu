@@ -1,5 +1,6 @@
 // Köyün toprak piyasası: haritadaki her tarla bir parseldir; sahibi, verimi ve fiyatı vardır.
 // Geometri burada durur ki hem simülasyon hem harita aynı tabloyu kullansın.
+import { hatir, hatirBonus, komsuOfPlot } from './komsu';
 import { niyetIs } from './yil';
 import type { PlotState, World } from './types';
 import { chance, clamp, rand } from './rng';
@@ -76,15 +77,17 @@ export const plotOfParcel = (w: World, pid: string) => w.plots.findIndex((p) => 
 export function yearlyMarket(w: World, nam: number) {
   w.plots.forEach((p, i) => {
     if (p.o === 'koy') {
-      if (!p.sale && chance(w, 0.1)) {
+      const kid = komsuOfPlot(i);
+      const dost = kid && !w.flags['sahip' + i] ? hatir(w, kid) >= 50 : false;
+      if (!p.sale && chance(w, dost ? 0.16 : 0.1)) {
         p.sale = true;
-        p.ask = clamp(0.95 + rand(w) * 0.2, 0.9, 1.2);
-        log(w, `${plotOwnerName(w, i)}, ${PLOTS[i].yer} mevkiindeki tarlasını satışa çıkardı.`, 'tapu');
+        p.ask = clamp(0.95 + rand(w) * 0.2 - (dost ? 0.1 : 0), 0.82, 1.2);
+        log(w, dost ? `${plotOwnerName(w, i)}, ${PLOTS[i].yer} mevkiindeki tarlasını satmaya karar verdi ve önce sana, dost fiyatına teklif etti.` : `${plotOwnerName(w, i)}, ${PLOTS[i].yer} mevkiindeki tarlasını satışa çıkardı.`, 'tapu');
       } else if (p.sale && chance(w, 0.2)) {
         p.sale = false;
       }
     }
-    if (p.o === 'aga') p.sale = nam >= 55 && chance(w, 0.25);
+    if (p.o === 'aga') p.sale = w.flags.agaOldu ? chance(w, 0.35) : nam >= 55 && chance(w, 0.25);
   });
   void year;
 }
@@ -101,7 +104,7 @@ export function offerChance(w: World, i: number, nam: number): number {
   if (s.o === 'aga') return nam >= 40 ? clamp(0.18 + (nam - 40) / 110, 0, 0.6) : 0;
   // Köylüler: adın büyüdükçe, muhtarlık sendeyse ya da muhtarın gözündeysen daha kolay satarlar
   const muhtar = w.pol?.seat === 'muhtar' ? 0.12 : w.flags.koyTarafi ? 0.06 : 0;
-  return clamp(0.38 + nam / 220 + muhtar + (niyetIs(w, 'toprak') ? 0.08 : 0), 0.38, 0.8);
+  return clamp(0.38 + nam / 220 + muhtar + (niyetIs(w, 'toprak') ? 0.08 : 0) + hatirBonus(w, i), 0.2, 0.9);
 }
 
 export function offerPrice(w: World, i: number): number {

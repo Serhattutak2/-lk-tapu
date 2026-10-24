@@ -95,7 +95,8 @@ for (const [name, save] of SAVES) {
       await clearCards();
     }
     // Düğmeler (yıkıcı olmayanlar)
-    for (let i = 0; i < 80; i++) {
+    for (let i = 0; i < 120; i++) {
+      await pg.evaluate(() => document.querySelectorAll('#panel details').forEach((d) => (d.open = true)));
       const bs = await pg.$$('#panel button:not([disabled])');
       if (i >= bs.length) break;
       const b = bs[i];

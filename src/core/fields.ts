@@ -115,7 +115,7 @@ export function expectedValue(w: World, p: Parcel): number {
 }
 
 export const YARICI_SHARE = 0.4;
-export const saleBonus = (w: World) => ((w.hh.veh?.araba || 0) > 0 || (w.hh.veh?.kamyon || 0) > 0 ? 1.06 : 1) * (w.tech?.koyyolu ? 1.03 : 1) * (w.tech?.asfalt ? 1.05 : 1) * (w.tech?.dron ? 1.08 : 1);
+export const saleBonus = (w: World) => ((w.hh.veh?.araba || 0) > 0 || (w.hh.veh?.kamyon || 0) > 0 ? 1.06 : 1) * (w.tech?.koyyolu ? 1.03 : 1) * (w.flags?.kopru ? 1.02 : 1) * (w.tech?.asfalt ? 1.05 : 1) * (w.tech?.dron ? 1.08 : 1);
 
 export function newParcel(w: World, price: number): Parcel {
   const no = w.hh.parcels.length + 1;

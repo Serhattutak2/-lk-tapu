@@ -1,4 +1,6 @@
 // Arayüz: açılış, oyun ekranı, paneller, olay kartları, son ekranı.
+import { hatir, hatirLabel, KOMSULAR, komsuAd, visit, visitedThisMonth } from '../core/komsu';
+import { activeQuests, doneQuests } from '../core/quests';
 import type { Card, JobId, Person, World } from '../core/types';
 import { migrate, newWorld } from '../core/world';
 import { advance, canAdvance, payDebt, resolveCard, setHeir, setJob, isPlainJSON } from '../core/sim';
@@ -35,21 +37,18 @@ import { agaOlu, konakBizim } from '../core/aga';
 const SAVE_KEY = 'ilktapu_v1';
 const NEWS_KEY = 'ilktapu_haber';
 export const NEWS = {
-  v: '0.9',
+  v: '1.0',
   items: [
-    ['Yıl defteri ve yılın niyeti', 'Her Ocak geçen yılın hesabı önüne gelir: varlık ne oldu, hasat ne getirdi, kaç doğum, kaç cenaze. Sonra yılın niyetini seçersin: Toprak, Ticaret, Aile, Karanlık ya da Hayır yılı. Seçtiğin alan bütün yıl bereketlenir.'],
-    ['Bozbey Ağa\'nın sonu', 'Ağa bir gün ölür. Cenazede tabutunu omuzlar mısın? Oğulları mirası bölüşemez: konağı satın alıp ağanın sedirine oturabilir, borç defterini alıp sobada yakabilirsin. Toprakları parça parça satışa çıkar; adın yeterince büyükse köy sana "ağa" der.'],
-    ['Kara Rıza\'nın emekliliği artık bir hikâye', 'Rıza giderken sana defterini bırakır: eski alacaklar, komutanın sırrı, yollar. Şebeke her ay kara kasaya pay getirir. Oğlu Selim için verdiğin söz yıllar sonra karşına çıkar: sağ kolun da olabilir, en büyük düşmanın da. Devirme girişimin patlarsa Rıza yollarını keser.'],
-    ['Çeteyi yenmek artık bir şeye yarıyor', 'Her kazanılan sokak savaşında çetenin bir mahallesi sana geçer. Çete dağılınca bütün mahalleleri senin olur, kalan adamları ya yanına alırsın ya haraç ödetirsin. Yıllar sonra yeni ve daha güçlü bir çete gelir. Yeni en yüksek unvan: Çukurkent\'in Babası.'],
-    ['Çeteye karşı yeni yollar', 'Makamın ya da karakolda adamın varsa çeteyi polise satabilirsin; yeterince adamın varsa liderlerini şehirden sürersin.'],
-    ['Koyun sürüsü', 'Ahır ve ağıl kadar koyun besle: baharda kuzu, yazın süt, haziranda yün, kışın yem. Ailede çoban varsa tam verim. Kurbanda sürüden kesersin, kurtlar kışın sürüye dadanır. Koyunlar haritada avlunun önünde otluyor.'],
-    ['Komutana şantaj ve gözdağı', 'Komutanın sırrını öğren: kahvede kulağına fısıldanır, adamlarına izletirsin ya da Kara Rıza\'nın defterinden çıkar. Baskında şantajla tutanağı yırttırır, komutanı kendi adamın yaparsın. Adamın varsa karakolun önünde gözdağı da verebilirsin; ters tepebilir.'],
-    ['Yeni ekinler', 'Tütün (çok el ister, Tekel iyi para verir) ve 1950\'den sonra ayçiçeği. İkisinin de fiyatı her yıl değişiyor.'],
-    ['Soy kütüğü', 'Aile sekmesinde nesil nesil bütün hanedan: kim ne zaman doğdu, kim ne zaman göçtü. Köyde yaptırdığın ek evler de haritada avlunun yanında görünüyor.'],
+    ['İki hata düzeldi', 'Görücüye çık düğmesi sayfayı kilitliyordu; bekârken ekim planı seçimi de bu yüzden kaydedilmiyordu. İkisi de düzeldi. Artık her sürümden önce gerçek bir tarayıcıda bütün sekmeler, bütün düğmeler ve otomatik ekim tek tek deneniyor.'],
+    ['Komşular ve hatır', 'Köyün sekiz ailesi artık adıyla var: Deli Hamza, gazi Topal Osman, Dul Hatice, dedikoducu Berber Sami, Hacı Ömer, Kör Veli, Bekçi Nuri, Muhtar Rıfat. Aile sekmesinden ayda bir ziyarete gidersin. Hatırı yüksek komşu tarlasını önce sana ve ucuza satar, teklifini kolay kabul eder. Bekçi baskından önce haber verir, muhtar seçimde arkanda durur, Hacı Ömer faizsiz borç verir. Kırk yıl sonra yerlerini çocukları alır; hatır aileye geçer.'],
+    ['Yıllara yayılan hikâyeler', 'Deli Hamza\'nın vasiyeti: yıllarca bakarsan tarlasını sana bırakır, ama şehirden bir yeğen çıkagelir. Ahlatın dibindeki küp: Kör Veli\'nin eşkıya altını masalı gerçek mi? Öğretmen Nazmiye: köye gelen genç öğretmeni evinde ağırlarsan çocuğunun hayatı değişir. Uzaktaki akrabanın mektubu, dere köprüsü, köyde film çekimi, demiryolu inşaatı.'],
+    ['Gazete, radyo, televizyon', 'Ülkenin büyük günleri köye ulaşıyor: Medeni Kanun, kadınlara seçme hakkı, Atatürk\'ün vefatı, Erzincan depremi, Ay\'a iniş, Boğaziçi Köprüsü, Marmara depremi, 2002 Dünya Kupası, 2023 depremleri, Cumhuriyet\'in yüzüncü yılı.'],
+    ['2020 salgını', 'Okullar kapanır, dükkânlar ve fabrikalar yarım çalışır. Yaşlıları korumak, işçileri kollamak ya da hayatı sürdürmek senin kararın.'],
+    ['Ağanın toprakları', 'Bozbey Ağa öldükten sonra toprakları artık gerçekten her yıl satışa çıkıyor.'],
   ] as [string, string][],
 };
 const SPEEDS = [0, 4200, 1500, 500];
-const KIND: Record<string, string> = { yil: 'Yıl defteri', ag_olum: 'Ağa', ag_miras: 'Ağa', ag_yeni: 'Köy', ce_veda: 'Kara Rıza', ce_riza: 'Kara Rıza', ce_selim: 'Selim', ce_kalan: 'Çukurkent', cete: 'Çukurkent', kmt_yeni: 'Karakol', kmt_sir: 'Kahvehane', plan_hashas: 'Tarla', ruhsat_red: 'Ruhsat', fa_kus: 'Aile', fa_bayram: 'Bayram', fa_ogut: 'Aile büyüğü', fa_genc: 'Aile', fa_kavga: 'Aile', fa_dugun: 'Düğün', rk_su: 'Rakip', rk_hayvan: 'Rakip', rk_iftira: 'Rakip', rk_dunur: 'Dünürcü', veraset: 'Veraset', gorucu: 'Görücü', hastalik: 'Hastalık', gurbet: 'Gurbet', tuccar: 'Tanışıklık', tapu: 'Tapu', bilgi: 'Haber', hashas_hasat: 'Hasat', ruhsat: 'Ruhsat', kacakci: 'Kahvehane', baskin: 'Jandarma', aga_kira: 'Ağa', aga_kiz: 'Ağa' };
+const KIND: Record<string, string> = { nw_salgin: 'Salgın', yil: 'Yıl defteri', ag_olum: 'Ağa', ag_miras: 'Ağa', ag_yeni: 'Köy', ce_veda: 'Kara Rıza', ce_riza: 'Kara Rıza', ce_selim: 'Selim', ce_kalan: 'Çukurkent', cete: 'Çukurkent', kmt_yeni: 'Karakol', kmt_sir: 'Kahvehane', plan_hashas: 'Tarla', ruhsat_red: 'Ruhsat', fa_kus: 'Aile', fa_bayram: 'Bayram', fa_ogut: 'Aile büyüğü', fa_genc: 'Aile', fa_kavga: 'Aile', fa_dugun: 'Düğün', rk_su: 'Rakip', rk_hayvan: 'Rakip', rk_iftira: 'Rakip', rk_dunur: 'Dünürcü', veraset: 'Veraset', gorucu: 'Görücü', hastalik: 'Hastalık', gurbet: 'Gurbet', tuccar: 'Tanışıklık', tapu: 'Tapu', bilgi: 'Haber', hashas_hasat: 'Hasat', ruhsat: 'Ruhsat', kacakci: 'Kahvehane', baskin: 'Jandarma', aga_kira: 'Ağa', aga_kiz: 'Ağa' };
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 const lira = (n: number) => Math.round(n).toLocaleString('tr-TR') + ' lira';
@@ -292,7 +291,10 @@ export class App {
     }
     this.pendingPanel = false;
     // Kaydırma yalnızca sekme değişince en üste döner; işlem yapınca kalınan yerde durur.
-    const keep = this.toTop ? 0 : panel.scrollTop;
+    const key = (d: Element) => (d.querySelector('summary')?.textContent || '').replace(/[0-9.:/ ]+/g, '').slice(0, 18);
+    const openD = new Set(Array.from(panel.querySelectorAll('details[open]')).map(key));
+    const top = this.toTop;
+    const keep = top ? 0 : panel.scrollTop;
     this.toTop = false;
     if (this.tab === 'aile') panel.innerHTML = this.familyHTML();
     else if (this.tab === 'tarla') panel.innerHTML = this.fieldsHTML();
@@ -301,6 +303,7 @@ export class App {
     else if (this.tab === 'sehir') panel.innerHTML = this.cityHTML();
     else if (this.tab === 'hane') panel.innerHTML = this.householdHTML();
     else panel.innerHTML = this.chronicleHTML();
+    if (!top) panel.querySelectorAll('details').forEach((d) => { if (openD.has(key(d))) d.open = true; });
     panel.scrollTop = keep;
     this.bindPanel(panel);
     this.renderTop();
@@ -583,8 +586,24 @@ export class App {
       <div class="group">Hanede ${house.length} kişi</div>
       ${house.map((p) => this.personHTML(p, true)).join('')}
       ${out.length ? `<div class="group">Ayrı evde yaşayan akrabalar</div>${out.map((p) => this.personHTML(p, false)).join('')}` : ''}
+      ${this.komsuHTML()}
       ${this.treeHTML()}
       ${dead.length ? `<details><summary class="group">Rahmetliler (${dead.length})</summary>${dead.map((p) => `<div class="person"><span class="pname dead">${esc(fullName(p))}</span> <span class="prel">${year(p.b)}–${year(p.d!)}, ${esc(p.cause ?? '')}</span></div>`).join('')}</details>` : ''}`;
+  }
+
+  /** Komşular ve hatır */
+  private komsuHTML(): string {
+    const w = this.w!;
+    const done = visitedThisMonth(w);
+    return `<details class="komsu"><summary class="group">Komşular ve hatır</summary>
+      <p class="note">Hatırı yüksek komşu tarlasını önce sana ve ucuza satar, teklifini kolay kabul eder, başı sıkışınca kapına gelir. Ayda bir komşuya gidebilirsin.</p>
+      ${KOMSULAR.map((k) => {
+        const h = hatir(w, k.id);
+        return `<div class="asset"><div class="prow"><span class="pname">${esc(komsuAd(w, k))}</span><span class="badge ${h >= 35 ? 'sen' : h < -20 ? 'hasta' : 'gurbet'}">${esc(hatirLabel(h))}</span></div>
+          <p class="note">${esc(k.kim)}</p>
+          <div class="meter"><i style="width:${Math.max(0, Math.min(100, Math.round(h)))}%"></i></div>
+          <div class="btnrow"><button class="small" data-kom="${k.id}:hediye"${done ? ' disabled' : ''}>Hediyeyle ziyaret (${lira(90 * infl(w.m))})</button><button class="small" data-kom="${k.id}:yardim"${done ? ' disabled' : ''}>Tarlasında yardım et</button></div></div>`;
+      }).join('')}</details>`;
   }
 
   /** Soy kütüğü: kan bağıyla nesil nesil */
@@ -779,6 +798,7 @@ export class App {
     return `<details class="goals"><summary class="group">Hanedan hedefleri: ${done.length} / ${GOALS.length}, ${Number(w.flags.puan || 0)} puan</summary>
       ${groups.map((gr) => `<div class="ggrp"><b>${esc(gr)}</b>${GOALS.filter((g) => g.grup === gr).map((g) => `<span class="goal${w.flags['goal_' + g.id] ? ' ok' : ''}">${esc(g.ad)}<i>${g.pts}</i></span>`).join('')}</div>`).join('')}
       </details>
+      ${activeQuests(w).length || doneQuests(w).length ? `<div class="group">Hikâyeler</div><p class="note">${activeQuests(w).length ? `Süren: ${activeQuests(w).map(esc).join(', ')}. ` : ''}${doneQuests(w).length ? `Yaşananlar: ${doneQuests(w).map(esc).join(', ')}.` : ''}</p>` : ''}
       <ul class="chron">${items.map((e) => `<li class="${e.k}"><time>${dateText(e.m)}</time>${esc(e.t)}</li>`).join('')}</ul>`;
   }
 
@@ -856,6 +876,10 @@ export class App {
         if (this.pendingPanel) this.renderPanel(false);
       };
     });
+    panel.querySelectorAll<HTMLButtonElement>('[data-kom]').forEach((b) => (b.onclick = act(() => {
+      const [id, how] = b.dataset.kom!.split(':');
+      this.toast(visit(w, id, how as 'hediye' | 'yardim').msg);
+    })));
     panel.querySelectorAll<HTMLButtonElement>('[data-ekev]').forEach((b) => (b.onclick = act(() => this.toast(buildEkEv(w).msg))));
     panel.querySelectorAll<HTMLButtonElement>('[data-sheep]').forEach((b) => (b.onclick = act(() => {
       const n = Number(b.dataset.sheep);
@@ -1093,7 +1117,7 @@ export class App {
     }
     ov.innerHTML = `<div class="veil"><article class="doc" role="dialog" aria-labelledby="ct">
       <div class="kilim"></div>
-      <div class="head">${KIND[c.id] ?? (c.id.startsWith('hi:') ? 'Tarih' : c.id.startsWith('ev:') ? 'Köyden' : 'Haber')}, ${dateText(c.m)}</div>
+      <div class="head">${KIND[c.id] ?? (c.id.startsWith('q:') ? 'Hikâye' : c.id.startsWith('km_') ? 'Komşu' : c.id.startsWith('hi:') ? 'Tarih' : c.id.startsWith('ev:') ? 'Köyden' : 'Haber')}, ${dateText(c.m)}</div>
       <p id="ct">${esc(c.text)}</p>
       <div class="opts">${c.opts.map((o) => `<button data-opt="${esc(o.k)}">${esc(o.t)}</button>`).join('')}</div>
     </article></div>`;

@@ -52,7 +52,7 @@ export function bizIncome(w: World, b: BizId): number {
   const mo = monthOf(w.m);
   if (b === 'degirmen' && mo >= 6 && mo <= 9) f *= 2;
   if (b === 'bakkal' && mo === 11) f *= 0.8;
-  return Math.round(d.income * f * infl(w.m) * (niyetIs(w, 'ticaret') ? 1.12 : 1));
+  return Math.round(d.income * f * infl(w.m) * (niyetIs(w, 'ticaret') ? 1.12 : 1) * (Number(w.flags.salgin || 0) > w.m ? 0.7 : 1));
 }
 
 // ---------- Nam ve unvan ----------

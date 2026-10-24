@@ -1,4 +1,7 @@
 // Aylık simülasyon adımı ve oyuncu eylemleri.
+import { monthlyNews } from './news';
+import { monthlyKomsu } from './komsu';
+import { monthlyQuests } from './quests';
 import type { JobId, LedgerLine, World } from './types';
 import { chance, clamp, gauss, rint } from './rng';
 import { age, alive, fullName, hhMembers, log, P } from './people';
@@ -45,6 +48,7 @@ export function advance(w: World): boolean {
   gurbetReturns(w);
   monthlyEra(w);
   monthlyHistory(w);
+  monthlyNews(w);
   monthlyCrime(w);
   monthlyHostility(w);
   if (monthOf(w.m) === 0) {
@@ -94,6 +98,8 @@ function economy(w: World, harvestBonus: number) {
   monthlyFields(w, lines);
   monthlyAmbar(w);
   monthlySuru(w, lines);
+  monthlyKomsu(w, lines);
+  monthlyQuests(w, lines);
   {
     const ag = agaIncome(w);
     if (ag) {
@@ -196,7 +202,7 @@ function growth(w: World) {
       p.sk[d.skill] = clamp(cur + g, 0, 100);
     }
     if (p.job === 'okul') {
-      p.sk.ticaret = clamp(p.sk.ticaret + 0.25 * (0.5 + p.tr.zeka / 10), 0, 30);
+      p.sk.ticaret = clamp(p.sk.ticaret + 0.25 * (0.5 + p.tr.zeka / 10) * (Number(w.flags.okulBonus || 0) > w.m ? 1.5 : 1), 0, 30);
       p.sk.zanaat = clamp(p.sk.zanaat + 0.15, 0, 30);
     }
     if (p.job === 'cirak' && p.sk.zanaat >= 55) {
@@ -277,7 +283,7 @@ export function botTurn(w: World) {
     if (c.id === 'kacakci') k = chance(w, 0.5) ? 'evet' : 'hayir';
     if (c.id === 'hashas_hasat') k = c.opts[Math.min(c.opts.length - 1, chance(w, 0.6) ? 0 : 1)].k;
     if (c.id === 'aga_kiz') k = chance(w, 0.5) ? 'ver' : 'ret';
-    if (c.id.startsWith('ev:') || c.id.startsWith('hi:') || c.id.startsWith('fa_') || c.id.startsWith('kmt') || c.id.startsWith('rk_') || c.id.startsWith('ce_') || c.id === 'plan_hashas' || c.id === 'ruhsat_red') {
+    if (c.id.startsWith('ev:') || c.id.startsWith('hi:') || c.id.startsWith('q:') || c.id.startsWith('km_') || c.id.startsWith('nw_') || c.id.startsWith('fa_') || c.id.startsWith('kmt') || c.id.startsWith('rk_') || c.id.startsWith('ce_') || c.id === 'plan_hashas' || c.id === 'ruhsat_red') {
       const cheap = c.opts.filter((o) => !/\(\d/.test(o.t) && !/lira\)/.test(o.t));
       const pool = w.hh.cash > 20000 * infl(w.m) ? c.opts : cheap.length ? cheap : c.opts;
       k = pool[Math.floor(rint(w, 0, pool.length - 1))].k;

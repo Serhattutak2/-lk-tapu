@@ -1,5 +1,8 @@
 // Olay kartları: oyuncudan karar isteyen anlar.
 // Kartlar World içinde düz veri olarak durur; seçenekleri RESOLVE tablosundan çözülür.
+import { questCards, resolveQuest } from './quests';
+import { komsuCards, resolveKomsu } from './komsu';
+import { newsCards, resolveNews } from './news';
 import type { Card, World } from './types';
 import { chance, clamp, gauss, pick, rint } from './rng';
 import { FEMALE, MALE, SURNAMES } from './names';
@@ -129,7 +132,7 @@ export function resolveCard(w: World, uid: number, k: string) {
   if (i < 0) return;
   const [c] = w.cards.splice(i, 1);
   if (RESOLVE[c.id]) RESOLVE[c.id](w, c, k);
-  else if (!resolveCrime(w, c, k) && !resolveLab(w, c.id, k) && !resolveFeud(w, c.id, c.pid, k, c.data) && !resolveBaron(w, c.id, k) && !resolveEvent(w, c.id, k, c.pid, c.data) && !resolveHistory(w, c.id, k, c.pid, c.data) && !resolveKomutan(w, c.id, k) && !resolveYear(w, c.id, k) && !resolveAga(w, c.id, k) && !resolveRivalCard(w, c.id, k, c.pid) && !resolveFamily(w, c.id, k, c.pid, c.data) && !resolveDistrict(w, c.id, k, c.data)) resolveHome(w, c.id, c.pid, k, c.data);
+  else if (!resolveCrime(w, c, k) && !resolveLab(w, c.id, k) && !resolveFeud(w, c.id, c.pid, k, c.data) && !resolveBaron(w, c.id, k) && !resolveEvent(w, c.id, k, c.pid, c.data) && !resolveHistory(w, c.id, k, c.pid, c.data) && !resolveKomutan(w, c.id, k) && !resolveYear(w, c.id, k) && !resolveQuest(w, c.id, k, c.pid, c.data) && !resolveKomsu(w, c.id, k) && !resolveNews(w, c.id, k) && !resolveAga(w, c.id, k) && !resolveRivalCard(w, c.id, k, c.pid) && !resolveFamily(w, c.id, k, c.pid, c.data) && !resolveDistrict(w, c.id, k, c.data)) resolveHome(w, c.id, c.pid, k, c.data);
   if (w.hh.cash < 0) {
     // Kasada olmayan para ağadan borç alınır
     w.hh.debt += -w.hh.cash;
@@ -148,6 +151,8 @@ export function generateCards(w: World) {
   if (yearCard(w)) return;
   if (crimeCards(w)) return;
   if (agaCards(w)) return;
+  if (newsCards(w)) return;
+  if (questCards(w)) return;
   if (feudCards(w) || w.over) return;
   if (rivalCards(w)) return;
   if (labCards(w)) return;
@@ -157,6 +162,7 @@ export function generateCards(w: World) {
   if (eventCards(w) || w.over) return;
   if (homeCards(w)) return;
   if (familyCards(w)) return;
+  if (komsuCards(w)) return;
 
   // Görücü
   if (pa >= 17 && pa <= 50 && !alive(P(w, pl.sp)) && (!pl.sp || w.flags.gorucuIste) && chance(w, w.flags.gorucuIste ? 1 : 0.08)) {

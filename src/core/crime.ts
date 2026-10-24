@@ -77,7 +77,7 @@ export function crimeCards(w: World): boolean {
   // Jandarma baskını
   if (monthlyKomutan(w)) return true;
   if (secretCard(w)) return true;
-  const raidP = (Math.max(0, w.heat - 12) / 100 * 0.09 + (evidence ? 0.004 : 0)) * policeFactor(w) * kmtFactor(w) * (w.pol.seat === 'vekil' ? 0.5 : 1);
+  const raidP = (Math.max(0, w.heat - 12) / 100 * 0.09 + (evidence ? 0.004 : 0)) * policeFactor(w) * kmtFactor(w) * (w.pol.seat === 'vekil' ? 0.5 : 1) * (Number(w.flags.kom_nuri ?? 10) >= 40 ? 0.85 : 1);
   if (w.heat > 12 && chance(w, raidP)) {
     if (!evidence) {
       w.heat = clamp(w.heat - 12, 0, 100);

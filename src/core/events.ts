@@ -339,7 +339,7 @@ const EVENTS: Ev[] = [
       w.pol.tried = w.m;
       if (k !== 'evet') return;
       w.hh.cash -= L(w, 3500);
-      if (chance(w, clamp(0.35 + nam(w) / 80, 0.35, 0.9))) {
+      if (chance(w, clamp(0.35 + nam(w) / 80 + Number(w.flags.kom_rifat ?? 10) / 400, 0.35, 0.92))) {
         w.pol.seat = 'muhtar';
         w.pol.until = w.m + 60;
         w.flags.namBonus = Number(w.flags.namBonus || 0) + 5;

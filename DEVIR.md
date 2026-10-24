@@ -2,6 +2,7 @@
 
 0.8: Karakol komutanı sistemi, aile içi küsme/barışma/düğünler, rakip aileye karşı kansız hamleler (`rivalMoves`/`doRivalMove`) ve çatışmalar (`scuffle`), köyde ikinci ev (`buildEkEv`), son varis ölünce uzak akraba devralır. Tarla satışı yeniden zorlaştırıldı, hız yavaşlatıldı.
 
+1.0: Arayüz duman testi `npm run test:ui` (tarayıcıda bütün düğmeler, donma ve ekim planı kontrolü) her sürümden önce çalıştırılır. Komşular, hikâye zincirleri, manşetler, salgın; açık bölümler yeniden çizimde açık kalır.
 0.9: Yıl niyeti, sürü, tütün/ayçiçeği, ağanın sonu, Kara Rıza'nın veda zinciri ve oğlu Selim (`ce_*` kartları baron.ts'te), çete dağılınca mahalleler ve `crewGone`, yeni çete `flags.nextCrew`, unvan Çukurkent'in Babası, soy kütüğü.
 0.7: Oyun Mart 1925'te başlar. Ekim planı (`Parcel.plan`, `autoSow`), ambar (`hh.ambar`), değişen fiyatlar, çağa göre sağlık. Ağa kirası `RENT_CAP` ile sınırlı.
 
@@ -47,6 +48,9 @@ Bu dosya projeyi başka bir yapay zekâ ya da geliştiriciyle sürdürmek için 
 | `core/aga.ts` | Bozbey Ağa'nın ölümü, miras (konak, borç defteri, toprak satışı), köyün yeni ağası |
 | `core/family.ts` | Küslük/barışma, bayram, büyüğün öğüdü, gençlerin istekleri, kardeş kavgası, düğün kartı |
 | `core/jandarma.ts` | Karakol komutanı (huy, dostluk, sır), baskın seçenekleri |
+| `core/komsu.ts` | Adlı komşular ve hatır (`flags.kom_<id>`): ziyaret, tarla teklifine etki, komşu kartları (`km_`) |
+| `core/quests.ts` | Hikâye zincirleri (`q:<id>:<adım>`): vasiyet, küp, öğretmen, mektup, köprü, film, tren |
+| `core/news.ts` | Gazete/radyo/TV manşetleri ve 2020 salgın kartı |
 | `core/sim.ts` | Aylık adım `advance`: ekonomi, beceri ve sağlık, yaşam, kartlar. Oyuncu eylemleri: `setJob`, `setHeir`, `payDebt`, `resolveCard`. Test botu `botTurn` |
 | `ui/app.ts` | Açılış, oyun ekranı, Aile/Hane/Kronik panelleri, olay kartı (evrak görünümü), ilk tapu töreni, son ekranı. Kayıt anahtarı `ilktapu_v1` |
 | `ui/map.ts` | İzometrik piksel köy; 320×196 tampona çizilir, ekrana büyütülür. `SLOTS` oyuncunun parselleri |
