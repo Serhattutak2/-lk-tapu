@@ -139,3 +139,20 @@ describe('ekim planı uzun vadede', () => {
     for (const c of plans) expect(sown[c]?.size ?? 0, c).toBeGreaterThanOrEqual(20);
   }, 60000);
 });
+
+describe('tutarlılık: ölü karakterler', () => {
+  it('ekranda bekleyen hiçbir kart ölü birini işaret etmez', async () => {
+    const { P, alive } = await import('../src/core/people');
+    for (const seed of [111, 222, 333, 444]) {
+      const w = newWorld({ seed });
+      const end = w.m + 120 * 12;
+      while (w.m < end && !w.over) {
+        botTurn(w);
+        for (const c of w.cards) {
+          if (c.pid) expect(alive(P(w, c.pid)), `kart ${c.id} ölü ${c.pid}`).toBe(true);
+        }
+        if (!advance(w)) botTurn(w);
+      }
+    }
+  }, 60000);
+});

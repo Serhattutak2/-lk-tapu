@@ -1,5 +1,7 @@
 // Olay kartları: oyuncudan karar isteyen anlar.
 // Kartlar World içinde düz veri olarak durur; seçenekleri RESOLVE tablosundan çözülür.
+import { resolveSagkol } from './sagkol';
+import { konseyCards, resolveKonsey, surgunCards } from './konsey';
 import { koyCards, resolveKoy } from './koyhayati';
 import { questCards, resolveQuest } from './quests';
 import { komsuCards, resolveKomsu } from './komsu';
@@ -7,7 +9,7 @@ import { newsCards, resolveNews } from './news';
 import type { Card, World } from './types';
 import { chance, clamp, gauss, pick, rint } from './rng';
 import { FEMALE, MALE, SURNAMES } from './names';
-import { age, alive, fullName, hhMembers, log, makePerson, P, removeFromHH } from './people';
+import { age, alive, bloodLiving, fullName, hhMembers, log, makePerson, P, removeFromHH } from './people';
 import { dateText, infl, monthOf, year } from './calendar';
 import { marry, resolveSuccession } from './life';
 import { autoSow, resolveHashas } from './fields';
@@ -16,7 +18,7 @@ import { resolveYear, yearCard } from './yil';
 import { agaCards, resolveAga } from './aga';
 import { resolveKomutan } from './jandarma';
 import { familyCards, resolveFamily } from './family';
-import { buyPlot, landBlockers } from './assets';
+import { buyPlot, landBlockers, nam as namOf } from './assets';
 import { landBase, PLOTS, plotOwnerName, plotPrice } from './plots';
 import { crimeCards, resolveCrime } from './crime';
 import { labCards, resolveLab } from './lab';
@@ -129,22 +131,51 @@ const RESOLVE: Record<string, Resolver> = {
   bilgi: () => {},
 };
 
+/** Sonuç kartı için anlık görüntü */
+function snap(w: World) {
+  return { cash: w.hh.cash, dirty: w.dirty, nam: namOf(w), heat: w.heat, feud: w.rival.gone ? 0 : w.rival.feud, gang: w.gang, kork: Number(w.flags.korku || 0), sayg: Number(w.flags.saygi || 0), kisi: bloodLiving(w).length, logN: w.chronicle.length };
+}
+const DECISION = /^(kan|baris|sinir|kacirma|baskin|rk_|ce_|cete|riza_taht|kmt_|aga_kiz|ag_|q:|km_|kv_|fa_|nw_|hashas_hasat|gorucu|hastalik|plan_hashas|ruhsat_red|it_|sk_|sg_)/;
+
 export function resolveCard(w: World, uid: number, k: string) {
   const i = w.cards.findIndex((c) => c.uid === uid);
   if (i < 0) return;
   const [c] = w.cards.splice(i, 1);
+  const decision = (c.opts?.length ?? 0) >= 2 && DECISION.test(c.id) && c.id !== 'yil';
+  const before = decision ? snap(w) : null;
   if (RESOLVE[c.id]) RESOLVE[c.id](w, c, k);
   else if (c.id.startsWith('meslek:')) {
     resolveJobCard(w, c.id, k);
     if (!w.cards.length) jobCards(w); // sıradaki kişiyi hemen sor
   }
-  else if (!resolveCrime(w, c, k) && !resolveLab(w, c.id, k) && !resolveFeud(w, c.id, c.pid, k, c.data) && !resolveBaron(w, c.id, k) && !resolveDeniz(w, c.id, k) && !resolveEvent(w, c.id, k, c.pid, c.data) && !resolveJobCard(w, c.id, k) && !resolveHistory(w, c.id, k, c.pid, c.data) && !resolveKomutan(w, c.id, k) && !resolveYear(w, c.id, k) && !resolveQuest(w, c.id, k, c.pid, c.data) && !resolveKomsu(w, c.id, k) && !resolveKoy(w, c.id, k, c.pid) && !resolveNews(w, c.id, k) && !resolveAga(w, c.id, k) && !resolveRivalCard(w, c.id, k, c.pid) && !resolveFamily(w, c.id, k, c.pid, c.data) && !resolveDistrict(w, c.id, k, c.data)) resolveHome(w, c.id, c.pid, k, c.data);
+  else if (!resolveCrime(w, c, k) && !resolveLab(w, c.id, k) && !resolveFeud(w, c.id, c.pid, k, c.data) && !resolveBaron(w, c.id, k) && !resolveDeniz(w, c.id, k) && !resolveEvent(w, c.id, k, c.pid, c.data) && !resolveJobCard(w, c.id, k) && !resolveHistory(w, c.id, k, c.pid, c.data) && !resolveKomutan(w, c.id, k) && !resolveYear(w, c.id, k) && !resolveQuest(w, c.id, k, c.pid, c.data) && !resolveKomsu(w, c.id, k) && !resolveKoy(w, c.id, k, c.pid) && !resolveKonsey(w, c.id, k) && !resolveSagkol(w, c.id, k, c.pid) && !resolveNews(w, c.id, k) && !resolveAga(w, c.id, k) && !resolveRivalCard(w, c.id, k, c.pid) && !resolveFamily(w, c.id, k, c.pid, c.data) && !resolveDistrict(w, c.id, k, c.data)) resolveHome(w, c.id, c.pid, k, c.data);
   if (w.hh.cash < 0) {
     // Kasada olmayan para ağadan borç alınır
     w.hh.debt += -w.hh.cash;
     log(w, `Kasada para yoktu; ${-w.hh.cash} lira ağadan borç alındı.`, 'para');
     w.hh.cash = 0;
   }
+  if (before && !w.over && !w.flags.interregnum) pushSonuc(w, before);
+}
+
+/** Karardan sonra ne değiştiğini özetleyen sonuç kartı. */
+function pushSonuc(w: World, b: ReturnType<typeof snap>) {
+  if (w.cards.length) return; // başka bir kart araya girdiyse karıştırma
+  const a = snap(w);
+  const d: { t: string; up: boolean }[] = [];
+  const money = (a.cash + a.dirty) - (b.cash + b.dirty);
+  if (Math.abs(money) >= 50) d.push({ t: `${money > 0 ? '+' : '−'}${Math.abs(Math.round(money)).toLocaleString('tr-TR')} lira`, up: money > 0 });
+  if (a.nam !== b.nam) d.push({ t: `Nam ${a.nam > b.nam ? '+' : '−'}${Math.abs(a.nam - b.nam)}`, up: a.nam > b.nam });
+  if (Math.round(a.kork) !== Math.round(b.kork)) d.push({ t: `Korku ${a.kork > b.kork ? '+' : '−'}${Math.abs(Math.round(a.kork - b.kork))}`, up: a.kork > b.kork });
+  if (Math.round(a.sayg) !== Math.round(b.sayg)) d.push({ t: `Saygı ${a.sayg > b.sayg ? '+' : '−'}${Math.abs(Math.round(a.sayg - b.sayg))}`, up: a.sayg > b.sayg });
+  if (Math.round(a.heat) !== Math.round(b.heat)) d.push({ t: `Dikkat ${a.heat > b.heat ? '+' : '−'}${Math.abs(Math.round(a.heat - b.heat))}`, up: a.heat < b.heat });
+  if (Math.round(a.feud) !== Math.round(b.feud)) d.push({ t: `Husumet ${a.feud > b.feud ? '+' : '−'}${Math.abs(Math.round(a.feud - b.feud))}`, up: a.feud < b.feud });
+  if (a.gang !== b.gang) d.push({ t: `Adam ${a.gang > b.gang ? '+' : '−'}${Math.abs(a.gang - b.gang)}`, up: a.gang > b.gang });
+  if (a.kisi < b.kisi) d.push({ t: `${b.kisi - a.kisi} can kaybı`, up: false });
+  if (!d.length) return;
+  // Karar sonrası kronikte eklenen son satırı sahne olarak göster
+  const line = w.chronicle.length > b.logN ? w.chronicle[w.chronicle.length - 1].t : '';
+  pushCard(w, { id: 'sonuc', text: line || 'Karar verildi.', opts: [{ t: 'Devam', k: 'ok' }], data: { delta: d } });
 }
 
 /** Her ay çağrılır: koşullara göre yeni kartlar üretir. */
@@ -171,6 +202,7 @@ export function generateCards(w: World) {
   if (familyCards(w)) return;
   if (komsuCards(w)) return;
   if (koyCards(w)) return;
+  if (surgunCards(w) || konseyCards(w)) return;
 
   // Görücü
   if (pa >= 17 && pa <= 50 && !alive(P(w, pl.sp)) && (!pl.sp || w.flags.gorucuIste) && chance(w, w.flags.gorucuIste ? 1 : 0.08)) {

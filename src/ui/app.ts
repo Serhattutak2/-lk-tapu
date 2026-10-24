@@ -29,24 +29,33 @@ import { heatLabel, RENT_CAP } from '../core/crime';
 import type { CropId, Parcel } from '../core/types';
 import { dateText, infl, year } from '../core/calendar';
 import { VillageMap } from './map';
+import { Muzik } from './music';
 import { buySheep, coban, sellSheep, sheepPrice, suru, suruCap } from '../core/suru';
 import { buildEkEv, EKEV_MAX, ekEvPrice } from '../core/home';
 import { NIYET, niyet } from '../core/yil';
+import { kademe, kademeProgress, korku, korkuLabel, nextKademe, saygi } from '../core/guc';
+import { konseyLabel, surgunEt } from '../core/konsey';
+import { sadakat, sagkol, setSagkol, toggleYetki, yetkiVar, YETKI_AD } from '../core/sagkol';
+import type { Yetki } from '../core/sagkol';
 import { agaOlu, konakBizim } from '../core/aga';
 
 const SAVE_KEY = 'ilktapu_v1';
 const NEWS_KEY = 'ilktapu_haber';
 export const NEWS = {
-  v: '1.2',
+  v: '2.0',
   items: [
-    ['Hikâyeler kitabı: 18 yeni hikâye', 'Kasaba takımından İstanbul\'a giden futbolcu torun. Düğünde türkü söyleyip plak dolduran kız. Tarlandan çıkan höyük ve müzedeki mühür. Başkanı olduğun köy kooperatifi ve hesap dedikodusu. Kuraklıkta açtırdığın kuyu ve suyunu isteyen komşular. Kapına gelen Balkan göçmenleri. Babanın Sakarya\'daki siper arkadaşı. Almanya\'dan gelen gelin Ingrid. Üniversite sınavı ve dershane. Torunun internetten köy ürünü satması. Kurbanlık olan Pamuk adlı kuzu. Köy çeşmesi ve türküsü. Ölüm döşeğindeki büyüğün gümüş kuşağı. Gezgin âşığın destanı. İstanbul\'a gecekonduya giden oğul. Evlat edinilen Yetim Ali. Televizyon bilgi yarışması. Yayla göçü.'],
-    ['Köy hayatının takvimi', 'Her yıl dönen gelenekler: Hıdrellez gecesi, harman şenliğinde karakucak güreşi, kış gecelerinde masal ve sıra gezmesi, kurak baharda yağmur duası, sünnet düğünleri, bağ bozumu, seyyar satıcı, tipide kapanan yollar.'],
-    ['Hikâyelerin kalıcı izleri', 'Kuyu kuraklığı yarıya indirir, kooperatif ve göçmen ortağın dükkânı her ay pay getirir, futbolcu torun maaşından para yollar, internet dükkânı köye iş verir, Ankara\'daki dost seçimlerde arkanda durur.'],
-    ['Yedi yeni hedef', 'On hikâye, ailenin futbolcusu, plak kapağında aile adı, müzede aile adı, kooperatif başkanlığı, on fabrika, beş gemilik filo.'],
+    ['Gücün merdiveni', 'Aile sekmesinin başında artık kademen yazıyor: gündelikçiden toprak sahibine, kabadayıdan şehrin babasına, Konsey üyeliğine kadar on iki basamak. Her kademenin kendi işleri ve düşmanları var; bir sonrakine ne kadar kaldığını çubuk gösteriyor.'],
+    ['Korku ve saygı', 'İki ayrı güç: korku zorla iş yaptırır, saygı gönülden bağlar. Dengeyi korku lehine bozarsan köy meclisi önce uyarır, sonra seni köyden sürmeye kalkar. Güçlüysen sen de rakip aileyi köyden sürdürürsün (Yeraltı sekmesi).'],
+    ['Seçimden sonra sonuç', 'Artık büyük kararlardan sonra bir sonuç kartı geliyor: ne oldu, para, korku, saygı, dikkat, husumet ve can kaybı tek tek yazıyor.'],
+    ['Sağ kol', 'Güvendiğin birine yetki ver (Aile sekmesi): meslek atamaları, köy gelenekleri, tarla ve küçük olayları senin yerine o kapatsın. Becerisi işi iyi yaptırır; ama sadakati düşerse kasandan çalar, hatta adamlarını alıp düşmana geçer.'],
+    ['Konsey ve Büyük Baba', 'En tepede büyük ailelerin gizli masası Konsey. Ya aralarına girersin, ya aidat ödeyip bağımsız kalırsın, ya da masayı devirip hepsiyle savaşırsın. Beş aileyi de dağıtırsan unvanın Büyük Baba olur. Oyunun sonu yok.'],
+    ['On bir yeni meslek', 'Berber, aşçı, ebe, imam, postacı, terzi, gazeteci, mimar, banka müdürü, şarkıcı. Kimi saygı getirir, kimi manşeti yumuşatır, kimi doğumları kolaylaştırır, kimi fabrikayı büyütür.'],
+    ['Anadolu noir', 'Yeni renk paleti: gece laciverdi, bakır, eski altın, kurumuş kan kırmızısı. Bir de oyunun içinde üretilen bağlama ve darbuka müziği; sağ alttaki ♪ ile aç. Köyde sakin, kan davasında gergin, şehirde ağır çalar.'],
+    ['Deneme modu', 'Yeni oyunda "Deneme modu" kutusunu işaretle: kasa hiç bitmez, borç olmaz; her şeyi özgürce dene. Bu modda hedef puanı sayılmaz.'],
   ] as [string, string][],
 };
 const SPEEDS = [0, 4200, 1500, 500];
-const KIND: Record<string, string> = { nw_salgin: 'Salgın', yil: 'Yıl defteri', ag_olum: 'Ağa', ag_miras: 'Ağa', ag_yeni: 'Köy', ce_veda: 'Kara Rıza', ce_riza: 'Kara Rıza', ce_selim: 'Selim', ce_kalan: 'Çukurkent', cete: 'Çukurkent', kmt_yeni: 'Karakol', kmt_sir: 'Kahvehane', plan_hashas: 'Tarla', ruhsat_red: 'Ruhsat', fa_kus: 'Aile', fa_bayram: 'Bayram', fa_ogut: 'Aile büyüğü', fa_genc: 'Aile', fa_kavga: 'Aile', fa_dugun: 'Düğün', rk_su: 'Rakip', rk_hayvan: 'Rakip', rk_iftira: 'Rakip', rk_dunur: 'Dünürcü', veraset: 'Veraset', gorucu: 'Görücü', hastalik: 'Hastalık', gurbet: 'Gurbet', tuccar: 'Tanışıklık', tapu: 'Tapu', bilgi: 'Haber', hashas_hasat: 'Hasat', ruhsat: 'Ruhsat', kacakci: 'Kahvehane', baskin: 'Jandarma', aga_kira: 'Ağa', aga_kiz: 'Ağa' };
+const KIND: Record<string, string> = { sonuc: 'Sonuç', nw_salgin: 'Salgın', yil: 'Yıl defteri', ag_olum: 'Ağa', ag_miras: 'Ağa', ag_yeni: 'Köy', ce_veda: 'Kara Rıza', ce_riza: 'Kara Rıza', ce_selim: 'Selim', ce_kalan: 'Çukurkent', cete: 'Çukurkent', kmt_yeni: 'Karakol', kmt_sir: 'Kahvehane', plan_hashas: 'Tarla', ruhsat_red: 'Ruhsat', fa_kus: 'Aile', fa_bayram: 'Bayram', fa_ogut: 'Aile büyüğü', fa_genc: 'Aile', fa_kavga: 'Aile', fa_dugun: 'Düğün', rk_su: 'Rakip', rk_hayvan: 'Rakip', rk_iftira: 'Rakip', rk_dunur: 'Dünürcü', veraset: 'Veraset', gorucu: 'Görücü', hastalik: 'Hastalık', gurbet: 'Gurbet', tuccar: 'Tanışıklık', tapu: 'Tapu', bilgi: 'Haber', hashas_hasat: 'Hasat', ruhsat: 'Ruhsat', kacakci: 'Kahvehane', baskin: 'Jandarma', aga_kira: 'Ağa', aga_kiz: 'Ağa' };
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 const lira = (n: number) => Math.round(n).toLocaleString('tr-TR') + ' lira';
@@ -85,6 +94,7 @@ export class App {
   private pendingPanel = false;
   private toTop = false;
   private ceremony: null | { price: number } = null;
+  private muzik = new Muzik();
 
   constructor(private root: HTMLElement) {}
 
@@ -108,6 +118,7 @@ export class App {
         <label class="field"><span>Adın</span><input id="first" maxlength="20" placeholder="Boş bırakırsan rastgele seçilir" autocomplete="off"></label>
         <div class="field"><span>Doğduğun cinsiyet</span>
           <div class="seg"><button id="sxE" aria-pressed="true">Erkek</button><button id="sxK" aria-pressed="false">Kız</button></div></div>
+        <label class="chk"><input type="checkbox" id="deneme"> <span>Deneme modu — sınırsız para, kasa hiç bitmez (hedef puanı sayılmaz)</span></label>
         <button class="${saved && !saved.over ? 'ghost' : 'primary'}" id="new">Hayata başla</button>
         <button class="linkish" id="news">Sürüm ${NEWS.v}: yenilikleri gör</button>
       </div></main>`;
@@ -129,6 +140,7 @@ export class App {
       }
       wipe();
       const w = newWorld({ surname: $<HTMLInputElement>('#sur')!.value, first: $<HTMLInputElement>('#first')!.value, sex });
+      if ($<HTMLInputElement>('#deneme')!.checked) w.flags.deneme = true;
       save(w);
       this.enter(w);
     };
@@ -144,6 +156,7 @@ export class App {
         <section class="mapwrap"><canvas id="cv" aria-label="Karaçam köyü"></canvas>
           <div class="who" id="who"></div>
           <div class="maptog" id="maptog" role="group" aria-label="Harita"><button data-map="koy">Köy</button><button data-map="sehir">Şehir</button></div>
+          <button class="muzik" id="muzik" aria-label="Müzik">♪</button>
           <div class="clock" role="group" aria-label="Zaman">
             <button data-sp="0" aria-label="Durdur">❚❚</button>
             <button data-sp="1" aria-label="Oynat">▶</button>
@@ -180,6 +193,11 @@ export class App {
       this.renderSheet();
     };
     this.root.querySelectorAll<HTMLButtonElement>('[data-sp]').forEach((b) => (b.onclick = () => this.setSpeed(Number(b.dataset.sp))));
+    const mb = $('#muzik');
+    if (mb) {
+      mb.classList.toggle('on', this.muzik.playing);
+      mb.onclick = () => mb.classList.toggle('on', this.muzik.toggle());
+    }
     this.root.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) => (b.onclick = () => {
       this.tab = b.dataset.tab as typeof this.tab;
       this.toTop = true;
@@ -233,7 +251,9 @@ export class App {
   private step() {
     const w = this.w;
     if (!w || !canAdvance(w) || this.ceremony) return;
+    if (w.flags.deneme) this.denemeTopUp(w);
     advance(w);
+    if (w.flags.deneme) this.denemeTopUp(w);
     save(w);
     if (w.over) {
       this.stop();
@@ -242,11 +262,26 @@ export class App {
     this.refresh();
   }
 
+  private denemeTopUp(w: World) {
+    const floor = 50_000_000 * Math.pow(1.045, year(w.m) - (w.y0 || 1925));
+    if (w.hh.cash < floor) w.hh.cash = floor;
+    if (w.dirty < floor / 2) w.dirty = floor / 2;
+    if (w.hh.debt > 0) w.hh.debt = 0;
+  }
+
+  private moodFor(w: World): 'koy' | 'gergin' | 'sehir' | 'yas' {
+    if (w.flags.yasM && Number(w.flags.yasM) > w.m) return 'yas';
+    if ((!w.rival.gone && w.rival.feud >= 60) || (w.crew && !w.crew.gone && w.crew.feud >= 55) || w.heat >= 55) return 'gergin';
+    if (w.city.moved || w.city.open) return 'sehir';
+    return 'koy';
+  }
+
   private refresh() {
     this.renderTop();
     this.renderPanel(false);
     this.renderOverlay();
     this.renderSheet();
+    if (this.w && this.muzik.playing) this.muzik.setMood(this.moodFor(this.w));
   }
 
   private renderTop() {
@@ -262,6 +297,7 @@ export class App {
         <span class="stat">Toprak <b>${w.hh.land} dönüm</b></span>
         ${w.dirty > 0 ? `<span class="stat dirty">Kara kasa <b>${lira(w.dirty)}</b></span>` : ''}
         ${w.heat >= 15 ? `<span class="stat heat">Dikkat <b>${esc(heatLabel(w.heat))}</b></span>` : ''}
+        ${w.flags.deneme ? `<span class="stat deneme"><b>Deneme modu</b></span>` : ''}
       </div>`;
     $('#menu')!.onclick = () => this.showStart();
     const pl = P(w, w.playerId);
@@ -580,13 +616,29 @@ export class App {
     const single = alive(pl) && !alive(P(w, pl!.sp)) && !pl!.sp && age(w, pl!) >= 17;
     const evli = single && !w.flags.gorucuIste ? `<div class="btnrow"><button class="small" data-gorucu="1">Görücüye çık, kendine eş ara</button></div>` : '';
     const ny = niyet(w);
-    return `${ny ? `<div class="niyet"><b>${year(w.m)}: ${esc(NIYET[ny].ad)}</b><span>${esc(NIYET[ny].desc)}</span></div>` : ''}${warn}${evli}
+    const kd = kademe(w); const nk = nextKademe(w);
+    const strip = `<div class="kademe"><b>${esc(kd.ad)}</b>${nk ? `<div class="bar"><i style="width:${kademeProgress(w)}%"></i></div><span>sırada: ${esc(nk.ad)}</span>` : '<span>en tepe</span>'}</div>
+      <p class="note">${esc(kd.desc)} · <b>${esc(korkuLabel(w))}</b> (korku ${Math.round(korku(w))} / saygı ${Math.round(saygi(w))})</p>`;
+    return `${strip}${ny ? `<div class="niyet"><b>${year(w.m)}: ${esc(NIYET[ny].ad)}</b><span>${esc(NIYET[ny].desc)}</span></div>` : ''}${warn}${evli}
       <div class="group">Hanede ${house.length} kişi</div>
       ${house.map((p) => this.personHTML(p, true)).join('')}
       ${out.length ? `<div class="group">Ayrı evde yaşayan akrabalar</div>${out.map((p) => this.personHTML(p, false)).join('')}` : ''}
+      ${this.sagkolHTML()}
       ${this.komsuHTML()}
       ${this.treeHTML()}
       ${dead.length ? `<details><summary class="group">Rahmetliler (${dead.length})</summary>${dead.map((p) => `<div class="person"><span class="pname dead">${esc(fullName(p))}</span> <span class="prel">${year(p.b)}–${year(p.d!)}, ${esc(p.cause ?? '')}</span></div>`).join('')}</details>` : ''}`;
+  }
+
+  /** Sağ kol: yetki devri */
+  private sagkolHTML(): string {
+    const w = this.w!;
+    const sk = sagkol(w);
+    const cand = hhMembers(w).filter((p) => !p.away && age(w, p) >= 18 && p.id !== w.playerId);
+    return `<details class="sagkol"><summary class="group">Sağ kol${sk ? ': ' + esc(sk.first) : ''}</summary>
+      <p class="note">Güvendiğin birine yetki ver; seçtiğin işleri senin yerine o yürütür. Becerisi ve sadakati işi ne kadar iyi yaptığını belirler; sadakati düşerse senden çalar ya da düşmana kayar.</p>
+      <select data-sagkol="1" aria-label="Sağ kol seç"><option value="">Sağ kol yok</option>${cand.map((p) => `<option value="${p.id}"${sk?.id === p.id ? ' selected' : ''}>${esc(p.first)}, ${age(w, p)}, ticaret ${Math.round(p.sk.ticaret)}</option>`).join('')}</select>
+      ${sk ? `<p class="note">Sadakat: ${Math.round(sadakat(w))} / 100. Devredilen işler:</p>
+        <div class="btnrow">${(Object.keys(YETKI_AD) as Yetki[]).map((y) => `<button class="small${yetkiVar(w, y) ? ' on' : ''}" data-yetki="${y}" aria-pressed="${yetkiVar(w, y)}">${esc(YETKI_AD[y])}</button>`).join('')}</div>` : ''}</details>`;
   }
 
   /** Komşular ve hatır */
@@ -792,8 +844,10 @@ export class App {
       <div class="btnrow">
         <button class="small danger" data-attack="1"${w.gang >= 2 ? '' : ' disabled'}>Silahlı baskın (${w.gang} adam)</button>
         <button class="small" data-clash="0"${targets(w).length ? '' : ' disabled'}>Sopayla hadlerini bildir</button>
+        <button class="small" data-surgun="1">Köyü arkana al, aileyi sürdür</button>
       </div>
-      <p class="note">Sopalı kavgada kimse ölmez; silahlı baskın kan davasını büyütür ve jandarmayı üstüne çeker.</p>`}
+      <p class="note">Sopalı kavgada kimse ölmez; silahlı baskın kan davasını büyütür ve jandarmayı üstüne çeker. Köyü sürdürmek için köyde sözün geçmeli (nam ve saygı).</p>`}
+      ${konseyLabel(w) ? `<div class="group">Konsey</div><p class="note">${esc(konseyLabel(w))}.${w.flags.konsey === 'dusman' ? ` Beş aile sana karşı; husumet ${Math.round(Number(w.flags.konseyFeud || 0))}. Güçlü adam kadrosuyla hamlelerini püskürttükçe masa dağılır.` : ''}</p>` : ''}
       ${w.crew && !w.crew.gone ? `<div class="group">${esc(w.crew.name)}</div><div class="labor"><span>Husumet</span><div class="meter heat"><i style="width:${Math.round(w.crew.feud)}%"></i></div></div><p class="note">${CITY}'te ${w.crew.men} silahlı adamları ve ${w.crew.turf} mahalleleri var.</p>` : ''}`;
   }
 
@@ -884,7 +938,9 @@ export class App {
         if (this.pendingPanel) this.renderPanel(false);
       };
     });
-    panel.querySelectorAll<HTMLButtonElement>('[data-kom]').forEach((b) => (b.onclick = act(() => {
+    panel.querySelectorAll<HTMLSelectElement>('[data-sagkol]').forEach((sel) => (sel.onchange = act(() => this.toast(setSagkol(w, sel.value || null).msg))));
+    panel.querySelectorAll<HTMLButtonElement>('[data-yetki]').forEach((b) => (b.onclick = act(() => toggleYetki(w, b.dataset.yetki as Yetki))));
+        panel.querySelectorAll<HTMLButtonElement>('[data-kom]').forEach((b) => (b.onclick = act(() => {
       const [id, how] = b.dataset.kom!.split(':');
       this.toast(visit(w, id, how as 'hediye' | 'yardim').msg);
     })));
@@ -912,6 +968,7 @@ export class App {
     panel.querySelectorAll<HTMLButtonElement>('[data-gang]').forEach((b) => (b.onclick = act(() => this.toast(hire(w, Number(b.dataset.gang)).msg))));
     panel.querySelectorAll<HTMLButtonElement>('[data-attack]').forEach((b) => (b.onclick = act(() => this.toast(attackRival(w).msg))));
     panel.querySelectorAll<HTMLButtonElement>('[data-clash]').forEach((b) => (b.onclick = act(() => this.toast(scuffle(w)))));
+    panel.querySelectorAll<HTMLButtonElement>('[data-surgun]').forEach((b) => (b.onclick = act(() => this.toast(surgunEt(w).msg))));
     panel.querySelectorAll<HTMLButtonElement>('[data-rk]').forEach((b) => (b.onclick = act(() => this.toast(doRivalMove(w, b.dataset.rk!, nam(w)).msg))));
     panel.querySelectorAll<HTMLButtonElement>('[data-kmt]').forEach((b) => (b.onclick = act(() => this.toast((b.dataset.kmt === 'follow' ? kmtFollow(w) : kmtGift(w)).msg))));
     panel.querySelectorAll<HTMLButtonElement>('[data-fac]').forEach((b) => (b.onclick = act(() => this.toast(buyFac(w, b.dataset.fac as FacId).msg))));
@@ -1129,10 +1186,12 @@ export class App {
       ov.innerHTML = '';
       return;
     }
-    ov.innerHTML = `<div class="veil"><article class="doc" role="dialog" aria-labelledby="ct">
+    const delta = (c.data?.delta as { t: string; up: boolean }[] | undefined) || [];
+    ov.innerHTML = `<div class="veil"><article class="doc${c.id === 'sonuc' ? ' sonuc' : ''}" role="dialog" aria-labelledby="ct">
       <div class="kilim"></div>
-      <div class="head">${KIND[c.id] ?? (c.id.startsWith('meslek:') ? 'Meslek' : c.id.startsWith('q:') ? 'Hikâye' : c.id.startsWith('km_') ? 'Komşu' : c.id.startsWith('hi:') ? 'Tarih' : c.id.startsWith('ev:') ? 'Köyden' : 'Haber')}, ${dateText(c.m)}</div>
+      <div class="head">${KIND[c.id] ?? (c.id.startsWith('meslek:') ? 'Meslek' : c.id.startsWith('q:') ? 'Hikâye' : c.id.startsWith('km_') ? 'Komşu' : c.id.startsWith('it_') ? 'İttifak' : c.id.startsWith('sg_') ? 'Sağ kol' : c.id.startsWith('kv_') ? 'Köy' : c.id.startsWith('hi:') ? 'Tarih' : c.id.startsWith('ev:') ? 'Köyden' : 'Haber')}, ${dateText(c.m)}</div>
       <p id="ct">${esc(c.text)}</p>
+      ${delta.length ? `<div class="delta">${delta.map((x) => `<span class="${x.up ? 'up' : 'down'}">${esc(x.t)}</span>`).join('')}</div>` : ''}
       <div class="opts">${c.opts.map((o) => `<button data-opt="${esc(o.k)}">${esc(o.t)}</button>`).join('')}</div>
     </article></div>`;
     ov.querySelectorAll<HTMLButtonElement>('[data-opt]').forEach((b) => (b.onclick = () => this.choose(c, b.dataset.opt!)));

@@ -2,7 +2,7 @@
 import type { Person, World } from './types';
 import { chance, clamp, gauss, pick, rint } from './rng';
 import { FEMALE, MALE, SURNAMES } from './names';
-import { addToHH, age, alive, bloodLiving, fullName, hhMembers, log, makePerson, P, removeFromHH } from './people';
+import { addToHH, age, alive, bloodLiving, fullName, hhHasJob, hhMembers, log, makePerson, P, removeFromHH } from './people';
 import { defaultJob, JOBS } from './jobs';
 import { year } from './calendar';
 import { pushCard } from './cards';
@@ -23,6 +23,7 @@ export function monthlyDeathChance(w: World, p: Person): number {
   let mult = clamp(1 + (65 - p.hp) / 18, 0.4, 6);
   if (p.sick && p.inHH && (w.hh.veh?.otomobil || 0) > 0) mult *= 0.6;
   if (p.inHH && hasDoctor(w)) mult *= 0.75;
+  if (p.inHH && age(w, p) < 5 && hhHasJob(w, 'ebe')) mult *= 0.7;
   mult *= eraMortality(w, p);
   return (1 - Math.pow(1 - q, 1 / 12)) * mult;
 }

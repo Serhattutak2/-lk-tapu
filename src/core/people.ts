@@ -112,3 +112,5 @@ export function relationTo(w: World, from: Person, to: Person): string {
   if (sp && (sp.fa === to.id || sp.mo === to.id)) return to.sex === 'E' ? 'Kayınpederi' : 'Kayınvalidesi';
   return to.blood ? 'Akrabası' : 'Hısımı';
 }
+
+export const hhHasJob = (w: import('./types').World, j: import('./types').JobId) => Object.values(w.people).some((p) => p.job === j && p.inHH && !p.away && p.d === undefined);

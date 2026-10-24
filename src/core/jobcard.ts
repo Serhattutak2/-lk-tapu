@@ -89,6 +89,16 @@ export function jobLabel(j: JobId, p?: Person): string {
     isletme: 'işletmenin başına',
     sofor: 'kamyon şoförü',
     usta: 'demirci ustası',
+    berber: 'köyün dedikoducu berberi',
+    asci: 'düğün aşçısı, mutfak gideri azalır',
+    ebe: 'çocuk doğurtur, doğumlar sağlıklı',
+    imam: 'köyün imamı, saygı getirir',
+    postaci: 'mektup ve havale taşır',
+    terzi: 'çeyiz ve elbise diker',
+    gazeteci: 'manşeti yumuşatır',
+    mimar: 'fabrika ve apartman çizer',
+    bankaci: 'para işlerini bilir',
+    sarkici: 'gazino sahnesinde yıldız',
   };
   return `${d.ad}${notes[j] ? ` — ${notes[j]}` : ''}`;
 }

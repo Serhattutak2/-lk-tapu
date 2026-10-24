@@ -95,6 +95,7 @@ export function attackRival(w: World): { ok: boolean; msg: string } {
   const p = clamp(0.3 + 0.07 * men - 0.06 * r.men + (has(w, 'cep') ? 0.08 : 0), 0.1, 0.85);
   r.feud = 100;
   w.heat = clamp(w.heat + 14, 0, 100);
+  w.flags.baskiPuan = Number(w.flags.baskiPuan || 0) + 6;
   if (chance(w, p)) {
     const k = Math.min(r.men, rint(w, 1, 2));
     r.men -= k;
@@ -560,6 +561,7 @@ export function scuffle(w: World): string {
   const ours = targets(w).filter((t) => t.id !== w.playerId);
   const p = clamp((ours.length + w.gang) / Math.max(1, ours.length + w.gang + w.rival.men), 0.15, 0.85);
   w.rival.feud = clamp(w.rival.feud + 8, 0, 100);
+  w.flags.baskiPuan = Number(w.flags.baskiPuan || 0) + 2;
   if (chance(w, p)) {
     w.rival.power = clamp(w.rival.power - 4, 0, 100);
     bonus8(w, 2);

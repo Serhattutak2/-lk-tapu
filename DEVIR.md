@@ -2,6 +2,7 @@
 
 0.8: Karakol komutanı sistemi, aile içi küsme/barışma/düğünler, rakip aileye karşı kansız hamleler (`rivalMoves`/`doRivalMove`) ve çatışmalar (`scuffle`), köyde ikinci ev (`buildEkEv`), son varis ölünce uzak akraba devralır. Tarla satışı yeniden zorlaştırıldı, hız yavaşlatıldı.
 
+2.0: Kademe merdiveni + korku/saygı (`guc.ts`), köyden sürgün/Konsey (`konsey.ts`), sağ kol yetki devri (`sagkol.ts`), karar sonrası sonuç kartı (`cards.ts` pushSonuc, id `sonuc`), 11 yeni meslek, Anadolu noir palet, üretilen müzik (`ui/music.ts`), deneme modu (`flags.deneme`). Yeni test: ölü pid taşıyan kart olmamalı.
 1.2: Hikâye zincirleri `quests.ts` + `quests2.ts` (ortak yardımcılar `qutil.ts`); köy takvimi `koyhayati.ts` (`kv_` kartları).
 1.1: Meslekleri oyuncu seçer (`core/jobcard.ts`, kart `meslek:<id>`, sırayla sorulur; bot `defaultJob`). Fabrikalar çoklu (`facs[f].n`), koruma (`guard`), kundaklama (`down`) ve onarım; yeni fabrika türleri; yasal ticaret filosu (`city.deniz.gemi`); köyde ve şehirde sınırsız, pahalı ev alımı, şehirde kira geliri.
 1.0: Arayüz duman testi `npm run test:ui` (tarayıcıda bütün düğmeler, donma ve ekim planı kontrolü) her sürümden önce çalıştırılır. Komşular, hikâye zincirleri, manşetler, salgın; açık bölümler yeniden çizimde açık kalır.
@@ -53,6 +54,10 @@ Bu dosya projeyi başka bir yapay zekâ ya da geliştiriciyle sürdürmek için 
 | `core/komsu.ts` | Adlı komşular ve hatır (`flags.kom_<id>`): ziyaret, tarla teklifine etki, komşu kartları (`km_`) |
 | `core/quests.ts` | Hikâye zincirleri (`q:<id>:<adım>`): vasiyet, küp, öğretmen, mektup, köprü, film, tren |
 | `core/news.ts` | Gazete/radyo/TV manşetleri ve 2020 salgın kartı |
+| `core/guc.ts` | Gücün merdiveni (12 kademe, `kademeNo`), korku/saygı (`korku`,`saygi`,`monthlyGuc`) |
+| `core/konsey.ts` | Köyden sürgün (`it_` kartları), rakibi sürme (`surgunEt`), Konsey ve Büyük Baba |
+| `core/sagkol.ts` | Sağ kol yetki devri (`delegate`), sadakat, ihanet (`sg_ihanet`) |
+| `ui/music.ts` | WebAudio ile üretilen bağlama+darbuka müziği, ruh haline göre makam |
 | `core/sim.ts` | Aylık adım `advance`: ekonomi, beceri ve sağlık, yaşam, kartlar. Oyuncu eylemleri: `setJob`, `setHeir`, `payDebt`, `resolveCard`. Test botu `botTurn` |
 | `ui/app.ts` | Açılış, oyun ekranı, Aile/Hane/Kronik panelleri, olay kartı (evrak görünümü), ilk tapu töreni, son ekranı. Kayıt anahtarı `ilktapu_v1` |
 | `ui/map.ts` | İzometrik piksel köy; 320×196 tampona çizilir, ekrana büyütülür. `SLOTS` oyuncunun parselleri |

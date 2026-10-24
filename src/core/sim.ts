@@ -1,10 +1,13 @@
 // Aylık simülasyon adımı ve oyuncu eylemleri.
+import { delegate, monthlySagkol } from './sagkol';
+import { monthlyGuc } from './guc';
+import { monthlyKonsey } from './konsey';
 import { monthlyNews } from './news';
 import { monthlyKomsu } from './komsu';
 import { monthlyQuests } from './quests';
 import type { JobId, LedgerLine, World } from './types';
 import { chance, clamp, gauss, rint } from './rng';
-import { age, alive, fullName, hhMembers, log, P } from './people';
+import { age, alive, fullName, hhHasJob, hhMembers, log, P } from './people';
 import { JOBS, jobAllowed, defaultJob, wage } from './jobs';
 import { monthlyLife } from './life';
 import { generateCards, gurbetReturns, resolveCard, seasonalNotes } from './cards';
@@ -60,7 +63,10 @@ export function advance(w: World): boolean {
   growth(w);
   monthlyLife(w);
   monthlyFamily(w);
+  monthlySagkol(w);
   monthlyNiyet(w);
+  monthlyGuc(w);
+  monthlyKonsey(w);
   monthlyGoals(w);
   if (w.hh.cash < 0) {
     w.hh.debt += -w.hh.cash;
@@ -68,6 +74,7 @@ export function advance(w: World): boolean {
   }
   if (w.over) return true;
   generateCards(w);
+  delegate(w, (uid, k) => resolveCard(w, uid, k));
   return true;
 }
 
@@ -133,6 +140,7 @@ function economy(w: World, harvestBonus: number) {
     if (p.sick) sick += 15;
   }
   if (housework) food -= 45;
+  if (hhHasJob(w, 'asci')) food = Math.round(food * 0.82);
   const k = infl(w.m) * (w.flags.sertKis === year(w.m) && monthOf(w.m) <= 1 ? 1.3 : 1);
   const exp: LedgerLine[] = [
     { t: `Mutfak ve ev (${mem.filter((p) => !p.away).length} boğaz)${housework ? ', ev işleriyle' : ''}`, v: -Math.round(food * k) },
@@ -289,7 +297,7 @@ export function botTurn(w: World) {
       const want = defaultJob(w, P(w, c.pid)!);
       k = (c.opts.find((o) => o.k === want) ?? c.opts[0]).k;
     }
-    if (c.id.startsWith('ev:') || c.id.startsWith('hi:') || c.id.startsWith('q:') || c.id.startsWith('kv_') || c.id.startsWith('km_') || c.id.startsWith('nw_') || c.id.startsWith('fa_') || c.id.startsWith('kmt') || c.id.startsWith('rk_') || c.id.startsWith('ce_') || c.id === 'plan_hashas' || c.id === 'ruhsat_red') {
+    if (c.id.startsWith('ev:') || c.id.startsWith('hi:') || c.id.startsWith('q:') || c.id.startsWith('kv_') || c.id.startsWith('km_') || c.id.startsWith('nw_') || c.id.startsWith('fa_') || c.id.startsWith('kmt') || c.id.startsWith('rk_') || c.id.startsWith('ce_') || c.id.startsWith('it_') || c.id.startsWith('sg_') || c.id === 'sonuc' || c.id === 'plan_hashas' || c.id === 'ruhsat_red') {
       const cheap = c.opts.filter((o) => !/\(\d/.test(o.t) && !/lira\)/.test(o.t));
       const pool = w.hh.cash > 20000 * infl(w.m) ? c.opts : cheap.length ? cheap : c.opts;
       k = pool[Math.floor(rint(w, 0, pool.length - 1))].k;

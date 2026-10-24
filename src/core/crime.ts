@@ -2,7 +2,7 @@
 // Hepsi soyut oyun sistemleridir; üretim ya da kaçakçılık için gerçek yöntem içermez.
 import type { Card, Person, World } from './types';
 import { chance, clamp, pick, rint } from './rng';
-import { addToHH, age, alive, fullName, hhMembers, log, P, removeFromHH } from './people';
+import { addToHH, age, alive, fullName, hhHasJob, hhMembers, log, P, removeFromHH } from './people';
 import { dateText, infl, monthOf, year } from './calendar';
 import { BAN_FROM, BAN_TO, isBanYear } from './fields';
 import { pushCard } from './cards';
@@ -21,9 +21,13 @@ export const heatLabel = (h: number) => (h < 15 ? 'Kimse bakmıyor' : h < 35 ? '
 /** Ay başında: Isı azalır, zula Isı üretir, hapistekiler çıkar, tarihsel duyurular. */
 export function monthlyCrime(w: World) {
   const mo = monthOf(w.m);
+  if (w.flags.kacakci && !w.flags.rizaFedai && Number(w.flags.kacakToplam || 0) >= 15) {
+    w.flags.rizaFedai = true;
+    log(w, `Kara Rıza artık sana güveniyor; ayak işlerinden yukarı çıktın, adamları seni "bizden" sayıyor.`, 'olay');
+  }
   const yr = year(w.m);
   const illegalGrowing = w.hh.parcels.some((p) => p.illegal && p.crop);
-  w.heat = clamp(w.heat - (has(w, 'dinleme') ? 1.0 : 1.5) + (w.hh.stash > 0 ? 0.3 + w.hh.stash * 0.02 : 0) + (illegalGrowing && (mo === 4 || mo === 5) ? 3 : 0), 0, 100);
+  w.heat = clamp(w.heat - (has(w, 'dinleme') ? 1.0 : 1.5) - (hhHasJob(w, 'gazeteci') ? 1.2 : 0) - (hhHasJob(w, 'bankaci') ? 0.5 : 0) + (w.hh.stash > 0 ? 0.3 + w.hh.stash * 0.02 : 0) + (illegalGrowing && (mo === 4 || mo === 5) ? 3 : 0), 0, 100);
   if (w.hh.cash > 20000 * infl(w.m) && chance(w, 0.02)) w.heat = clamp(w.heat + 4, 0, 100); // göze batan servet
 
   // Hapisten çıkış

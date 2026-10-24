@@ -11,6 +11,7 @@ import { gangPay } from './feud';
 import { distLaunder, DISTS, syncTurf, takeDistrict } from './district';
 import { has } from './era';
 import { hasEngineer } from './events';
+import { hhHasJob } from './people';
 
 const fmt = (n: number) => Math.round(n).toLocaleString('tr-TR');
 export const CITY = 'Çukurkent';
@@ -32,7 +33,7 @@ export function launderCap(w: World): number {
   for (const b of Object.keys(BIZ) as (keyof typeof BIZ)[]) if (w.hh.biz[b]) c += b === 'bakkal' ? 1500 : b === 'kahve' ? 2500 : 4000;
   for (const f of Object.keys(w.city.facs) as FacId[]) if (!facDown(w, f)) c += FACS[f].launder * facN(w, f);
   if (w.flags.medyaVar) c += 0;
-  return Math.round((c * infl(w.m) + distLaunder(w)) * (has(w, 'bilgisayar') ? 1.25 : 1));
+  return Math.round((c * infl(w.m) + distLaunder(w)) * (has(w, 'bilgisayar') ? 1.25 : 1) * (hhHasJob(w, 'bankaci') ? 1.4 : 1));
 }
 export const launderFee = (w: World) => (w.city.facs.gazino ? 0.08 : 0.14) - (has(w, 'kripto') ? 0.04 : 0);
 
@@ -339,7 +340,9 @@ export function facIncome(w: World, f: FacId): number {
   if (f === 'konserve') { k *= 1 + Math.min(0.3, w.hh.parcels.filter((p) => p.crop === 'pancar' || p.crop === 'nohut').length * 0.04); if ([6, 7, 8].includes((w.m % 12))) k *= 1.3; }
   if (f === 'sarap' || f === 'otel') { if ([5, 6, 7, 8].includes((w.m % 12))) k *= 1.25; }
   if (f === 'cimento') k *= 1 + (w.city.facs.insaat ? 0.25 : 0);
-  if (f === 'insaat') k *= 0.6 + ((year(w.m) * 7) % 10) / 10;
+  if (f === 'insaat') k *= (0.6 + ((year(w.m) * 7) % 10) / 10) * (hhHasJob(w, 'mimar') ? 1.2 : 1);
+  if (f === 'cimento' && hhHasJob(w, 'mimar')) k *= 1.15;
+  if ((f === 'otel' || f === 'gazino') && hhHasJob(w, 'sarkici')) k *= 1.15;
   if (f === 'tekstil' && w.flags.grev === year(w.m)) k *= 0.3;
   if (has(w, 'bilgisayar')) k *= 1.1;
   if (hasEngineer(w)) k *= 1.1;

@@ -1,17 +1,19 @@
 /* İlk Tapu — görsel dil: Anadolu toprağı, buğday, kilim kökboyası kırmızısı, çini mavisi.
    Akılda kalan tek öğe: resmi evrak gibi duran olay kartı ve tapu mührü. Gerisi sakin. */
 :root {
-  --soil: #2a2117;        /* koyu toprak: arka plan */
-  --soil-2: #362b1e;      /* paneller */
-  --soil-3: #46392a;      /* çizgiler, seçili */
-  --straw: #e6d6a6;       /* metin */
-  --straw-dim: #b5a57c;   /* ikincil metin */
-  --wheat: #d9a441;       /* para, vurgu */
-  --madder: #a3322a;      /* kökboya kırmızısı: tehlike, mühür */
-  --cini: #3f86a6;        /* çini mavisi: bilgi */
+  /* Anadolu noir: gece laciverdi toprağa karışır, bakır ve eski altın vurgular. */
+  --soil: #1b1a1f;        /* gece: arka plan */
+  --soil-2: #272430;      /* paneller, hafif mor-lacivert */
+  --soil-3: #3c3647;      /* çizgiler, seçili */
+  --straw: #e8dcbf;       /* metin: eski kâğıt */
+  --straw-dim: #a89c82;   /* ikincil metin */
+  --wheat: #d6a94e;       /* eski altın: para, vurgu */
+  --copper: #c06b3e;      /* bakır: kademe, güç */
+  --madder: #b23b2e;      /* kurumuş kan kırmızısı: tehlike, mühür */
+  --cini: #4a8fa8;        /* çini mavisi: bilgi */
   --leaf: #7f9a4a;        /* sağlık, iyi */
-  --paper: #efe4c8;       /* evrak kâğıdı (yalnızca kartlar) */
-  --ink: #2d2318;         /* evrak mürekkebi */
+  --paper: #ece0c4;       /* evrak kâğıdı (yalnızca kartlar) */
+  --ink: #241f17;         /* evrak mürekkebi */
   --serif: 'Alegreya', Georgia, serif;
   --sans: 'Alegreya Sans', 'Segoe UI', system-ui, sans-serif;
   color-scheme: dark;
@@ -276,3 +278,19 @@ details summary.group { cursor: pointer; }
 .tree .gen span i { font-style: normal; opacity: .6; font-size: 12px; }
 .tree .gen span.dead { opacity: .5; }
 .tree .gen span.me { color: var(--wheat); font-weight: 600; }
+
+/* 2.0: müzik, deneme modu, kademe şeridi */
+.chk { display: flex; align-items: flex-start; gap: 8px; margin: 8px 0; font-size: 14px; color: var(--straw-dim); text-align: left; }
+.chk input { margin-top: 3px; width: 18px; height: 18px; accent-color: var(--wheat); flex: none; }
+.muzik { position: absolute; left: 10px; bottom: 10px; width: 38px; height: 38px; border-radius: 9px; border: 1px solid var(--soil-3); background: rgba(20,18,24,.6); color: var(--straw-dim); font-size: 18px; }
+.muzik.on { color: var(--wheat); border-color: var(--wheat); }
+.stat.deneme b { color: var(--copper); }
+.kademe { display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: linear-gradient(90deg, var(--soil-2), transparent); border-left: 3px solid var(--copper); margin: 2px 0 10px; border-radius: 0 8px 8px 0; }
+.kademe b { color: var(--copper); }
+.kademe span { color: var(--straw-dim); font-size: 13px; }
+.kademe .bar { flex: 1; height: 5px; background: var(--soil-3); border-radius: 3px; overflow: hidden; }
+.kademe .bar i { display: block; height: 100%; background: var(--copper); }
+.sonuc { border-left: 3px solid var(--wheat); }
+.delta { display: inline-flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
+.delta span { font-size: 13px; padding: 2px 7px; border-radius: 10px; background: var(--soil-3); }
+.delta .up { color: var(--leaf); } .delta .down { color: var(--madder); }

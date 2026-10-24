@@ -4,7 +4,7 @@
 
 export type Sex = 'E' | 'K';
 export type SkillId = 'tarim' | 'insaat' | 'zanaat' | 'ticaret';
-export type JobId = 'tarla' | 'kendi' | 'isletme' | 'sofor' | 'lab' | 'univ' | 'avukat' | 'doktor' | 'muhendis' | 'ogretmen' | 'coban' | 'insaat' | 'cirak' | 'usta' | 'tuccar' | 'ev' | 'okul' | 'yok';
+export type JobId = 'tarla' | 'kendi' | 'isletme' | 'sofor' | 'lab' | 'univ' | 'avukat' | 'doktor' | 'muhendis' | 'ogretmen' | 'coban' | 'insaat' | 'cirak' | 'usta' | 'tuccar' | 'berber' | 'asci' | 'ebe' | 'imam' | 'postaci' | 'terzi' | 'gazeteci' | 'mimar' | 'bankaci' | 'sarkici' | 'ev' | 'okul' | 'yok';
 export type VehicleId = 'esek' | 'araba' | 'traktor' | 'otomobil' | 'kamyon';
 export type BizId = 'bakkal' | 'kahve' | 'degirmen';
 export type RoomId = 'oda' | 'ahir' | 'samanlik' | 'misafir' | 'bodrum';
