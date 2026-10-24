@@ -109,3 +109,33 @@ describe('1925 takvimi, ekim planı, eski kayıt', () => {
     expect(f.crop).toBe('bugday');
   });
 });
+
+describe('ekim planı uzun vadede', () => {
+  it('her ürün her yıl kendiliğinden ekilir', async () => {
+    const { newParcel } = await import('../src/core/fields');
+    const { year } = await import('../src/core/calendar');
+    const { resolveCard } = await import('../src/core/sim');
+    const w = newWorld({ seed: 7 });
+    const plans = ['bugday', 'nohut', 'pancar', 'tutun', 'arpa'] as const;
+    for (const c of plans) {
+      const f = newParcel(w, 0);
+      const j = w.plots.findIndex((p) => p.o !== 'biz');
+      w.plots[j] = { o: 'biz', pid: f.id, ask: 1, sale: false, mad: 0 };
+      f.plan = c;
+    }
+    const sown: Record<string, Set<number>> = {};
+    while (year(w.m) < 1946) {
+      const before = w.hh.parcels.map((f) => f.crop);
+      if (!advance(w)) {
+        resolveCard(w, w.cards[0].uid, w.cards[0].opts[w.cards[0].opts.length - 1].k);
+        continue;
+      }
+      w.hh.parcels.forEach((f, i) => {
+        if (!before[i] && f.crop && f.plan) (sown[f.plan] ??= new Set()).add(year(w.m));
+      });
+      w.hh.cash = Math.max(w.hh.cash, 30000);
+      w.hh.debt = 0;
+    }
+    for (const c of plans) expect(sown[c]?.size ?? 0, c).toBeGreaterThanOrEqual(20);
+  }, 60000);
+});

@@ -794,7 +794,6 @@ export class App {
         if (this.pendingPanel) this.renderPanel(false);
       };
     });
-    panel.querySelectorAll<HTMLButtonElement>('[data-gorucu]').forEach((b) => (b.onclick = act(() => { w.flags.gorucuIste = true; this.toast('Köyün görücüsüne haber salındı; yakında bir teklif gelir.'); })));
     panel.querySelectorAll<HTMLButtonElement>('[data-heir]').forEach((b) => (b.onclick = () => {
       setHeir(w, b.dataset.heir!);
       save(w);
@@ -805,6 +804,7 @@ export class App {
       save(w);
       this.renderPanel(true);
     };
+    panel.querySelectorAll<HTMLButtonElement>('[data-gorucu]').forEach((b) => (b.onclick = act(() => { w.flags.gorucuIste = true; this.toast('Köyün görücüsüne haber salındı; yakında bir teklif gelir.'); })));
     panel.querySelectorAll<HTMLSelectElement>('[data-plan]').forEach((s) => (s.onchange = act(() => {
       setPlan(w, s.dataset.plan!, s.value === '-' ? null : (s.value as CropId));
     })));
