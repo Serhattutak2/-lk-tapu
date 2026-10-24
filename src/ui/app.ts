@@ -27,24 +27,28 @@ import { heatLabel, RENT_CAP } from '../core/crime';
 import type { CropId, Parcel } from '../core/types';
 import { dateText, infl, year } from '../core/calendar';
 import { VillageMap } from './map';
+import { buySheep, coban, sellSheep, sheepPrice, suru, suruCap } from '../core/suru';
+import { buildEkEv, EKEV_MAX, ekEvPrice } from '../core/home';
+import { NIYET, niyet } from '../core/yil';
+import { agaOlu, konakBizim } from '../core/aga';
 
 const SAVE_KEY = 'ilktapu_v1';
 const NEWS_KEY = 'ilktapu_haber';
 export const NEWS = {
-  v: '0.8',
+  v: '0.9',
   items: [
-    ['Sayfa artık yerinde kalıyor', 'Tarlada, mülkte, her yerde bir işlem yapınca sayfa en başa atmıyor; kaldığın yerde duruyor. Sadece sekme değiştirince en tepeye gider.'],
-    ['Otomatik ekim düzeldi', 'Haşhaş planlı tarla ruhsatsız kaldığında artık boş geçmiyor: ekim ayında "ruhsata başvur / ruhsatsız ek / buğday ek / boş bırak" diye soruyor. Ruhsatı Tarla sekmesinden de alabilirsin.'],
-    ['Karakol komutanı', 'Her birkaç yılda bir yeni komutan atanıyor: kimi zarf sever, kimi dürüst, kimi hırslı. Baskında artık sadece rüşvet değil; nüfuzunu kullanma ve avukat tutma seçenekleri de var. Komutanın huyu baskın ihtimalini değiştiriyor.'],
-    ['Rakip aileyle çok daha fazla yol', 'Arabulucu, köyde boykot, jandarmaya ihbar, borçlarını satın alma, kız alıp verip hısım olma. Sopayla kansız kavga ya da silahlı baskın. Rakip de aynı silahları kullanıyor: suyunu çeviriyor, hayvanını salıyor, iftira atıyor, dünürcü yolluyor.'],
-    ['Aile artık yaşıyor', 'Bağlılığı düşen küser: sofraya gelmez, isteksiz çalışır, barışmazsa evi terk eder. Elini öp, gönlünü al, aile büyüğünü araya koy. Bayramda harçlık, gençlerin istekleri, kardeş kavgası, büyüğün öğüdü ve gerçek düğün kararları (üç gün davul zurna mı, sade mi?).'],
-    ['Köyde ikinci ev', 'Oğlun ayrı ev isteyince artık köyün içinde ona ev yapabilirsin: aile aynı mahallede, dağılmadan büyür. Kapasite de artar.'],
-    ['Ocak kolay kolay sönmüyor', 'Son varis de ölürse uzak bir amcazade köye gelip ocağı devralıyor; miras büyük ölçüde dağılsa da hanedan sürüyor.'],
-    ['Tarla yeniden zor, tempo yavaş', 'Tarla satışı 0.7\'deki kadar kolay değil; oyun daha yavaş ilerliyor, olaylar acele etmeden yaşanıyor.'],
+    ['Yıl defteri ve yılın niyeti', 'Her Ocak geçen yılın hesabı önüne gelir: varlık ne oldu, hasat ne getirdi, kaç doğum, kaç cenaze. Sonra yılın niyetini seçersin: Toprak, Ticaret, Aile, Karanlık ya da Hayır yılı. Seçtiğin alan bütün yıl bereketlenir.'],
+    ['Bozbey Ağa\'nın sonu', 'Ağa bir gün ölür. Cenazede tabutunu omuzlar mısın? Oğulları mirası bölüşemez: konağı satın alıp ağanın sedirine oturabilir, borç defterini alıp sobada yakabilirsin. Toprakları parça parça satışa çıkar; adın yeterince büyükse köy sana "ağa" der.'],
+    ['Kara Rıza\'nın emekliliği artık bir hikâye', 'Rıza giderken sana defterini bırakır: eski alacaklar, komutanın sırrı, yollar. Şebeke her ay kara kasaya pay getirir. Oğlu Selim için verdiğin söz yıllar sonra karşına çıkar: sağ kolun da olabilir, en büyük düşmanın da. Devirme girişimin patlarsa Rıza yollarını keser.'],
+    ['Çeteyi yenmek artık bir şeye yarıyor', 'Her kazanılan sokak savaşında çetenin bir mahallesi sana geçer. Çete dağılınca bütün mahalleleri senin olur, kalan adamları ya yanına alırsın ya haraç ödetirsin. Yıllar sonra yeni ve daha güçlü bir çete gelir. Yeni en yüksek unvan: Çukurkent\'in Babası.'],
+    ['Çeteye karşı yeni yollar', 'Makamın ya da karakolda adamın varsa çeteyi polise satabilirsin; yeterince adamın varsa liderlerini şehirden sürersin.'],
+    ['Koyun sürüsü', 'Ahır ve ağıl kadar koyun besle: baharda kuzu, yazın süt, haziranda yün, kışın yem. Ailede çoban varsa tam verim. Kurbanda sürüden kesersin, kurtlar kışın sürüye dadanır. Koyunlar haritada avlunun önünde otluyor.'],
+    ['Yeni ekinler', 'Tütün (çok el ister, Tekel iyi para verir) ve 1950\'den sonra ayçiçeği. İkisinin de fiyatı her yıl değişiyor.'],
+    ['Soy kütüğü', 'Aile sekmesinde nesil nesil bütün hanedan: kim ne zaman doğdu, kim ne zaman göçtü. Köyde yaptırdığın ek evler de haritada avlunun yanında görünüyor.'],
   ] as [string, string][],
 };
 const SPEEDS = [0, 4200, 1500, 500];
-const KIND: Record<string, string> = { veraset: 'Veraset', gorucu: 'Görücü', hastalik: 'Hastalık', gurbet: 'Gurbet', tuccar: 'Tanışıklık', tapu: 'Tapu', bilgi: 'Haber', hashas_hasat: 'Hasat', ruhsat: 'Ruhsat', kacakci: 'Kahvehane', baskin: 'Jandarma', aga_kira: 'Ağa', aga_kiz: 'Ağa' };
+const KIND: Record<string, string> = { yil: 'Yıl defteri', ag_olum: 'Ağa', ag_miras: 'Ağa', ag_yeni: 'Köy', ce_veda: 'Kara Rıza', ce_riza: 'Kara Rıza', ce_selim: 'Selim', ce_kalan: 'Çukurkent', cete: 'Çukurkent', kmt_yeni: 'Karakol', kmt_sir: 'Kahvehane', plan_hashas: 'Tarla', ruhsat_red: 'Ruhsat', fa_kus: 'Aile', fa_bayram: 'Bayram', fa_ogut: 'Aile büyüğü', fa_genc: 'Aile', fa_kavga: 'Aile', fa_dugun: 'Düğün', rk_su: 'Rakip', rk_hayvan: 'Rakip', rk_iftira: 'Rakip', rk_dunur: 'Dünürcü', veraset: 'Veraset', gorucu: 'Görücü', hastalik: 'Hastalık', gurbet: 'Gurbet', tuccar: 'Tanışıklık', tapu: 'Tapu', bilgi: 'Haber', hashas_hasat: 'Hasat', ruhsat: 'Ruhsat', kacakci: 'Kahvehane', baskin: 'Jandarma', aga_kira: 'Ağa', aga_kiz: 'Ağa' };
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 const lira = (n: number) => Math.round(n).toLocaleString('tr-TR') + ' lira';
@@ -413,12 +417,12 @@ export class App {
       ${this.pricesHTML()}
       ${w.hh.parcels.map((f) => this.parcelHTML(f, now)).join('')}
       ${this.marketHTML()}
-      <p class="note">Ekim ayları: buğday, arpa ve haşhaş Ekim–Kasım; nohut Mart–Nisan; şeker pancarı Nisan. Ruhsat her yıl Ağustos'ta alınır. Haritada bir tarlaya dokunursan sahibini ve fiyatını görürsün.</p>`;
+      <p class="note">Ekim ayları: buğday, arpa ve haşhaş Ekim–Kasım; nohut Mart–Nisan; şeker pancarı ve ayçiçeği (1950'den sonra) Nisan; tütün Mayıs. Ruhsat her yıl Ağustos'ta alınır. Haritada bir tarlaya dokunursan sahibini ve fiyatını görürsün.</p>`;
   }
 
   private pricesHTML(): string {
     const w = this.w!;
-    const ks: MkId[] = ['bugday', 'arpa', 'nohut', 'pancar', 'hayvan'];
+    const ks: MkId[] = ['bugday', 'arpa', 'nohut', 'pancar', 'tutun', ...(year(w.m) >= 1950 ? ['aycicegi' as MkId] : []), 'hayvan'];
     const sh = shockOf(year(w.m));
     const arrow = (k: MkId) => (trend(w, k) > 0 ? '▲' : trend(w, k) < 0 ? '▼' : '•');
     const used = ambarUsed(w);
@@ -493,6 +497,13 @@ export class App {
       ${this.floorHTML()}
       <div class="asset"><div class="prow"><span class="pname">${esc(hv.ad)}</span></div><p class="note">${esc(hv.desc)}</p>
         ${nh ? `<p class="note">Sıradaki: ${esc(nh.ad)}. ${esc(nh.desc)}</p><button class="small" data-house="1"${w.hh.cash < housePrice(w, nh.lvl) ? ' disabled' : ''}>${w.hh.house === 0 ? 'Satın al' : 'Yaptır'} (${lira(housePrice(w, nh.lvl))})</button>` : ''}</div>
+      <div class="asset"><div class="prow"><span class="pname">Köyde ek evler</span>${w.hh.ekEv ? `<span class="badge sen">${w.hh.ekEv} ev</span>` : ''}</div>
+        <p class="note">Avlunun yanına, köyün içine ayrı ev: evlenen oğullar ayrılmadan kendi kapılarını kapatır. Her ev 6 kişi daha sığdırır.</p>
+        ${(w.hh.ekEv || 0) < EKEV_MAX ? `<button class="small" data-ekev="1"${w.hh.cash < ekEvPrice(w) ? ' disabled' : ''}>Ev yaptır (${lira(ekEvPrice(w))})</button>` : '<p class="note">Köyde arsa kalmadı.</p>'}</div>
+      ${konakBizim(w) ? `<p class="note">Bozbey konağı artık senin. Köyde bütün yollar senin avluna çıkıyor.</p>` : agaOlu(w) ? `<p class="note">Bozbey Ağa öldü; oğulları toprakları parça parça satıyor.</p>` : ''}
+      <div class="group">Sürü: ${suru(w)} koyun${suruCap(w) ? ` / ${suruCap(w)} yer` : ''}</div>
+      <p class="note">${suruCap(w) ? `Koyun ${lira(sheepPrice(w))} (hayvan piyasası %${Math.round(mk(w, 'hayvan') * 100)}). Baharda kuzu, yazın süt, haziranda yün getirir; kışın yem ister. ${coban(w) ? 'Ailede çoban var: tam verim.' : 'Ailede çoban yok; verim yarıya iner, kışın kayıp olur. Birini çobanlığa ver.'}` : 'Koyun beslemek için ahır yap (12 koyun) ya da dağdaki ağılı al (40 koyun daha).'}</p>
+      ${suruCap(w) ? `<div class="btnrow"><button class="small" data-sheep="5"${w.hh.cash < sheepPrice(w) ? ' disabled' : ''}>5 koyun al (${lira(sheepPrice(w) * 5)})</button><button class="small" data-sheep="-5"${suru(w) ? '' : ' disabled'}>5 koyun sat</button></div>` : ''}
       <div class="group">Taşıtlar</div>${veh}
       <div class="group">Teknoloji: ${esc(eraOf(w).ad)}</div>
       <p class="note">${esc(eraOf(w).desc)}</p>
@@ -566,11 +577,37 @@ export class App {
     const pl = P(w, w.playerId);
     const single = alive(pl) && !alive(P(w, pl!.sp)) && !pl!.sp && age(w, pl!) >= 17;
     const evli = single && !w.flags.gorucuIste ? `<div class="btnrow"><button class="small" data-gorucu="1">Görücüye çık, kendine eş ara</button></div>` : '';
-    return `${warn}${evli}
+    const ny = niyet(w);
+    return `${ny ? `<div class="niyet"><b>${year(w.m)}: ${esc(NIYET[ny].ad)}</b><span>${esc(NIYET[ny].desc)}</span></div>` : ''}${warn}${evli}
       <div class="group">Hanede ${house.length} kişi</div>
       ${house.map((p) => this.personHTML(p, true)).join('')}
       ${out.length ? `<div class="group">Ayrı evde yaşayan akrabalar</div>${out.map((p) => this.personHTML(p, false)).join('')}` : ''}
+      ${this.treeHTML()}
       ${dead.length ? `<details><summary class="group">Rahmetliler (${dead.length})</summary>${dead.map((p) => `<div class="person"><span class="pname dead">${esc(fullName(p))}</span> <span class="prel">${year(p.b)}–${year(p.d!)}, ${esc(p.cause ?? '')}</span></div>`).join('')}</details>` : ''}`;
+  }
+
+  /** Soy kütüğü: kan bağıyla nesil nesil */
+  private treeHTML(): string {
+    const w = this.w!;
+    const blood = Object.values(w.people).filter((p) => p.blood);
+    const gen = new Map<string, number>();
+    const g = (p: Person, d = 0): number => {
+      if (gen.has(p.id)) return gen.get(p.id)!;
+      if (d > 12) return 1;
+      const ps = [p.fa, p.mo].map((id) => (id ? w.people[id] : undefined)).filter((q): q is Person => !!q && q.blood);
+      const v = ps.length ? Math.max(...ps.map((q) => g(q, d + 1))) + 1 : 1;
+      gen.set(p.id, v);
+      return v;
+    };
+    for (const p of blood) g(p);
+    const max = Math.max(1, ...gen.values());
+    const rows: string[] = [];
+    for (let i = 1; i <= max; i++) {
+      const ps = blood.filter((p) => gen.get(p.id) === i).sort((a, b) => a.b - b.b);
+      if (!ps.length) continue;
+      rows.push(`<div class="gen"><b>${i}. nesil</b>${ps.map((p) => `<span class="${p.d !== undefined ? 'dead' : ''}${p.id === w.playerId ? ' me' : ''}">${p.sex === 'E' ? '♂' : '♀'} ${esc(p.first)} <i>${year(p.b)}${p.d !== undefined ? '–' + year(p.d) : ''}</i></span>`).join('')}</div>`);
+    }
+    return `<details class="tree"><summary class="group">Soy kütüğü: ${max} nesil, ${blood.length} kişi</summary>${rows.join('')}</details>`;
   }
 
   // ---------- Hane ----------
@@ -709,9 +746,11 @@ export class App {
       <div class="btnrow"><button class="small" data-gang="1">Adam tut (ayda ${lira(gangPay(w))})</button><button class="small" data-gang="-1"${w.gang ? '' : ' disabled'}>Bir adamı gönder</button></div>
       <div class="group">Yeraltı unvanı: ${esc(underTitle(w).ad)}</div>
       <p class="note">${esc(underTitle(w).next)}${w.city.net ? ' Kara Rıza\'nın şebekesi senin: kaçak fiyatlar %60 yüksek.' : w.flags.rizaOrtak ? ' Rıza ile ortaksın: fiyatlar %25 yüksek.' : ''}</p>
+      ${w.city.net ? `<p class="note">Şebekenin yolları her ay kara kasaya ${lira(Number(w.flags.sebekeAy || 0))} getiriyor.${w.flags.rizaOgul === 'sag' ? ' Rıza\'nın oğlu Selim sağ kolun.' : w.flags.rizaOgul === 'dusman' ? ' Rıza\'nın oğlu Selim büyüyor; sözünü tutmadığını unutmadı.' : w.flags.rizaOgul === 'ortak' ? ' Selim güney yollarında ortağın.' : ''}</p>` : w.flags.rizaKizgin ? `<p class="note">Kara Rıza sana kızgın; yollarını kesiyor.</p>` : ''}
+      ${w.crew?.gone ? `<p class="note">${esc(w.crew.name)} dağıldı. ${Number(w.flags.ceteHarac || 0) > w.m ? 'Kalanları sana haraç ödüyor. ' : ''}Boşluk uzun sürmez; ${CITY}'e yeni bir çete gelecek.</p>` : ''}
       <div class="group">Karakol komutanı</div>
       ${w.flags.kmtAd ? `<p class="note"><b>${esc(kmtAd(w))}</b>${kmtKnown(w) ? `, ${esc(HUY_AD[kmtHuy(w)])}` : ' — nasıl biri olduğunu henüz bilmiyorsun'}.${kmtOurs(w) ? ' Artık senin adamın.' : kmtDost(w) >= 40 ? ' Seninle arası iyi.' : ''}${ozelTim(w) ? ' Bölgede özel tim var; baskınlar sık.' : ''} Baskın ihtimaline etkisi: ${kmtFactor(w) < 0.9 ? 'düşük' : kmtFactor(w) > 1.15 ? 'yüksek' : 'orta'}.</p>
-      <div class="btnrow"><button class="small" data-kmt="gift">Komutana zarf götür (${lira(Math.round(600 * Math.pow(1.045, year(w.m) - (w.y0 || 1965))))})</button></div>
+      <div class="btnrow"><button class="small" data-kmt="gift">Komutana zarf götür (${lira(Math.round(600 * infl(w.m)))})</button></div>
       <p class="note">Dürüst komutana zarf işe yaramaz, dikkat çeker. Rüşvetçi komutan dostun olur, baskınları azaltır.</p>` : '<p class="note">Karakolda henüz tanıdığın yok.</p>'}
       <div class="group">${r.gone ? 'Köyde rakip aile yok' : esc(rP(w))}</div>
       ${r.gone ? `<p class="note">${esc(String(w.flags.yokEdilen || ''))} köyden silindi. Boşluk uzun sürmez; yeni bir aile gelecek.</p>` : `
@@ -815,6 +854,11 @@ export class App {
         if (this.pendingPanel) this.renderPanel(false);
       };
     });
+    panel.querySelectorAll<HTMLButtonElement>('[data-ekev]').forEach((b) => (b.onclick = act(() => this.toast(buildEkEv(w).msg))));
+    panel.querySelectorAll<HTMLButtonElement>('[data-sheep]').forEach((b) => (b.onclick = act(() => {
+      const n = Number(b.dataset.sheep);
+      this.toast(n > 0 ? buySheep(w, n).msg : `${lira(sellSheep(w, -n))} kasaya girdi.`);
+    })));
     panel.querySelectorAll<HTMLButtonElement>('[data-room]').forEach((b) => (b.onclick = act(() => this.toast(buildRoom(w, b.dataset.room as RoomId).msg))));
     panel.querySelectorAll<HTMLButtonElement>('[data-lab]').forEach((b) => (b.onclick = act(() => this.toast(buildLab(w, b.dataset.lab as LabSite).msg))));
     panel.querySelectorAll<HTMLButtonElement>('[data-agil]').forEach((b) => (b.onclick = act(() => this.toast(buyAgil(w).msg))));

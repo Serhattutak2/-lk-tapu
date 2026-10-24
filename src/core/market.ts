@@ -6,8 +6,8 @@ import { year } from './calendar';
 import { log } from './people';
 
 export type MkId = CropId | 'hayvan';
-const KEYS: MkId[] = ['bugday', 'arpa', 'nohut', 'pancar', 'hayvan'];
-export const MK_AD: Record<MkId, string> = { bugday: 'Buğday', arpa: 'Arpa', nohut: 'Nohut', pancar: 'Şeker pancarı', hashas: 'Haşhaş', hayvan: 'Kurbanlık ve hayvan' };
+const KEYS: MkId[] = ['bugday', 'arpa', 'nohut', 'pancar', 'tutun', 'aycicegi', 'hayvan'];
+export const MK_AD: Record<MkId, string> = { bugday: 'Buğday', arpa: 'Arpa', nohut: 'Nohut', pancar: 'Şeker pancarı', tutun: 'Tütün', aycicegi: 'Ayçiçeği', hashas: 'Haşhaş', hayvan: 'Kurbanlık ve hayvan' };
 
 /** Tarihî şoklar: yıl aralığı ve ürün başına çarpan */
 interface Shock { from: number; to: number; ad: string; f: Partial<Record<MkId, number>>; }
@@ -46,7 +46,7 @@ export function yearlyPrices(w: World) {
   for (const k of KEYS) {
     const prev = w.mk[k] ?? 1;
     w.flags['mkp_' + k] = Math.round(mk(w, k) * 100);
-    const sd = k === 'pancar' ? 0.04 : 0.1;
+    const sd = k === 'pancar' ? 0.04 : k === 'tutun' ? 0.07 : 0.1;
     let v = prev + (1 - prev) * 0.35 + gauss(w, 0, sd);
     if (dry && k !== 'hayvan' && k !== 'pancar') v += 0.12; // kurak geçen yılın ardından tahıl kıt
     if (wet && k !== 'hayvan') v -= 0.08; // bereket fiyatı düşürür

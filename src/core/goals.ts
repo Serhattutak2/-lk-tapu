@@ -43,6 +43,10 @@ export const GOALS: Goal[] = [
   { id: 'sehir', ad: 'Şehre taşınmak', grup: 'Şehir', pts: 15, ok: (w) => w.city.moved },
   { id: 'fab3', ad: 'Üç fabrika', grup: 'Şehir', pts: 20, ok: (w) => Object.keys(w.city.facs).length >= 3 },
   { id: 'mah6', ad: 'Çukurkent\'in bütün mahalleleri', grup: 'Şehir', pts: 40, ok: (w) => w.city.dist.every((d) => d.o === 'biz') },
+  { id: 'yeniaga', ad: 'Köyün yeni ağası', grup: 'Nam', pts: 30, ok: (w) => !!w.flags.yeniAga },
+  { id: 'konak2', ad: 'Ağanın konağında oturmak', grup: 'Mülk', pts: 20, ok: (w) => !!w.flags.agaKonak },
+  { id: 'suru', ad: 'Kırk koyunluk sürü', grup: 'Mülk', pts: 10, ok: (w) => (w.hh.suru || 0) >= 40 },
+  { id: 'baba', ad: 'Şehrin Babası', grup: 'Yeraltı', pts: 60, ok: (w) => Number(w.flags.ceteYok || 0) >= 1 && w.city.turf >= 4 && !!w.city.net },
   { id: 'nam200', ad: 'Nam 200', grup: 'Nam', pts: 30, ok: (w) => nam(w) >= 200 },
 ];
 

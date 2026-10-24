@@ -1,5 +1,6 @@
 // Yeraltı imparatorluğu ve şehir: kara para ve aklama, maaşlı adamlar, Kara Rıza'nın şebekesi,
 // şehirde fabrikalar, şehre taşınma, rakip çete ve "Baron" unvanı. Hepsi soyut oyun sistemleridir.
+import { niyetIs } from './yil';
 import type { CrewState, FacId, LedgerLine, World } from './types';
 import { chance, clamp, pick, rint } from './rng';
 import { age, alive, fullName, hhMembers, log, P } from './people';
@@ -7,7 +8,7 @@ import { infl, year } from './calendar';
 import { pushCard } from './cards';
 import { BIZ } from './assets';
 import { gangPay } from './feud';
-import { distLaunder, DISTS, takeDistrict } from './district';
+import { distLaunder, DISTS, syncTurf, takeDistrict } from './district';
 import { has } from './era';
 import { hasEngineer } from './events';
 
@@ -59,6 +60,19 @@ export function monthlyBaron(w: World, lines: LedgerLine[]) {
     lines.push({ t: `${w.gang} adamın maaşı`, v: -w.gang * gangPay(w) });
   }
 
+  // Şebeke: Rıza'nın eski yolları her ay pay getirir; çetenin kalanları haraç öder
+  if (w.city.net) {
+    const v = Math.round(900 * infl(w.m) * (1 + w.city.turf * 0.15) * (w.flags.rizaOgul === 'ortak' ? 0.7 : 1));
+    w.dirty += v;
+    lines.push({ t: 'Şebekenin yollarından gelen pay (kara kasaya)', v: 0 });
+    w.flags.sebekeAy = v;
+  }
+  if (Number(w.flags.ceteHarac || 0) > w.m) {
+    const v = Math.round(1200 * infl(w.m));
+    w.dirty += v;
+    lines.push({ t: 'Dağılan çetenin haracı (kara kasaya)', v: 0 });
+  }
+
   // Fabrikalar
   for (const f of Object.keys(w.city.facs) as FacId[]) {
     const v = facIncome(w, f);
@@ -86,7 +100,9 @@ export function monthlyBaron(w: World, lines: LedgerLine[]) {
 // ---------- Unvan ----------
 export function underTitle(w: World): { ad: string; next: string } {
   const lab = w.lab?.lvl || 0;
-  if (w.city.net && lab >= 3 && w.gang >= 10 && w.city.turf >= 2) return { ad: 'Baron', next: '' };
+  const baron = w.city.net && lab >= 3 && w.gang >= 10 && w.city.turf >= 2;
+  if (baron && Number(w.flags.ceteYok || 0) >= 1 && w.city.turf >= 4) return { ad: `${CITY}'in Babası`, next: '' };
+  if (baron) return { ad: 'Baron', next: `${CITY}'in Babası için: bir şehir çetesini dağıt ve dört mahalleyi elinde tut.` };
   if (w.city.net) return { ad: 'Şebeke sahibi', next: 'Baron için: hap imalathanesi, 10 adam ve şehirde iki mahalle.' };
   if (lab >= 1) return { ad: 'İmalatçı', next: 'Şebeke sahibi için: Kara Rıza\'nın şebekesini ele geçir.' };
   if (w.flags.kacakci) return { ad: 'Kaçakçı', next: 'İmalatçı için: gizli bir atölye kur.' };
@@ -120,6 +136,38 @@ export function netCards(w: World): boolean {
   return false;
 }
 
+/** Rıza sonrası: kızgın Rıza ve yıllar sonra oğlu Selim */
+export function rizaCards(w: World): boolean {
+  if (w.flags.rizaKizgin && !w.city.net && chance(w, 0.012)) {
+    w.heat = clamp(w.heat + 10, 0, 100);
+    pushCard(w, {
+      id: 'ce_riza',
+      text: `Kara Rıza seni affetmedi: yollarını kesiyor, alıcılarına "o aileyle çalışan benimle çalışmaz" diyor. Bu ay jandarmaya da bir isimsiz mektup gitti.`,
+      opts: [{ t: w.gang >= 4 ? `Rıza'yla hesaplaş (${w.gang} adam)` : 'Rıza\'yla hesaplaş (adamın az)', k: 'hesap' }, { t: `Elini öp, ortaklık teklif et (${fmt(15000 * infl(w.m))} lira)`, k: 'ozur' }, { t: 'Aldırma', k: 'yok' }],
+    });
+    return true;
+  }
+  const og = String(w.flags.rizaOgul || '');
+  if ((og === 'dusman' || og === 'dost') && w.m >= Number(w.flags.rizaOgulM || 0)) {
+    w.flags.rizaOgulM = w.m + 9999;
+    if (og === 'dusman') {
+      pushCard(w, {
+        id: 'ce_selim',
+        text: `Rıza'nın oğlu Selim büyüdü. Babasının eski adamlarını toplamış, ${CITY}'te senin yollarını kesiyor. Kahvede "babamın defterini geri alacağım" dediği konuşuluyor.`,
+        opts: [{ t: w.gang >= 4 ? `Selim'in üstüne git (${w.gang} adam)` : 'Selim\'in üstüne git (adamın az)', k: 'savas' }, { t: `Babasının payını ver (${fmt(40000 * infl(w.m))} lira)`, k: 'pay' }, { t: 'Görmezden gel', k: 'yok' }],
+      });
+    } else {
+      pushCard(w, {
+        id: 'ce_selim',
+        text: `Rıza'nın oğlu Selim kapına geldi. Babası İzmir'de öldü; son sözü "o aileye sadık kal" olmuş. Selim yanında çalışmak istiyor, babasının eski adamlarını da getirecek.`,
+        opts: [{ t: 'Gel, sağ kolum ol', k: 'evet' }, { t: 'Kendi yolunu çiz', k: 'hayir' }],
+      });
+    }
+    return true;
+  }
+  return false;
+}
+
 export const netBonus = (w: World) => (w.city.net ? 1.6 : w.flags.rizaOrtak ? 1.25 : 1);
 
 export function resolveBaron(w: World, id: string, k: string): boolean {
@@ -129,7 +177,17 @@ export function resolveBaron(w: World, id: string, k: string): boolean {
         w.city.net = true;
         w.gang += 3;
         w.heat = clamp(w.heat + 20, 0, 100);
-        log(w, `Kara Rıza bir sabah İzmir otobüsüne bindirildi ve bir daha görülmedi. Şebekesi, adamları ve yolları artık ${w.surname} ailesinin.`, 'olay');
+        w.flags.rizaEmekli = w.m;
+        log(w, `Kara Rıza emekliye ayrıldı. Şebekesi, adamları ve yolları artık ${w.surname} ailesinin.`, 'olay');
+        pushCard(w, {
+          id: 'ce_veda',
+          text: `Kara Rıza İzmir otobüsüne binmeden seni garajın arkasına çağırdı. Yaşlı elleriyle cebinden yağlı bir defter çıkardı: "Kimin kime borcu var, hangi komutan ne yer, hangi yol nereye çıkar; hepsi burada." Sonra sesini alçalttı: "Bir tek ricam var. Oğlum Selim on yedisinde. Ona dokunmayın."`,
+          opts: [
+            { t: 'Söz: Selim\'e kimse dokunmayacak', k: 'soz' },
+            { t: 'Selim\'i yanıma alırım, işi öğrensin', k: 'yanima' },
+            { t: 'Söz veremem, bu işin kuralı belli', k: 'yok' },
+          ],
+        });
       } else {
         w.gang = Math.max(0, w.gang - 2);
         w.flags.rizaKizgin = true;
@@ -146,6 +204,91 @@ export function resolveBaron(w: World, id: string, k: string): boolean {
     return true;
   }
   if (id === 'cete') return resolveCrew(w, k);
+  if (id === 'ce_veda') {
+    w.flags.kmtSir = true;
+    const al = Math.round(18000 * infl(w.m));
+    w.dirty += al;
+    log(w, `Rıza'nın defteri açıldı: eski alacaklardan ${fmt(al)} lira toplandı, karakol komutanının sırrı da öğrenildi.`, 'olay');
+    w.flags.rizaOgul = k === 'soz' ? 'dost' : k === 'yanima' ? 'adam' : 'dusman';
+    w.flags.rizaOgulM = w.m + rint(w, 60, 120);
+    if (k === 'yanima') {
+      w.gang += 1;
+      log(w, `Rıza'nın oğlu Selim adamlarının arasına katıldı.`, 'olay');
+    }
+    return true;
+  }
+  if (id === 'ce_selim') {
+    const mode = String(w.flags.rizaOgul);
+    if (mode === 'dusman') {
+      if (k === 'savas') {
+        const p = clamp(0.35 + w.gang * 0.04, 0.2, 0.85);
+        w.heat = clamp(w.heat + 15, 0, 100);
+        if (chance(w, p)) {
+          w.flags.rizaOgul = 'bitti';
+          log(w, `Selim'in adamları dağıtıldı; Selim şehirden kaçtı. Rıza'nın adı artık sadece eski kahvelerde anılıyor.`, 'olay');
+        } else {
+          w.gang = Math.max(0, w.gang - 2);
+          w.flags.rizaOgulM = w.m + 18;
+          log(w, `Selim hazırlıklıydı; iki adamın yaralanıp ayrıldı. Bu iş bitmedi.`, 'olay');
+        }
+      } else if (k === 'pay') {
+        payDirtyFirst(w, Math.round(40000 * infl(w.m)));
+        w.flags.rizaOgul = 'ortak';
+        log(w, `Selim'e babasının payı verildi; şebekenin güney yolları onun. Kan dökülmedi.`, 'olay');
+      } else {
+        w.heat = clamp(w.heat + 20, 0, 100);
+        w.flags.rizaOgulM = w.m + 24;
+        log(w, `Selim jandarmaya senin depolarını ihbar etti.`, 'olay');
+      }
+    } else {
+      if (k === 'evet') {
+        w.gang += 3;
+        w.flags.rizaOgul = 'sag';
+        log(w, `Selim sağ kolun oldu; babasının eski adamlarını da getirdi.`, 'olay');
+      } else {
+        w.flags.rizaOgul = 'bitti';
+        log(w, `Selim teşekkür edip kendi yoluna gitti.`, 'olay');
+      }
+    }
+    return true;
+  }
+  if (id === 'ce_riza') {
+    if (k === 'hesap') {
+      if (w.gang >= 4 && chance(w, 0.6)) {
+        w.city.net = true;
+        w.flags.rizaKizgin = false;
+        w.gang += 2;
+        log(w, `Rıza'yla son hesap görüldü: yaşlı kaçakçı şehri terk etti, şebekesi sana kaldı.`, 'olay');
+      } else {
+        w.gang = Math.max(0, w.gang - 2);
+        w.heat = clamp(w.heat + 15, 0, 100);
+        log(w, `Rıza'nın adamları daha kalabalıktı. İki adamın ayrıldı.`, 'olay');
+      }
+    } else if (k === 'ozur') {
+      payDirtyFirst(w, Math.round(15000 * infl(w.m)));
+      w.flags.rizaKizgin = false;
+      w.flags.rizaOrtak = true;
+      log(w, `Rıza'nın elini öpüp ortaklık teklif ettin; yaşlı adam affetti.`, 'olay');
+    } else w.heat = clamp(w.heat + 10, 0, 100);
+    return true;
+  }
+  if (id === 'ce_kalan') {
+    if (k === 'al') {
+      const n = rint(w, 2, 4);
+      w.gang += n;
+      w.heat = clamp(w.heat + 5, 0, 100);
+      log(w, `Dağılan çetenin ${n} adamı sana katıldı.`, 'olay');
+    } else if (k === 'harac') {
+      w.flags.ceteHarac = w.m + 60;
+      log(w, `Eski çetenin kalanları beş yıl boyunca her ay sana haraç ödeyecek.`, 'olay');
+    } else {
+      w.flags.namBonus = Number(w.flags.namBonus || 0) + 3;
+      w.heat = clamp(w.heat - 5, 0, 100);
+      log(w, `Çetenin kalanları şehirden sürüldü. Esnaf rahat bir nefes aldı.`, 'olay');
+      for (const d of w.city.dist) if (d.o === 'biz') d.loy = clamp(d.loy + 10, 0, 100);
+    }
+    return true;
+  }
   return false;
 }
 
@@ -171,7 +314,7 @@ export function facIncome(w: World, f: FacId): number {
   if (f === 'tekstil' && w.flags.grev === year(w.m)) k *= 0.3;
   if (has(w, 'bilgisayar')) k *= 1.1;
   if (hasEngineer(w)) k *= 1.1;
-  return Math.round(FACS[f].income * k * infl(w.m));
+  return Math.round(FACS[f].income * k * infl(w.m) * (niyetIs(w, 'ticaret') ? 1.12 : 1));
 }
 
 export function buyFac(w: World, f: FacId): { ok: boolean; msg: string } {
@@ -237,16 +380,22 @@ export function takeTurf(w: World): { ok: boolean; msg: string } {
   return takeDistrict(w, d.id);
 }
 
-const CREWS = ['Demirkol çetesi', 'Kuzgun kardeşler', 'Liman çocukları'];
+const CREWS = ['Demirkol çetesi', 'Kuzgun kardeşler', 'Liman çocukları', 'Karadenizli Rüstem\'in adamları', 'Gece kuşları', 'Sarı Zeki\'nin çetesi'];
 
 export function crewCards(w: World): boolean {
   const lab = w.lab?.lvl || 0;
-  if (!w.crew && (w.city.moved || lab >= 2) && w.city.open && chance(w, 0.02)) {
+  const again = w.crew?.gone && w.m >= Number(w.flags.nextCrew || 0);
+  if ((!w.crew || again) && (w.city.moved || lab >= 2) && w.city.open && chance(w, 0.02)) {
     const used = String(w.flags.ceteler || '');
     const name = CREWS.find((n) => !used.includes(n)) ?? pick(w, CREWS);
     w.flags.ceteler = used + name + ';';
-    w.crew = { name, men: rint(w, 8, 14), feud: 20, turf: 3, gone: false };
-    log(w, `${CITY}'in ${name}, yeni bir aile malının piyasayı bozduğunu duydu. Senden haber bekliyorlar.`, 'olay');
+    w.crew = { name, men: rint(w, 8, 14) + Number(w.flags.ceteYok || 0) * 3, feud: again ? 40 : 20, turf: 1, gone: false };
+    const free = w.city.dist.find((d) => d.o === 'serbest');
+    if (free) {
+      free.o = 'cete';
+      syncTurf(w);
+    }
+    log(w, again ? `Boşluğu uzun süre kimse doldurmadı; şimdi ${name} şehre geldi. Senin adını duymuşlar ve korkmuyorlar.` : `${CITY}'in ${name}, yeni bir aile malının piyasayı bozduğunu duydu. Senden haber bekliyorlar.`, 'olay');
     return false;
   }
   const c = w.crew;
@@ -256,6 +405,8 @@ export function crewCards(w: World): boolean {
       { t: w.gang >= 4 ? `Savaş: adamlarını gönder (${w.gang} adam)` : 'Savaş (adamın az)', k: 'savas' },
       { t: `Haraç öde, sus (${fmt(12000 * infl(w.m))} lira)`, k: 'harac' },
       { t: 'Masaya otur, bölgeleri paylaşın', k: 'masa' },
+      ...(w.pol.seat || Number(w.flags.kmtBizim || 0) > w.m ? [{ t: 'Polise sat: emniyetteki dostlara ihbar et', k: 'ihbar' }] : []),
+      ...(w.gang >= 6 ? [{ t: 'Liderlerini şehirden sür (gece operasyonu)', k: 'lider' }] : []),
     ];
     pushCard(w, {
       id: 'cete',
@@ -268,6 +419,31 @@ export function crewCards(w: World): boolean {
   return false;
 }
 
+/** Çete dağıldı: mahalleleri, adamları ve şehirde yeni bir unvan. Yıllar sonra yenisi gelir. */
+export function crewGone(w: World) {
+  const c = w.crew;
+  if (!c || c.gone) return;
+  c.gone = true;
+  c.men = 0;
+  let n = 0;
+  for (const d of w.city.dist) {
+    if (d.o === 'cete') {
+      d.o = w.city.moved ? 'biz' : 'serbest';
+      n++;
+    }
+  }
+  syncTurf(w);
+  w.flags.ceteYok = Number(w.flags.ceteYok || 0) + 1;
+  w.flags.namBonus = Number(w.flags.namBonus || 0) + 10;
+  w.flags.nextCrew = w.m + rint(w, 36, 84);
+  log(w, `${c.name} dağıldı. ${n ? `${n} mahalleleri ${w.city.moved ? 'artık senin' : 'sahipsiz kaldı'}. ` : ''}${CITY}'in yeraltında artık tek bir isim var: ${w.surname}.`, 'olay');
+  pushCard(w, {
+    id: 'ce_kalan',
+    text: `${c.name}'nin liderleri şehirden kaçtı. Geride kalan adamları, kahvenin önünde başları önde, ne olacaklarını bekliyor.`,
+    opts: [{ t: 'Yanıma alırım, maaşları benden', k: 'al' }, { t: 'Gitsinler ama her ay haraç ödesinler', k: 'harac' }, { t: 'Şehirden sürün, esnaf rahatlasın', k: 'sur' }],
+  });
+}
+
 function resolveCrew(w: World, k: string): boolean {
   const c = w.crew;
   if (!c) return true;
@@ -278,13 +454,13 @@ function resolveCrew(w: World, k: string): boolean {
       const k2 = rint(w, 2, 4);
       c.men -= k2;
       c.turf = Math.max(0, c.turf - 1);
-      w.city.turf += w.city.moved ? 1 : 0;
-      log(w, `${c.name} ile sokak savaşı: onlardan ${k2} kişi düştü${w.city.moved ? ', bir mahalleleri sana geçti' : ''}.`, 'olay');
-      if (c.men <= 0) {
-        c.gone = true;
-        w.flags.namBonus = Number(w.flags.namBonus || 0) + 10;
-        log(w, `${c.name} dağıldı. ${CITY}'in yeraltında artık bir isim var: ${w.surname}.`, 'olay');
+      const d = w.city.dist.find((x) => x.o === 'cete');
+      if (d) {
+        d.o = w.city.moved ? 'biz' : 'serbest';
+        syncTurf(w);
       }
+      log(w, `${c.name} ile sokak savaşı: onlardan ${k2} kişi saf dışı kaldı${d ? (w.city.moved ? `, ${DISTS[d.id].ad} sana geçti` : `, ${DISTS[d.id].ad} sahipsiz kaldı`) : ''}.`, 'olay');
+      if (c.men <= 0) crewGone(w);
     } else {
       const lost = Math.min(w.gang, rint(w, 2, 3));
       w.gang -= lost;
@@ -292,7 +468,26 @@ function resolveCrew(w: World, k: string): boolean {
         w.lab.prod = 0;
         w.lab.hap = 0;
       }
-      log(w, `${c.name} ile çatışma kaybedildi: ${lost} adam öldü, depodaki mal yağmalandı.`, 'olay');
+      log(w, `${c.name} ile çatışma kaybedildi: ${lost} adamın saf dışı kaldı, depodaki mal yağmalandı.`, 'olay');
+    }
+  } else if (k === 'ihbar') {
+    if (chance(w, w.pol.seat === 'vekil' ? 0.85 : 0.6)) {
+      c.men = Math.max(0, c.men - rint(w, 3, 5));
+      log(w, `Emniyet ${c.name}'nin depolarını bastı; adamlarının yarısı içeride.`, 'olay');
+      if (c.men <= 0) crewGone(w);
+    } else {
+      c.feud = clamp(c.feud + 20, 0, 100);
+      log(w, `İhbar sızdı; ${c.name} kimin konuştuğunu biliyor.`, 'olay');
+    }
+  } else if (k === 'lider') {
+    w.heat = clamp(w.heat + 20, 0, 100);
+    if (chance(w, clamp(0.3 + w.gang * 0.03 - c.men * 0.02, 0.15, 0.75))) {
+      c.men = Math.max(0, Math.round(c.men * 0.5));
+      log(w, `${c.name}'nin liderleri bir gece şehirden kaçırıldı; geride kalanlar başsız.`, 'olay');
+      if (c.men <= 2) crewGone(w);
+    } else {
+      w.gang = Math.max(0, w.gang - 2);
+      log(w, `Operasyon sızdı; iki adamın yakalandı.`, 'olay');
     }
   } else if (k === 'harac') {
     payDirtyFirst(w, Math.round(12000 * infl(w.m)));

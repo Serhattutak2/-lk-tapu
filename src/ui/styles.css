@@ -266,3 +266,13 @@ details summary.group { cursor: pointer; }
 .prices td.pos { color: var(--wheat); }
 .prices td.neg { color: #d98a7a; }
 .warnline { color: var(--wheat); }
+/* 0.9: yıl niyeti, soy kütüğü */
+.niyet { border: 1px solid var(--wheat); border-radius: 8px; padding: 10px 12px; margin: 4px 0 12px; display: flex; flex-direction: column; gap: 4px; }
+.niyet b { color: var(--wheat); }
+.niyet span { color: var(--straw); opacity: .85; font-size: 14px; }
+.tree .gen { margin: 6px 0 10px; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; }
+.tree .gen b { width: 100%; color: var(--wheat); font-size: 14px; }
+.tree .gen span { font-size: 14px; color: var(--straw); }
+.tree .gen span i { font-style: normal; opacity: .6; font-size: 12px; }
+.tree .gen span.dead { opacity: .5; }
+.tree .gen span.me { color: var(--wheat); font-weight: 600; }

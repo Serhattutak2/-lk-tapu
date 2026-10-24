@@ -8,6 +8,8 @@ import { dateText, infl, monthOf, year } from './calendar';
 import { marry, resolveSuccession } from './life';
 import { autoSow, resolveHashas } from './fields';
 import { applyRuhsat } from './crime';
+import { resolveYear, yearCard } from './yil';
+import { agaCards, resolveAga } from './aga';
 import { resolveKomutan } from './jandarma';
 import { familyCards, resolveFamily } from './family';
 import { buyPlot, landBlockers } from './assets';
@@ -16,7 +18,7 @@ import { crimeCards, resolveCrime } from './crime';
 import { labCards, resolveLab } from './lab';
 import { feudCards, resolveFeud, resolveRivalCard, rivalCards } from './feud';
 import { homeCards, resolveHome } from './home';
-import { crewCards, netCards, resolveBaron } from './baron';
+import { crewCards, netCards, resolveBaron, rizaCards } from './baron';
 import { eventCards, resolveEvent } from './events';
 import { districtCards, resolveDistrict } from './district';
 import { resolveSick, sickCard } from './health';
@@ -127,7 +129,7 @@ export function resolveCard(w: World, uid: number, k: string) {
   if (i < 0) return;
   const [c] = w.cards.splice(i, 1);
   if (RESOLVE[c.id]) RESOLVE[c.id](w, c, k);
-  else if (!resolveCrime(w, c, k) && !resolveLab(w, c.id, k) && !resolveFeud(w, c.id, c.pid, k, c.data) && !resolveBaron(w, c.id, k) && !resolveEvent(w, c.id, k, c.pid, c.data) && !resolveHistory(w, c.id, k, c.pid, c.data) && !resolveKomutan(w, c.id, k) && !resolveRivalCard(w, c.id, k, c.pid) && !resolveFamily(w, c.id, k, c.pid, c.data) && !resolveDistrict(w, c.id, k, c.data)) resolveHome(w, c.id, c.pid, k, c.data);
+  else if (!resolveCrime(w, c, k) && !resolveLab(w, c.id, k) && !resolveFeud(w, c.id, c.pid, k, c.data) && !resolveBaron(w, c.id, k) && !resolveEvent(w, c.id, k, c.pid, c.data) && !resolveHistory(w, c.id, k, c.pid, c.data) && !resolveKomutan(w, c.id, k) && !resolveYear(w, c.id, k) && !resolveAga(w, c.id, k) && !resolveRivalCard(w, c.id, k, c.pid) && !resolveFamily(w, c.id, k, c.pid, c.data) && !resolveDistrict(w, c.id, k, c.data)) resolveHome(w, c.id, c.pid, k, c.data);
   if (w.hh.cash < 0) {
     // Kasada olmayan para ağadan borç alınır
     w.hh.debt += -w.hh.cash;
@@ -143,11 +145,13 @@ export function generateCards(w: World) {
   if (!alive(pl)) return;
   const pa = age(w, pl);
   const yr = year(w.m);
+  if (yearCard(w)) return;
   if (crimeCards(w)) return;
+  if (agaCards(w)) return;
   if (feudCards(w) || w.over) return;
   if (rivalCards(w)) return;
   if (labCards(w)) return;
-  if (netCards(w) || crewCards(w)) return;
+  if (netCards(w) || crewCards(w) || rizaCards(w)) return;
   if (districtCards(w)) return;
   if (historyCards(w) || w.over) return;
   if (eventCards(w) || w.over) return;

@@ -489,7 +489,14 @@ const HIST: Hi[] = [
           m.sick = 2;
           log(w, `${m.first} nöbette kurtla boğuştu; yaralı ama sürü kurtuldu.`, 'olay');
         } else bonus(w, 1);
-      } else w.flags.ahirKapali = Math.max(Number(w.flags.ahirKapali || 0), w.m + 2);
+      } else {
+        w.flags.ahirKapali = Math.max(Number(w.flags.ahirKapali || 0), w.m + 2);
+        if ((w.hh.suru || 0) > 0) {
+          const n = Math.min(w.hh.suru || 0, rint(w, 2, 5));
+          w.hh.suru = (w.hh.suru || 0) - n;
+          log(w, `Kurtlar sürüden ${n} koyun götürdü.`, 'olay');
+        }
+      }
     },
   },
   {

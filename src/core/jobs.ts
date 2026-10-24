@@ -64,7 +64,8 @@ export function wage(w: World, p: Person): number {
   if (a < 15) f *= 0.6;
   if (a > 60) f *= 0.75;
   if (p.sick) f *= 0.3;
-  if (p.kus) f *= 0.6; // küs olan isteksiz çalışır
+  if (p.kus) f *= 0.6;
+  if (p.job === 'tuccar' && w.flags.niyet === 'ticaret' && Number(w.flags.niyetY) === year(w.m)) f *= 1.12; // küs olan isteksiz çalışır
   if ((p.job === 'tarla' || p.job === 'insaat') && w.tech?.bisiklet) f *= 1.08;
   if (p.job === 'ogretmen' && year(w.m) < 1960) f *= 1.15; // köy öğretmeni o yıllarda baş tacı
   return Math.round(base * f * infl(w.m));

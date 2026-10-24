@@ -96,7 +96,7 @@ const EVENTS: Ev[] = [
         opts: [
           { t: `Dana kes, etini dağıt (${fmt(dana)} lira)`, k: 'dana' },
           { t: `Koç kes (${fmt(koc)} lira)`, k: 'koc' },
-          ...(own ? [{ t: 'Ahırdan kendi koçumuzu kes', k: 'ahir' }] : []),
+          ...((w.hh.suru || 0) > 0 ? [{ t: `Sürüden kes, etini köye dağıt (${w.hh.suru} koyunumuz var)`, k: 'suru' }] : own ? [{ t: 'Ahırdan kendi koçumuzu kes', k: 'ahir' }] : []),
           { t: 'Bu yıl gücümüz yok', k: 'yok' },
         ],
       };
@@ -108,6 +108,10 @@ const EVENTS: Ev[] = [
         for (const id of w.hh.members) w.people[id].rel = clamp(w.people[id].rel + 3, -100, 100);
       } else if (k === 'koc') w.hh.cash -= Number(d.koc || L(w, 600));
       else if (k === 'ahir') w.flags.ahirKapali = Math.max(Number(w.flags.ahirKapali || 0), w.m + 1);
+      else if (k === 'suru') {
+        w.hh.suru = Math.max(0, (w.hh.suru || 0) - 1);
+        w.flags.namBonus = Number(w.flags.namBonus || 0) + 1;
+      }
       else if (k === 'yok' && w.hh.cash > L(w, 3000)) {
         w.flags.namBonus = Number(w.flags.namBonus || 0) - 1;
         log(w, `Kasası dolu ailenin kurban kesmemesi köyde dedikodu oldu.`, 'olay');

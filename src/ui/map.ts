@@ -130,6 +130,27 @@ function building(g: CanvasRenderingContext2D, b: Bld, p: Palette, t: number, w:
     }
     case 'evOyuncu': {
       const lv = w.hh.house || 0;
+      // Köyde ek evler: avlunun yanında küçük kerpiç evler
+      for (let i = 0; i < (w.hh.ekEv || 0); i++) {
+        const ex = X + 12 + i * 9;
+        const ey = Y + 4 + i * 4;
+        g.fillStyle = '#c9a876';
+        g.fillRect(ex - 4, ey - 6, 8, 6);
+        g.fillStyle = p.snow ? '#eef1f1' : '#8a6a45';
+        g.fillRect(ex - 5, ey - 8, 10, 2);
+        g.fillStyle = '#4b3a28';
+        g.fillRect(ex - 1, ey - 3, 2, 3);
+      }
+      // Sürü: avlunun önünde otlayan koyunlar
+      const sh = Math.min(14, Math.ceil((w.hh.suru || 0) / 3));
+      for (let i = 0; i < sh; i++) {
+        const ox = X - 22 + ((i * 7) % 20) + Math.round(Math.sin((t + i * 13) / 30) * 2);
+        const oy = Y + 8 + Math.floor(i / 3) * 3;
+        g.fillStyle = p.snow ? '#d9d4c8' : '#f1ede2';
+        g.fillRect(ox, oy, 3, 2);
+        g.fillStyle = '#3d3226';
+        g.fillRect(ox + 3, oy, 1, 1);
+      }
       if (lv === 0) block(g, b.x, b.y, 6, '#b99c70', '#957a52', p.snow ? '#e9eded' : '#7a5d3c', 2);
       else if (lv === 1) block(g, b.x, b.y, 7, '#cfae7a', '#ad8d5c', p.snow ? '#eef1f1' : '#86663f', 1);
       else if (lv === 2) {
@@ -199,6 +220,12 @@ function building(g: CanvasRenderingContext2D, b: Bld, p: Palette, t: number, w:
       g.fillStyle = '#5a4630';
       for (let i = 0; i < 3; i++) g.fillRect(X + 2 + i * 2, Y - 8 + i, 1, 2);
       for (let i = 0; i < 3; i++) g.fillRect(X - 7 + i * 2, Y - 7 - i + 2, 1, 2);
+      if (w.flags.agaKonak) {
+        g.fillStyle = '#d9a441';
+        g.fillRect(X + 6, Y - 30, 4, 3);
+        g.fillStyle = '#5a4128';
+        g.fillRect(X + 5, Y - 30, 1, 10);
+      }
       break;
     case 'bakkal':
       block(g, b.x, b.y, 7, '#d6c9a4', '#b6a983', '#d6c9a4', 1);

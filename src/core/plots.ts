@@ -1,5 +1,6 @@
 // Köyün toprak piyasası: haritadaki her tarla bir parseldir; sahibi, verimi ve fiyatı vardır.
 // Geometri burada durur ki hem simülasyon hem harita aynı tabloyu kullansın.
+import { niyetIs } from './yil';
 import type { PlotState, World } from './types';
 import { chance, clamp, rand } from './rng';
 import { infl, year } from './calendar';
@@ -100,7 +101,7 @@ export function offerChance(w: World, i: number, nam: number): number {
   if (s.o === 'aga') return nam >= 40 ? clamp(0.18 + (nam - 40) / 110, 0, 0.6) : 0;
   // Köylüler: adın büyüdükçe, muhtarlık sendeyse ya da muhtarın gözündeysen daha kolay satarlar
   const muhtar = w.pol?.seat === 'muhtar' ? 0.12 : w.flags.koyTarafi ? 0.06 : 0;
-  return clamp(0.38 + nam / 220 + muhtar, 0.38, 0.72);
+  return clamp(0.38 + nam / 220 + muhtar + (niyetIs(w, 'toprak') ? 0.08 : 0), 0.38, 0.8);
 }
 
 export function offerPrice(w: World, i: number): number {

@@ -1,4 +1,5 @@
 // Mülk ve güç: ev, taşıtlar, köy işletmeleri, toprak alımı, nam (itibar) ve unvan.
+import { niyetIs } from './yil';
 import type { BizId, LedgerLine, Person, VehicleId, World } from './types';
 import { chance, clamp } from './rng';
 import { age, alive, fullName, hhMembers, log } from './people';
@@ -51,7 +52,7 @@ export function bizIncome(w: World, b: BizId): number {
   const mo = monthOf(w.m);
   if (b === 'degirmen' && mo >= 6 && mo <= 9) f *= 2;
   if (b === 'bakkal' && mo === 11) f *= 0.8;
-  return Math.round(d.income * f * infl(w.m));
+  return Math.round(d.income * f * infl(w.m) * (niyetIs(w, 'ticaret') ? 1.12 : 1));
 }
 
 // ---------- Nam ve unvan ----------

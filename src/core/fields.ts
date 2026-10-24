@@ -10,6 +10,7 @@ import { pushCard } from './cards';
 import { PLOTS } from './plots';
 import { lockedOut } from './feud';
 import { mk } from './market';
+import { niyetIs } from './yil';
 
 export interface CropDef {
   id: CropId;
@@ -20,6 +21,7 @@ export interface CropDef {
   seed: number;       // tohum ve gübre (1965 lirası)
   value: number;      // tam bakım ve normal yağışta hasat değeri (1965 lirası)
   rainSens: number;   // yağışa duyarlılık
+  from?: number;      // bu yıldan önce ekilmez
   desc: string;
 }
 
@@ -28,6 +30,8 @@ export const CROPS: Record<CropId, CropDef> = {
   arpa: { id: 'arpa', ad: 'Arpa', sow: [9, 10], grow: 8, need: 1, seed: 50, value: 1450, rainSens: 0.6, desc: 'Buğdaydan ucuz ama kuraklığa dayanıklı.' },
   nohut: { id: 'nohut', ad: 'Nohut', sow: [2, 3], grow: 5, need: 1, seed: 80, value: 1650, rainSens: 1.1, desc: 'Baharda ekilir, ağustosta toplanır. Kısa sürer.' },
   pancar: { id: 'pancar', ad: 'Şeker pancarı', sow: [3], grow: 6, need: 2, seed: 140, value: 3900, rainSens: 1.3, desc: 'Nisanda ekilir, ekimde fabrikaya gider. Çok iş ve su ister, iyi para eder.' },
+  tutun: { id: 'tutun', ad: 'Tütün', sow: [4], grow: 4, need: 2.5, seed: 90, value: 3100, rainSens: 0.8, desc: 'Mayısta fide dikilir, eylülde kırılır, dizilip kurutulur. Çok el ister; Tekel iyi para verir.' },
+  aycicegi: { id: 'aycicegi', ad: 'Ayçiçeği', sow: [3], grow: 5, need: 1, seed: 55, value: 2050, rainSens: 0.9, from: 1950, desc: 'Nisanda ekilir, eylülde biçilir. Yağ fabrikaları her yıl daha çok istiyor.' },
   hashas: { id: 'hashas', ad: 'Haşhaş', sow: [9, 10], grow: 8, need: 2, seed: 60, value: 3300, rainSens: 1, desc: 'Ruhsatla ekilir, hasat devlete teslim edilir. Kara para da buradan çıkar.' },
 };
 
@@ -42,7 +46,7 @@ export const BAN_TO = 1974;
 export const isBanYear = (y: number) => y >= BAN_FROM && y <= BAN_TO;
 
 export const devletPrice = (w: World) => Math.round(DEVLET_PRICE * infl(w.m));
-export const kacakPrice = (w: World) => Math.round(KACAK_PRICE * infl(w.m) * (isBanYear(year(w.m)) ? 1.5 : 1) * ((w.hh.veh?.kamyon || 0) > 0 ? 1.2 : 1) * (w.city?.facs?.nakliye ? 1.15 : 1) * (w.city?.net ? 1.6 : w.flags.rizaOrtak ? 1.25 : 1));
+export const kacakPrice = (w: World) => Math.round((niyetIs(w, 'yeralti') ? 1.12 : 1) * KACAK_PRICE * infl(w.m) * (isBanYear(year(w.m)) ? 1.5 : 1) * ((w.hh.veh?.kamyon || 0) > 0 ? 1.2 : 1) * (w.city?.facs?.nakliye ? 1.15 : 1) * (w.city?.net ? 1.6 : w.flags.rizaOrtak ? 1.25 : 1));
 export const irgatWage = (w: World) => Math.round(IRGAT_WAGE * infl(w.m));
 export const seedCost = (w: World, c: CropId) => Math.round(CROPS[c].seed * infl(w.m));
 
@@ -92,7 +96,7 @@ export function laborGot(w: World, p: Parcel): number {
 export const careOf = (p: Parcel) => (p.careN ? p.careSum / p.careN : 1);
 
 export function canSow(w: World, c: CropId): boolean {
-  return CROPS[c].sow.includes(monthOf(w.m));
+  return CROPS[c].sow.includes(monthOf(w.m)) && year(w.m) >= (CROPS[c].from ?? 0);
 }
 
 export function sowableNow(w: World): CropId[] {
@@ -107,7 +111,7 @@ export function hasRuhsat(w: World): boolean {
 export function expectedValue(w: World, p: Parcel): number {
   if (!p.crop) return 0;
   const share = p.mode === 'yarici' ? YARICI_SHARE : 1;
-  return Math.round(CROPS[p.crop].value * Math.pow(careOf(p), 1.2) * qualityOf(w, p) * infl(w.m) * share * saleBonus(w) * mk(w, p.crop) * (w.tech?.pulluk ? 1.06 : 1));
+  return Math.round(CROPS[p.crop].value * Math.pow(careOf(p), 1.2) * qualityOf(w, p) * infl(w.m) * share * saleBonus(w) * mk(w, p.crop) * (w.tech?.pulluk ? 1.06 : 1) * (niyetIs(w, 'toprak') ? 1.08 : 1));
 }
 
 export const YARICI_SHARE = 0.4;
@@ -269,7 +273,7 @@ function harvest(w: World, p: Parcel, lines: LedgerLine[]) {
   const d = CROPS[c];
   const best = Math.max(0, ...workersOf(w, p).map((q) => q.sk.tarim));
   const rainF = 1 + (w.rain - 1) * d.rainSens * (w.tech?.sulama ? 0.5 : 1);
-  const mult = (w.tech?.pulluk ? 1.06 : 1) * qualityOf(w, p) * Math.pow(careOf(p), 1.2) * clamp(rainF, 0.3, 1.5) * (p.mode === 'yarici' ? 0.95 : 0.88 + best / 400) * clamp(gauss(w, 1, 0.08), 0.75, 1.25) * (w.flags.dolu === p.id ? 0.55 : 1);
+  const mult = (niyetIs(w, 'toprak') ? 1.08 : 1) * (w.tech?.pulluk ? 1.06 : 1) * qualityOf(w, p) * Math.pow(careOf(p), 1.2) * clamp(rainF, 0.3, 1.5) * (p.mode === 'yarici' ? 0.95 : 0.88 + best / 400) * clamp(gauss(w, 1, 0.08), 0.75, 1.25) * (w.flags.dolu === p.id ? 0.55 : 1);
   if (w.flags.dolu === p.id) w.flags.dolu = '';
   const weather = w.rain < 0.8 ? ', kurak yıl' : w.rain > 1.2 ? ', bereketli yıl' : '';
   if (c === 'hashas') {

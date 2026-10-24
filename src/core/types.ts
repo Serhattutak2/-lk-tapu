@@ -13,7 +13,7 @@ export type TechId = 'pulluk' | 'gramofon' | 'dikis' | 'kinin' | 'penisilin' | '
 export type DistId = 'liman' | 'carsi' | 'sanayi' | 'gecekondu' | 'yenisehir' | 'kordon';
 export type DInv = 'kahvehane' | 'galeri' | 'otel' | 'pavyon' | 'site';
 export type FacId = 'un' | 'nakliye' | 'tekstil' | 'gazino' | 'insaat';
-export type CropId = 'bugday' | 'arpa' | 'nohut' | 'pancar' | 'hashas';
+export type CropId = 'bugday' | 'arpa' | 'nohut' | 'pancar' | 'hashas' | 'tutun' | 'aycicegi';
 
 export interface Traits {
   zeka: number;  // 1-10
@@ -105,6 +105,7 @@ export interface Household {
   agil: boolean;        // dağdaki ağıl
   ambar?: Partial<Record<CropId, number>>; // ambardaki ürün (temel değer birimi)
   ekEv?: number;        // köyde yapılan ek evler (aile dağılmasın diye)
+  suru?: number;        // koyun sürüsü
 }
 
 /** Gizli atölye: soyut bir üretim zinciri (ham mal → paket → hap). */

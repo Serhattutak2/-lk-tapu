@@ -10,6 +10,9 @@ import { yearlyPrices } from './market';
 import { monthlyHealth } from './health';
 import { monthlyHistory } from './history';
 import { monthlyFamily } from './family';
+import { monthlyNiyet } from './yil';
+import { buySheep, monthlySuru, sheepPrice, suru, suruCap } from './suru';
+import { agaIncome } from './aga';
 import { ambarValue, assignWorker, CROPS, hasRuhsat, idleWage, laborNeed, monthlyAmbar, monthlyFields, sellAmbar, sow, sowableNow, staffAll, STORABLE, workersOf } from './fields';
 import { monthlyCrime, RENT_CAP } from './crime';
 import { monthlyLab } from './lab';
@@ -53,6 +56,7 @@ export function advance(w: World): boolean {
   growth(w);
   monthlyLife(w);
   monthlyFamily(w);
+  monthlyNiyet(w);
   monthlyGoals(w);
   if (w.hh.cash < 0) {
     w.hh.debt += -w.hh.cash;
@@ -89,6 +93,14 @@ function economy(w: World, harvestBonus: number) {
 
   monthlyFields(w, lines);
   monthlyAmbar(w);
+  monthlySuru(w, lines);
+  {
+    const ag = agaIncome(w);
+    if (ag) {
+      w.hh.cash += ag;
+      lines.push({ t: 'Ağalık: düğün, su sırası, hakemlik payı', v: ag });
+    }
+  }
   techIncome(w, lines);
   monthlyHealth(w);
   monthlyAssets(w, lines);
@@ -373,6 +385,7 @@ function botEstate(w: World) {
   for (const t of Object.keys(TECHS) as TechId[]) {
     if (!TECHS[t].auto && !w.tech[t] && year(w.m) >= TECHS[t].from && w.hh.cash > techPrice(w, t) * 5) buyTech(w, t);
   }
+  if (suruCap(w) > suru(w) + 5 && w.hh.cash > sheepPrice(w) * 20 + reserve) buySheep(w, 5);
   staffAll(w);
 }
 
