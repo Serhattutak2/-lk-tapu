@@ -124,13 +124,13 @@ export function newParcel(w: World, price: number): Parcel {
 
 // ---------- Oyuncu eylemleri ----------
 
-export function sow(w: World, pid: string, c: CropId): string | null {
+export function sow(w: World, pid: string, c: CropId, credit = false): string | null {
   const p = w.hh.parcels.find((x) => x.id === pid);
   if (!p) return 'Parsel bulunamadı.';
   if (p.crop) return 'Bu parselde zaten ekin var.';
   if (!canSow(w, c)) return `${CROPS[c].ad} bu ay ekilmez.`;
   const cost = seedCost(w, c);
-  if (w.hh.cash < cost) return `Tohum için ${cost} lira gerekiyor.`;
+  if (w.hh.cash < cost && !credit) return `Tohum için ${cost} lira gerekiyor.`;
   w.hh.cash -= cost;
   p.crop = c;
   p.plan = c;
@@ -449,15 +449,34 @@ export function setMode(w: World, pid: string, mode: 'kendi' | 'yarici') {
 export function autoSow(w: World) {
   for (const p of w.hh.parcels) {
     if (p.mode !== 'kendi' || p.crop || !p.plan || !canSow(w, p.plan)) continue;
-    if (p.plan === 'hashas' && !hasRuhsat(w) && !w.flags.kacakPlan) {
+    if (p.plan === 'hashas' && !hasRuhsat(w)) {
       const key = 'planRuhsat' + year(w.m);
+      if (w.flags[key] === 'kacak') {
+        sow(w, p.id, 'hashas', true);
+        continue;
+      }
+      if (w.flags[key] === 'bugday') {
+        sow(w, p.id, 'bugday', true);
+        continue;
+      }
       if (!w.flags[key]) {
-        w.flags[key] = true;
-        log(w, `Haşhaş planlı parseller ekilmedi: bu yıl ruhsat yok. Ruhsatsız ekmek istersen Tarla sekmesinden elle ek.`, 'is');
+        w.flags[key] = 'sor';
+        const n = w.hh.parcels.filter((x) => x.mode === 'kendi' && !x.crop && x.plan === 'hashas').length;
+        const ban = isBanYear(year(w.m));
+        pushCard(w, {
+          id: 'plan_hashas',
+          text: `Ekim zamanı geldi; ${n} parsel haşhaş planlı ama ${ban ? 'yasak sürüyor, ruhsat verilmiyor' : 'bu yıl ruhsatın yok'}. Ne yapalım?`,
+          opts: [
+            ...(ban ? [] : [{ t: `Şimdi ruhsata başvur (${Math.round(80 * infl(w.m))} lira)`, k: 'ruhsat' }]),
+            { t: 'Ruhsatsız ek (jandarma görürse...)', k: 'kacak' },
+            { t: 'Bu yıl buğday ekilsin', k: 'bugday' },
+            { t: 'Boş kalsın', k: 'bos' },
+          ],
+        });
       }
       continue;
     }
-    const err = sow(w, p.id, p.plan);
+    const err = sow(w, p.id, p.plan, true);
     if (err) {
       const key = 'planPara' + w.m;
       if (!w.flags[key]) {

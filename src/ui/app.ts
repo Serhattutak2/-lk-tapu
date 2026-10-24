@@ -11,7 +11,8 @@ import type { BizId, VehicleId } from '../core/types';
 import type { Pick } from './map';
 import { BASE_CAP, buildRoom, canBuild, capacity, crowded, residents, roomPrice, ROOMS, SLOTS } from '../core/home';
 import { AGIL_PRICE, buildLab, buyAgil, buyRaw, cevdetPay, hamPrice, hapPrice, hireCevdet, LAB_LEVELS, labCapacity, labPrice, labSkill, labWorkers, moveStash, paketPrice, sellProduct, siteOk, SITES, unlocked } from '../core/lab';
-import { attackRival, feudLabel, gangPay, lockedOut, rP, setLock } from '../core/feud';
+import { attackRival, doRivalMove, feudLabel, gangPay, lockedOut, rivalMoves, rP, scuffle, targets, setLock } from '../core/feud';
+import { HUY_AD, kmtAd, kmtDost, kmtFactor, kmtGift, kmtHuy, kmtKnown, kmtOurs, ozelTim } from '../core/jandarma';
 import { buyCityHome, buyFac, CITY, FACS, facIncome, facPrice, hire, HOMES, homePrice, launderCap, launderFee, moveToCity, setFacMgr, takeTurf, underTitle } from '../core/baron';
 import type { DInv, DistId, FacId, TechId } from '../core/types';
 import { buyTech, eraOf, TECHS, techPrice } from '../core/era';
@@ -30,19 +31,19 @@ import { VillageMap } from './map';
 const SAVE_KEY = 'ilktapu_v1';
 const NEWS_KEY = 'ilktapu_haber';
 export const NEWS = {
-  v: '0.7',
+  v: '0.8',
   items: [
-    ['Oyun artık 1925\'te başlıyor', 'Cumhuriyetin ilk yıllarından başlıyorsun: kara saban, gaz lambası, eşkıya, kaçak tütün. Teknolojiler yine kendi yıllarında gelir; ama ailen onlara kadar kırk yıl büyür, ilk tapuyu, ilk evi, ilk dükkânı çok önceden alır.'],
-    ['Dört yeni çağ', 'Kuruluş Yılları (1925), Savaş Yılları (1939), Toprak Yılları (1946), Gurbet Yılları (1961). Yeni eski teknolojiler: demir pulluk, gramofon, dikiş makinesi, bisiklet; kendiliğinden gelen sıtma savaşı, penisilin, köy yolu.'],
-    ['Tarihin içinden 18 yeni olay', 'Yeni harfler, Soyadı Kanunu, eşkıya haracı, kaçak tütün katırcıları, Büyük Buhran\'da yok pahasına satılan tarlalar, seferberlik, ekmek karnesi ve karaborsa, Köy Enstitüsü, Çiftçiyi Topraklandırma, ilk gerçek seçim, ağanın traktörü, 1960, Almanya anlaşması, hac, kurtlar, harman yangını, piyango.'],
-    ['Ekim planı', 'Her tarlaya bir kez ne ekeceğini söyle; sen değiştirmedikçe her yıl o ay kendiliğinden ekilir. İstersen işçileri de her ay kendiliğinden dağıtır.'],
-    ['Değişen fiyatlar ve ambar', 'Buğday, arpa, nohut, pancar ve hayvan fiyatı her yıl değişir: kuraklık, buhran, savaş, kriz. Tahılı ambara koyup fiyat yükselince satabilirsin.'],
-    ['Sağlık çağa göre', 'Hastalık artık adıyla gelir: sıtma, verem, tifo, kalp. 1925\'te ninelerin otu, hoca, sağlıkçı ya da kasabadaki hekim; sonra sağlık ocağı, devlet hastanesi, özel hastane. Fiyat her seferinde değişir, iyileşme garanti değildir.'],
-    ['Kurban, düğün, borç', 'Kurban Bayramı her yıl takvimde kayar; kurbanlık fiyatı hayvan piyasasına göre oynar, ahırın varsa kendi koçunu kesersin. Düğün takısı ve komşunun istediği borç da her seferinde farklı.'],
-    ['Muhtar artık yardım ediyor', 'Köylüler tarlalarını daha kolay satıyor, reddeden üç ay sonra yeniden dinliyor. Muhtar satılık tarla haberini sana getiriyor; muhtarlık seçimi de daha ucuz ve kazanması daha kolay.'],
+    ['Sayfa artık yerinde kalıyor', 'Tarlada, mülkte, her yerde bir işlem yapınca sayfa en başa atmıyor; kaldığın yerde duruyor. Sadece sekme değiştirince en tepeye gider.'],
+    ['Otomatik ekim düzeldi', 'Haşhaş planlı tarla ruhsatsız kaldığında artık boş geçmiyor: ekim ayında "ruhsata başvur / ruhsatsız ek / buğday ek / boş bırak" diye soruyor. Ruhsatı Tarla sekmesinden de alabilirsin.'],
+    ['Karakol komutanı', 'Her birkaç yılda bir yeni komutan atanıyor: kimi zarf sever, kimi dürüst, kimi hırslı. Baskında artık sadece rüşvet değil; nüfuzunu kullanma ve avukat tutma seçenekleri de var. Komutanın huyu baskın ihtimalini değiştiriyor.'],
+    ['Rakip aileyle çok daha fazla yol', 'Arabulucu, köyde boykot, jandarmaya ihbar, borçlarını satın alma, kız alıp verip hısım olma. Sopayla kansız kavga ya da silahlı baskın. Rakip de aynı silahları kullanıyor: suyunu çeviriyor, hayvanını salıyor, iftira atıyor, dünürcü yolluyor.'],
+    ['Aile artık yaşıyor', 'Bağlılığı düşen küser: sofraya gelmez, isteksiz çalışır, barışmazsa evi terk eder. Elini öp, gönlünü al, aile büyüğünü araya koy. Bayramda harçlık, gençlerin istekleri, kardeş kavgası, büyüğün öğüdü ve gerçek düğün kararları (üç gün davul zurna mı, sade mi?).'],
+    ['Köyde ikinci ev', 'Oğlun ayrı ev isteyince artık köyün içinde ona ev yapabilirsin: aile aynı mahallede, dağılmadan büyür. Kapasite de artar.'],
+    ['Ocak kolay kolay sönmüyor', 'Son varis de ölürse uzak bir amcazade köye gelip ocağı devralıyor; miras büyük ölçüde dağılsa da hanedan sürüyor.'],
+    ['Tarla yeniden zor, tempo yavaş', 'Tarla satışı 0.7\'deki kadar kolay değil; oyun daha yavaş ilerliyor, olaylar acele etmeden yaşanıyor.'],
   ] as [string, string][],
 };
-const SPEEDS = [0, 3000, 1100, 380];
+const SPEEDS = [0, 4200, 1500, 500];
 const KIND: Record<string, string> = { veraset: 'Veraset', gorucu: 'Görücü', hastalik: 'Hastalık', gurbet: 'Gurbet', tuccar: 'Tanışıklık', tapu: 'Tapu', bilgi: 'Haber', hashas_hasat: 'Hasat', ruhsat: 'Ruhsat', kacakci: 'Kahvehane', baskin: 'Jandarma', aga_kira: 'Ağa', aga_kiz: 'Ağa' };
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
@@ -80,6 +81,7 @@ export class App {
   private timer = 0;
   private map: VillageMap | null = null;
   private pendingPanel = false;
+  private toTop = false;
   private ceremony: null | { price: number } = null;
 
   constructor(private root: HTMLElement) {}
@@ -178,6 +180,7 @@ export class App {
     this.root.querySelectorAll<HTMLButtonElement>('[data-sp]').forEach((b) => (b.onclick = () => this.setSpeed(Number(b.dataset.sp))));
     this.root.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) => (b.onclick = () => {
       this.tab = b.dataset.tab as typeof this.tab;
+      this.toTop = true;
       this.renderPanel(true);
     }));
     this.setSpeed(0);
@@ -283,7 +286,9 @@ export class App {
       return;
     }
     this.pendingPanel = false;
-    const keep = force ? 0 : panel.scrollTop;
+    // Kaydırma yalnızca sekme değişince en üste döner; işlem yapınca kalınan yerde durur.
+    const keep = this.toTop ? 0 : panel.scrollTop;
+    this.toTop = false;
     if (this.tab === 'aile') panel.innerHTML = this.familyHTML();
     else if (this.tab === 'tarla') panel.innerHTML = this.fieldsHTML();
     else if (this.tab === 'mulk') panel.innerHTML = this.estateHTML();
@@ -556,9 +561,12 @@ export class App {
     const dead = Object.values(w.people).filter((p) => p.d !== undefined && (p.blood || p.id === w.flags.babaId)).sort((a, b) => (b.d ?? 0) - (a.d ?? 0));
     const heir = P(w, w.heirId);
     const warn = !alive(heir)
-      ? `<div class="warn">Varis belirlemedin. Ölürsen aile veraset kavgasına düşer ve mirasın üçte biri dağılır.</div>`
+      ? `<div class="warn">Varis belirlemedin. Ölürsen aile veraset kavgasına düşer ve mirasın bir kısmı dağılır.</div>`
       : '';
-    return `${warn}
+    const pl = P(w, w.playerId);
+    const single = alive(pl) && !alive(P(w, pl!.sp)) && !pl!.sp && age(w, pl!) >= 17;
+    const evli = single && !w.flags.gorucuIste ? `<div class="btnrow"><button class="small" data-gorucu="1">Görücüye çık, kendine eş ara</button></div>` : '';
+    return `${warn}${evli}
       <div class="group">Hanede ${house.length} kişi</div>
       ${house.map((p) => this.personHTML(p, true)).join('')}
       ${out.length ? `<div class="group">Ayrı evde yaşayan akrabalar</div>${out.map((p) => this.personHTML(p, false)).join('')}` : ''}
@@ -701,13 +709,23 @@ export class App {
       <div class="btnrow"><button class="small" data-gang="1">Adam tut (ayda ${lira(gangPay(w))})</button><button class="small" data-gang="-1"${w.gang ? '' : ' disabled'}>Bir adamı gönder</button></div>
       <div class="group">Yeraltı unvanı: ${esc(underTitle(w).ad)}</div>
       <p class="note">${esc(underTitle(w).next)}${w.city.net ? ' Kara Rıza\'nın şebekesi senin: kaçak fiyatlar %60 yüksek.' : w.flags.rizaOrtak ? ' Rıza ile ortaksın: fiyatlar %25 yüksek.' : ''}</p>
+      <div class="group">Karakol komutanı</div>
+      ${w.flags.kmtAd ? `<p class="note"><b>${esc(kmtAd(w))}</b>${kmtKnown(w) ? `, ${esc(HUY_AD[kmtHuy(w)])}` : ' — nasıl biri olduğunu henüz bilmiyorsun'}.${kmtOurs(w) ? ' Artık senin adamın.' : kmtDost(w) >= 40 ? ' Seninle arası iyi.' : ''}${ozelTim(w) ? ' Bölgede özel tim var; baskınlar sık.' : ''} Baskın ihtimaline etkisi: ${kmtFactor(w) < 0.9 ? 'düşük' : kmtFactor(w) > 1.15 ? 'yüksek' : 'orta'}.</p>
+      <div class="btnrow"><button class="small" data-kmt="gift">Komutana zarf götür (${lira(Math.round(600 * Math.pow(1.045, year(w.m) - (w.y0 || 1965))))})</button></div>
+      <p class="note">Dürüst komutana zarf işe yaramaz, dikkat çeker. Rüşvetçi komutan dostun olur, baskınları azaltır.</p>` : '<p class="note">Karakolda henüz tanıdığın yok.</p>'}
       <div class="group">${r.gone ? 'Köyde rakip aile yok' : esc(rP(w))}</div>
       ${r.gone ? `<p class="note">${esc(String(w.flags.yokEdilen || ''))} köyden silindi. Boşluk uzun sürmez; yeni bir aile gelecek.</p>` : `
       <div class="labor"><span>${esc(feudLabel(r.feud))}</span><div class="meter heat"><i style="width:${Math.round(r.feud)}%"></i></div></div>
       <p class="note">Silah tutacak ${r.men} erkekleri var. Toprakları: ${w.plots.filter((x) => x.o === 'rakip').length} tarla. ${r.dead || r.theirDead ? `Kan davasında bizden ${r.dead}, onlardan ${r.theirDead} kişi öldü.` : 'Henüz kan dökülmedi.'} ${r.blood < 0 ? 'Onların kanı bizde.' : r.blood > 0 ? 'Bizim kanımız onlarda.' : ''}</p>
-      <div class="btnrow"><button class="small${r.lock ? ' danger' : ''}" data-lock="${r.lock ? 0 : 1}">${r.lock ? 'Erkekler yeniden dışarı çıksın' : 'Erkekler evden çıkmasın'}</button>
-        <button class="small danger" data-attack="1"${w.gang >= 2 ? '' : ' disabled'}>Adamlarını gönder (${w.gang} adam)</button></div>
-      <p class="note">Evden çıkmayan erkekler pusuya düşmez ama çalışamaz da. Korumalar pusuyu zorlaştırır. Baskın için en az iki adam gerekir; başarı adam sayısına bağlı, başarısız olursa adam kaybedersin. Erkekleri tükenen aile köyü terk eder.</p>`}
+      <div class="btnrow"><button class="small${r.lock ? ' danger' : ''}" data-lock="${r.lock ? 0 : 1}">${r.lock ? 'Erkekler yeniden dışarı çıksın' : 'Erkekler evden çıkmasın'}</button></div>
+      <p class="note">Evden çıkmayan erkekler pusuya düşmez ama çalışamaz da. Korumalar pusuyu zorlaştırır. Erkekleri tükenen aile köyü terk eder.</p>
+      <div class="group">${esc(rP(w))} ile ne yapılır?</div>
+      ${rivalMoves(w, nam(w)).map((m) => `<div class="asset"><div class="prow"><span class="pname">${esc(m.ad)}</span>${m.cost ? `<span class="prel">${lira(m.cost)}</span>` : ''}</div><p class="note">${esc(m.desc)}</p>${m.ok ? `<p class="note">${esc(m.ok)}</p>` : `<button class="small" data-rk="${m.id}"${w.hh.cash < m.cost ? ' disabled' : ''}>Yap</button>`}</div>`).join('')}
+      <div class="btnrow">
+        <button class="small danger" data-attack="1"${w.gang >= 2 ? '' : ' disabled'}>Silahlı baskın (${w.gang} adam)</button>
+        <button class="small" data-clash="0"${targets(w).length ? '' : ' disabled'}>Sopayla hadlerini bildir</button>
+      </div>
+      <p class="note">Sopalı kavgada kimse ölmez; silahlı baskın kan davasını büyütür ve jandarmayı üstüne çeker.</p>`}
       ${w.crew && !w.crew.gone ? `<div class="group">${esc(w.crew.name)}</div><div class="labor"><span>Husumet</span><div class="meter heat"><i style="width:${Math.round(w.crew.feud)}%"></i></div></div><p class="note">${CITY}'te ${w.crew.men} silahlı adamları ve ${w.crew.turf} mahalleleri var.</p>` : ''}`;
   }
 
@@ -735,6 +753,7 @@ export class App {
         if (this.pendingPanel) this.renderPanel(false);
       };
     });
+    panel.querySelectorAll<HTMLButtonElement>('[data-gorucu]').forEach((b) => (b.onclick = act(() => { w.flags.gorucuIste = true; this.toast('Köyün görücüsüne haber salındı; yakında bir teklif gelir.'); })));
     panel.querySelectorAll<HTMLButtonElement>('[data-heir]').forEach((b) => (b.onclick = () => {
       setHeir(w, b.dataset.heir!);
       save(w);
@@ -814,6 +833,9 @@ export class App {
     })));
     panel.querySelectorAll<HTMLButtonElement>('[data-gang]').forEach((b) => (b.onclick = act(() => this.toast(hire(w, Number(b.dataset.gang)).msg))));
     panel.querySelectorAll<HTMLButtonElement>('[data-attack]').forEach((b) => (b.onclick = act(() => this.toast(attackRival(w).msg))));
+    panel.querySelectorAll<HTMLButtonElement>('[data-clash]').forEach((b) => (b.onclick = act(() => this.toast(scuffle(w)))));
+    panel.querySelectorAll<HTMLButtonElement>('[data-rk]').forEach((b) => (b.onclick = act(() => this.toast(doRivalMove(w, b.dataset.rk!, nam(w)).msg))));
+    panel.querySelectorAll<HTMLButtonElement>('[data-kmt]').forEach((b) => (b.onclick = act(() => this.toast(kmtGift(w).msg))));
     panel.querySelectorAll<HTMLButtonElement>('[data-fac]').forEach((b) => (b.onclick = act(() => this.toast(buyFac(w, b.dataset.fac as FacId).msg))));
     panel.querySelectorAll<HTMLSelectElement>('[data-facmgr]').forEach((sel) => {
       sel.onchange = act(() => setFacMgr(w, sel.dataset.facmgr as FacId, sel.value || null));
@@ -977,6 +999,7 @@ export class App {
       this.tab = cmd === 'goto' ? 'tarla' : (arg as typeof this.tab);
       this.pick = null;
       if (this.map) this.map.selected = null;
+      this.toTop = true;
       this.renderPanel(true);
       if (cmd === 'goto') document.getElementById('pc-' + arg)?.scrollIntoView({ block: 'start' });
     }

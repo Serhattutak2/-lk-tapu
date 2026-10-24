@@ -6,12 +6,15 @@ import { FEMALE, MALE, SURNAMES } from './names';
 import { age, alive, fullName, hhMembers, log, makePerson, P, removeFromHH } from './people';
 import { dateText, infl, monthOf, year } from './calendar';
 import { marry, resolveSuccession } from './life';
-import { resolveHashas } from './fields';
+import { autoSow, resolveHashas } from './fields';
+import { applyRuhsat } from './crime';
+import { resolveKomutan } from './jandarma';
+import { familyCards, resolveFamily } from './family';
 import { buyPlot, landBlockers } from './assets';
 import { landBase, PLOTS, plotOwnerName, plotPrice } from './plots';
 import { crimeCards, resolveCrime } from './crime';
 import { labCards, resolveLab } from './lab';
-import { feudCards, resolveFeud } from './feud';
+import { feudCards, resolveFeud, resolveRivalCard, rivalCards } from './feud';
 import { homeCards, resolveHome } from './home';
 import { crewCards, netCards, resolveBaron } from './baron';
 import { eventCards, resolveEvent } from './events';
@@ -103,6 +106,18 @@ const RESOLVE: Record<string, Resolver> = {
     if (!r.ok) log(w, r.msg, 'para');
   },
 
+  plan_hashas: (w, _c, k) => {
+    const key = 'planRuhsat' + year(w.m);
+    if (k === 'ruhsat') {
+      const r = applyRuhsat(w);
+      log(w, r.msg, 'is');
+      if (r.ok) autoSow(w);
+      else w.flags[key] = 'bekle';
+      return;
+    }
+    w.flags[key] = k === 'bos' ? 'bos' : k;
+    if (k !== 'bos') autoSow(w);
+  },
   hashas_hasat: (w, c, k) => resolveHashas(w, c.data!.sacks as number, `${(c.data!.label as string) ?? c.data!.parcel}. parsel`, k),
   bilgi: () => {},
 };
@@ -112,7 +127,7 @@ export function resolveCard(w: World, uid: number, k: string) {
   if (i < 0) return;
   const [c] = w.cards.splice(i, 1);
   if (RESOLVE[c.id]) RESOLVE[c.id](w, c, k);
-  else if (!resolveCrime(w, c, k) && !resolveLab(w, c.id, k) && !resolveFeud(w, c.id, c.pid, k, c.data) && !resolveBaron(w, c.id, k) && !resolveEvent(w, c.id, k, c.pid, c.data) && !resolveHistory(w, c.id, k, c.pid, c.data) && !resolveDistrict(w, c.id, k, c.data)) resolveHome(w, c.id, c.pid, k, c.data);
+  else if (!resolveCrime(w, c, k) && !resolveLab(w, c.id, k) && !resolveFeud(w, c.id, c.pid, k, c.data) && !resolveBaron(w, c.id, k) && !resolveEvent(w, c.id, k, c.pid, c.data) && !resolveHistory(w, c.id, k, c.pid, c.data) && !resolveKomutan(w, c.id, k) && !resolveRivalCard(w, c.id, k, c.pid) && !resolveFamily(w, c.id, k, c.pid, c.data) && !resolveDistrict(w, c.id, k, c.data)) resolveHome(w, c.id, c.pid, k, c.data);
   if (w.hh.cash < 0) {
     // Kasada olmayan para ağadan borç alınır
     w.hh.debt += -w.hh.cash;
@@ -130,15 +145,18 @@ export function generateCards(w: World) {
   const yr = year(w.m);
   if (crimeCards(w)) return;
   if (feudCards(w) || w.over) return;
+  if (rivalCards(w)) return;
   if (labCards(w)) return;
   if (netCards(w) || crewCards(w)) return;
   if (districtCards(w)) return;
   if (historyCards(w) || w.over) return;
   if (eventCards(w) || w.over) return;
   if (homeCards(w)) return;
+  if (familyCards(w)) return;
 
   // Görücü
-  if (pa >= 18 && pa <= 45 && !alive(P(w, pl.sp)) && !pl.sp && chance(w, 0.08)) {
+  if (pa >= 17 && pa <= 50 && !alive(P(w, pl.sp)) && (!pl.sp || w.flags.gorucuIste) && chance(w, w.flags.gorucuIste ? 1 : 0.08)) {
+    w.flags.gorucuIste = false;
     const sex = pl.sex === 'E' ? 'K' : 'E';
     const ageY = clamp(sex === 'K' ? pa - rint(w, 0, 5) : pa + rint(w, 0, 6), 16, 50);
     const first = pick(w, sex === 'E' ? MALE : FEMALE);
@@ -156,7 +174,7 @@ export function generateCards(w: World) {
 
   // Satılık tarla haberi
   const sale = w.plots.map((p, i) => (p.o !== 'biz' && p.sale ? i : -1)).filter((i) => i >= 0);
-  if (sale.length && landBlockers(w).length === 0 && !w.flags['tapuSor' + yr] && chance(w, w.hh.parcels.length === 0 ? 0.25 : 0.05)) {
+  if (sale.length && landBlockers(w).length === 0 && !w.flags['tapuSor' + yr] && chance(w, w.hh.parcels.length === 0 ? 0.2 : 0.04)) {
     const i = sale.sort((a, b) => plotPrice(w, a) - plotPrice(w, b))[0];
     const price = plotPrice(w, i);
     if (w.hh.cash >= price) {

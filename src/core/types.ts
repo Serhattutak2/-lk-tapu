@@ -47,6 +47,7 @@ export interface Person {
   parcel?: string;      // job === 'kendi' ise çalıştığı parsel
   biz?: BizId;          // job === 'isletme' ise başında durduğu işletme
   rel: number;          // oyuncuya bağlılık -100..100
+  kus?: number;         // küstüyse: küstüğü ay
 }
 
 export interface ChronicleEntry {
@@ -103,6 +104,7 @@ export interface Household {
   rooms: Partial<Record<RoomId, number>>; // evdeki ek odalar
   agil: boolean;        // dağdaki ağıl
   ambar?: Partial<Record<CropId, number>>; // ambardaki ürün (temel değer birimi)
+  ekEv?: number;        // köyde yapılan ek evler (aile dağılmasın diye)
 }
 
 /** Gizli atölye: soyut bir üretim zinciri (ham mal → paket → hap). */

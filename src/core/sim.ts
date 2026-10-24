@@ -9,6 +9,7 @@ import { infl, monthOf, setBase, year } from './calendar';
 import { yearlyPrices } from './market';
 import { monthlyHealth } from './health';
 import { monthlyHistory } from './history';
+import { monthlyFamily } from './family';
 import { ambarValue, assignWorker, CROPS, hasRuhsat, idleWage, laborNeed, monthlyAmbar, monthlyFields, sellAmbar, sow, sowableNow, staffAll, STORABLE, workersOf } from './fields';
 import { monthlyCrime, RENT_CAP } from './crime';
 import { monthlyLab } from './lab';
@@ -51,6 +52,7 @@ export function advance(w: World): boolean {
   economy(w, harvestBonus);
   growth(w);
   monthlyLife(w);
+  monthlyFamily(w);
   monthlyGoals(w);
   if (w.hh.cash < 0) {
     w.hh.debt += -w.hh.cash;
@@ -263,7 +265,7 @@ export function botTurn(w: World) {
     if (c.id === 'kacakci') k = chance(w, 0.5) ? 'evet' : 'hayir';
     if (c.id === 'hashas_hasat') k = c.opts[Math.min(c.opts.length - 1, chance(w, 0.6) ? 0 : 1)].k;
     if (c.id === 'aga_kiz') k = chance(w, 0.5) ? 'ver' : 'ret';
-    if (c.id.startsWith('ev:') || c.id.startsWith('hi:')) {
+    if (c.id.startsWith('ev:') || c.id.startsWith('hi:') || c.id.startsWith('fa_') || c.id.startsWith('kmt') || c.id.startsWith('rk_') || c.id.startsWith('ce_') || c.id === 'plan_hashas' || c.id === 'ruhsat_red') {
       const cheap = c.opts.filter((o) => !/\(\d/.test(o.t) && !/lira\)/.test(o.t));
       const pool = w.hh.cash > 20000 * infl(w.m) ? c.opts : cheap.length ? cheap : c.opts;
       k = pool[Math.floor(rint(w, 0, pool.length - 1))].k;

@@ -351,3 +351,224 @@ export function resolveFeud(w: World, id: string, pid: string | undefined, k: st
 }
 
 export { makePerson, year };
+
+// ---------- 0.8: rakibe karşı strateji ve rakibin yeni hamleleri ----------
+// Çoğu yol kansızdır: boykot, ihbar, borç, hısımlık, toprak baskısı. Rakip de aynı silahları kullanır.
+
+const L8 = (w: World, n: number) => Math.round(n * infl(w.m));
+const bonus8 = (w: World, n: number) => (w.flags.namBonus = Number(w.flags.namBonus || 0) + n);
+
+/** Rakibe karşı oyuncu hamleleri (Yeraltı sekmesi). Her hamle ayda bir. */
+export interface RivalMove { id: string; ad: string; desc: string; cost: number; ok: string | null; }
+export function rivalMoves(w: World, nam: number): RivalMove[] {
+  const r = w.rival;
+  const used = Number(w.flags.rkHamle || -99) === w.m;
+  const why = (c: boolean, m: string) => (used ? 'Bu ay zaten bir hamle yaptın.' : c ? null : m);
+  const single = hhMembers(w).find((p) => p.blood && !p.sp && !p.away && p.id !== w.playerId && p.id !== w.heirId && age(w, p) >= 17 && age(w, p) <= 28);
+  return [
+    { id: 'arabulucu', ad: 'Arabulucu gönder', desc: 'İmam ve komşu köyün ağası iki aileyi konuşturur. Husumet düşer; kan varsa zor.', cost: L8(w, 1500), ok: why(r.feud >= 15, 'Aranızda çözülecek bir husumet yok.') },
+    { id: 'boykot', ad: 'Köyde boykot ettir', desc: 'Bakkaldan değirmene kimse onlarla iş yapmasın. Güçleri erir, ama kızarlar.', cost: L8(w, 800), ok: why(nam >= 35, 'Köy senin sözünle boykot yapmaz (nam 35).') },
+    { id: 'ihbar', ad: 'Kaçak işlerini jandarmaya ihbar et', desc: 'Erkeklerinden biri içeri girebilir. Köyde "muhbir" damgası da yiyebilirsin.', cost: 0, ok: why(true, '') },
+    { id: 'borc', ad: 'Borçlarını satın al', desc: 'Tefecideki senetlerini topla; ödeyemeyen erkekleri ailesiyle köyü terk eder. Kansız ama pahalı.', cost: L8(w, 6000), ok: why(r.power <= 45, 'Şimdilik borca batmış değiller; önce güçlerini kır.') },
+    { id: 'hisim', ad: 'Hısım olalım: kız al, kız ver', desc: single ? `${single.first} (${age(w, single)}) ile onların bir gencini evlendir. Kan davası biter.` : 'Hanede evlenecek yaşta bekâr genç yok.', cost: L8(w, 900), ok: why(!!single && r.blood >= 0 && r.feud < 85, single ? 'Aranızda kan var; kız alıp verilmez.' : 'Evlenecek genç yok.') },
+  ];
+}
+
+export function doRivalMove(w: World, id: string, nam: number): { ok: boolean; msg: string } {
+  const r = w.rival;
+  if (r.gone) return { ok: false, msg: 'Köyde rakip aile yok.' };
+  const mv = rivalMoves(w, nam).find((m) => m.id === id);
+  if (!mv) return { ok: false, msg: 'Böyle bir hamle yok.' };
+  if (mv.ok) return { ok: false, msg: mv.ok };
+  if (w.hh.cash < mv.cost) return { ok: false, msg: `${fmt(mv.cost - w.hh.cash)} lira eksik.` };
+  w.hh.cash -= mv.cost;
+  w.flags.rkHamle = w.m;
+  let msg = '';
+  if (id === 'arabulucu') {
+    if (chance(w, r.blood < 0 ? 0.3 : 0.6)) {
+      r.feud = clamp(r.feud - 25, 0, 100);
+      r.peaceM = w.m;
+      msg = `Arabulucular ${rP(w)} ile konuştu; buzlar biraz çözüldü.`;
+    } else msg = `${rP(w)} arabulucuları dinlemedi.`;
+  } else if (id === 'boykot') {
+    r.power = clamp(r.power - 10, 0, 100);
+    r.feud = clamp(r.feud + 10, 0, 100);
+    msg = `Köy ${rG(w)} kapısını çalmıyor. Değirmen onların buğdayını öğütmedi.`;
+    if (r.power <= 10 && r.men > 0 && chance(w, 0.3)) {
+      r.men--;
+      msg += ` Erkeklerinden biri ailesini alıp şehre göçtü.`;
+      checkGone(w);
+    }
+  } else if (id === 'ihbar') {
+    if (chance(w, 0.65)) {
+      r.men = Math.max(0, r.men - 1);
+      r.power = clamp(r.power - 8, 0, 100);
+      r.feud = clamp(r.feud + 20, 0, 100);
+      msg = `Jandarma ${rG(w)} samanlığını bastı; bir erkekleri cezaevine gitti.`;
+      checkGone(w);
+    } else {
+      w.heat = clamp(w.heat + 5, 0, 100);
+      msg = `Baskında bir şey bulunmadı; ${rP(w)} ihbarı kimin yaptığını tahmin etti.`;
+      r.feud = clamp(r.feud + 10, 0, 100);
+    }
+    if (chance(w, 0.4)) {
+      bonus8(w, -2);
+      msg += ' Kahvede "muhbir aile" diye fısıldıyorlar.';
+    }
+  } else if (id === 'borc') {
+    if (chance(w, 0.55) && r.men > 0) {
+      r.men--;
+      r.power = clamp(r.power - 6, 0, 100);
+      msg = `Senetleri ödeyemeyen ${pick(w, KOCABAS_MEN)}, karısı ve çocuklarıyla bir gece köyü terk etti.`;
+      checkGone(w);
+    } else {
+      msg = `${rP(w)} akrabalarından para bulup senetleri ödedi.`;
+      r.feud = clamp(r.feud + 8, 0, 100);
+    }
+  } else if (id === 'hisim') {
+    const single = hhMembers(w).find((p) => p.blood && !p.sp && !p.away && p.id !== w.playerId && p.id !== w.heirId && age(w, p) >= 17 && age(w, p) <= 28);
+    if (single && chance(w, r.feud < 50 ? 0.8 : 0.45)) {
+      const s = makeSpouseFor(w, single, false);
+      s.last = r.name;
+      marry(w, single, s);
+      r.feud = clamp(r.feud - 50, 0, 100);
+      r.peaceM = w.m;
+      r.lock = false;
+      msg = `${single.first} ile ${s.first} ${r.name} evlendi. İki aile artık hısım; düğünde aynı halaya durdular.`;
+      log(w, msg, 'evlilik');
+      return { ok: true, msg };
+    }
+    msg = `${rP(w)} dünürcüleri kapıdan çevirdi: "Bizden kız alamazsınız."`;
+    r.feud = clamp(r.feud + 6, 0, 100);
+  }
+  log(w, msg, 'olay');
+  return { ok: true, msg };
+}
+
+/** Rakibin kansız hamleleri: su, hayvan, iftira, dünürcü. */
+export function rivalCards(w: World): boolean {
+  const r = w.rival;
+  if (r.gone) return false;
+  const ours = w.hh.parcels.filter((f) => f.crop).length;
+  if (ours && r.feud >= 25 && monthOf(w.m) >= 5 && monthOf(w.m) <= 7 && chance(w, 0.018)) {
+    pushCard(w, {
+      id: 'rk_su',
+      text: `Su sırası bizdeydi ama ${rP(w)} arkı gece kendi tarlalarına çevirmiş. Ekinlerin susuz kalıyor.`,
+      opts: [{ t: `Muhtara ve su bekçisine git (${fmt(L8(w, 250))} lira)`, k: 'muhtar' }, { t: 'Gece arkı geri çevir', k: 'cevir' }, { t: 'Bu yıl idare ederiz', k: 'idare' }],
+    });
+    return true;
+  }
+  if (ours && r.feud >= 20 && chance(w, 0.012)) {
+    pushCard(w, {
+      id: 'rk_hayvan',
+      text: `${rG(w)} sürüsü sabah tarlana girmiş; ekinin bir köşesi çiğnenmiş. Çoban "kendi kendine kaçtı" diyor.`,
+      opts: [{ t: 'Hayvanları ağıla kapat, zararını iste', k: 'ceza' }, { t: 'Çobanı kovala', k: 'kovala' }, { t: 'Ses etme', k: 'sus' }],
+    });
+    return true;
+  }
+  if (r.feud >= 30 && chance(w, 0.01)) {
+    pushCard(w, {
+      id: 'rk_iftira',
+      text: `${rP(w)} kahvede senin ailen hakkında laf yayıyor: "Paraları temiz değil, kızları da ..." Köy kulak kesildi.`,
+      opts: [{ t: `Kahvede herkese çay ısmarla, sözü kes (${fmt(L8(w, 300))} lira)`, k: 'cay' }, { t: 'Onlar hakkında daha büyüğünü yay', k: 'yay' }, { t: 'Muhtarın huzurunda yüzleş', k: 'yuzles' }],
+    });
+    return true;
+  }
+  if (r.feud >= 20 && r.feud <= 60 && r.blood >= 0 && chance(w, 0.006)) {
+    const s = hhMembers(w).find((p) => p.blood && !p.sp && !p.away && p.id !== w.playerId && p.id !== w.heirId && age(w, p) >= 17 && age(w, p) <= 26);
+    if (s) {
+      pushCard(w, {
+        id: 'rk_dunur',
+        pid: s.id,
+        text: `Beklenmedik misafir: ${rP(w)} dünürcü yolladı, ${s.first}'i (${age(w, s)}) istiyorlar. "Bu düşmanlık iki aileyi de bitirecek" diyorlar.`,
+        opts: [{ t: 'Evet, hısım olalım', k: 'evet' }, { t: `${s.first}'e sor`, k: 'sor' }, { t: 'Düşmana kız verilmez', k: 'hayir' }],
+      });
+      return true;
+    }
+  }
+  return false;
+}
+
+export function resolveRivalCard(w: World, id: string, k: string, pid: string | undefined): boolean {
+  if (!id.startsWith('rk_')) return false;
+  const r = w.rival;
+  const grow = w.hh.parcels.filter((f) => f.crop);
+  if (id === 'rk_su') {
+    if (k === 'muhtar') {
+      w.hh.cash -= L8(w, 250);
+      if (chance(w, w.pol.seat === 'muhtar' ? 0.95 : 0.6)) log(w, `Su bekçisi arkı yeniden bize açtı.`, 'olay');
+      else for (const f of grow) f.careSum = Math.max(0, f.careSum - f.careN * 0.12);
+    } else if (k === 'cevir') {
+      r.feud = clamp(r.feud + 8, 0, 100);
+      if (chance(w, 0.3)) log(w, scuffle(w), 'olay');
+    } else for (const f of grow) f.careSum = Math.max(0, f.careSum - f.careN * 0.2);
+    return true;
+  }
+  if (id === 'rk_hayvan') {
+    if (k === 'ceza') {
+      if (chance(w, 0.6)) {
+        w.hh.cash += L8(w, 300);
+        log(w, `${rP(w)} hayvanlarını almak için zararı ödedi.`, 'para');
+      }
+      r.feud = clamp(r.feud + 10, 0, 100);
+    } else if (k === 'kovala') r.feud = clamp(r.feud + 5, 0, 100);
+    else if (grow.length) {
+      const f = pick(w, grow);
+      f.careSum = Math.max(0, f.careSum - f.careN * 0.25);
+    }
+    return true;
+  }
+  if (id === 'rk_iftira') {
+    if (k === 'cay') w.hh.cash -= L8(w, 300);
+    else if (k === 'yay') {
+      r.power = clamp(r.power - 5, 0, 100);
+      r.feud = clamp(r.feud + 12, 0, 100);
+      bonus8(w, -1);
+    } else if (chance(w, 0.55)) {
+      bonus8(w, 3);
+      r.power = clamp(r.power - 4, 0, 100);
+      log(w, `Muhtarın odasında ${rP(w)} sözlerini yuttu.`, 'olay');
+    } else {
+      bonus8(w, -3);
+      log(w, `Yüzleşmede söz onlarda kaldı.`, 'olay');
+    }
+    return true;
+  }
+  if (id === 'rk_dunur') {
+    const s = P(w, pid);
+    if (!alive(s)) return true;
+    const yes = k === 'evet' || (k === 'sor' && chance(w, 0.55));
+    if (yes) {
+      const sp = makeSpouseFor(w, s, false);
+      sp.last = r.name;
+      marry(w, s, sp);
+      r.feud = clamp(r.feud - 45, 0, 100);
+      r.peaceM = w.m;
+      s.rel = clamp(s.rel + (k === 'sor' ? 15 : -10), -100, 100);
+      log(w, `${s.first} ile ${sp.first} ${r.name} evlendi; iki aile hısım oldu.`, 'evlilik');
+    } else {
+      r.feud = clamp(r.feud + 10, 0, 100);
+      if (k === 'sor') s.rel = clamp(s.rel + 10, -100, 100);
+    }
+    return true;
+  }
+  return true;
+}
+
+/** Sopalı arbede: kimse ölmez, biri yaralanabilir. */
+export function scuffle(w: World): string {
+  const ours = targets(w).filter((t) => t.id !== w.playerId);
+  const p = clamp((ours.length + w.gang) / Math.max(1, ours.length + w.gang + w.rival.men), 0.15, 0.85);
+  w.rival.feud = clamp(w.rival.feud + 8, 0, 100);
+  if (chance(w, p)) {
+    w.rival.power = clamp(w.rival.power - 4, 0, 100);
+    bonus8(w, 2);
+    return `Ark başında itiş kakış çıktı; ${rP(w)} geri çekildi.`;
+  }
+  const h = ours.length ? pick(w, ours) : undefined;
+  if (h) {
+    h.hp = clamp(h.hp - 15, 5, 100);
+    h.sick = 2;
+  }
+  return `Ark başında itiş kakış: ${rP(w)} kalabalıktı${h ? `, ${h.first} hırpalandı` : ''}.`;
+}

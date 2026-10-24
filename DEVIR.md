@@ -1,5 +1,7 @@
 # İlk Tapu — Devir Notu (Faz 0)
 
+0.8: Karakol komutanı sistemi, aile içi küsme/barışma/düğünler, rakip aileye karşı kansız hamleler (`rivalMoves`/`doRivalMove`) ve çatışmalar (`scuffle`), köyde ikinci ev (`buildEkEv`), son varis ölünce uzak akraba devralır. Tarla satışı yeniden zorlaştırıldı, hız yavaşlatıldı.
+
 0.7: Oyun Mart 1925'te başlar. Ekim planı (`Parcel.plan`, `autoSow`), ambar (`hh.ambar`), değişen fiyatlar, çağa göre sağlık. Ağa kirası `RENT_CAP` ile sınırlı.
 
 Bu dosya projeyi başka bir yapay zekâ ya da geliştiriciyle sürdürmek için yazıldı. Kod TypeScript; `tools/build.mjs` esbuild ile her şeyi tek dosyalık `dist/index.html`'e paketler. Oyun metinleri Türkçe.
@@ -26,7 +28,8 @@ Bu dosya projeyi başka bir yapay zekâ ya da geliştiriciyle sürdürmek için 
 | `core/assets.ts` | Ev (4 kademe), taşıtlar (eşek, at arabası, traktör, otomobil, kamyon), köy işletmeleri (bakkal, kahvehane, değirmen), nam ve unvan, toprak alımı `buyPlot` |
 | `core/home.ts` | Ev içi: odalar (`ROOMS`), kapasite, kalabalık evde huzursuzluk, ayrılmak isteyen oğul kartı (`ayri_ev`). Aile kolları artık kendiliğinden ayrılmaz |
 | `core/lab.ts` | Gizli atölye: SOYUT üretim zinciri (ham mal → paket → hap), yer seçimi (bodrum/değirmen/ağıl), Kimyager Cevdet, kaza, ihanet. Gerçek kimya ya da yöntem yok ve eklenmeyecek |
-| `core/feud.ts` | Köydeki rakip aile (`w.rival`; Kocabaş, sonra Sarıkaya, Bozbey, Gümüşdere). Erkekleri tükenen aile silinir (`checkGone`), yerine yenisi gelir. Adamlarla baskın (`attackRival`). toprak kapma, sınır kavgası, kız kaçırma, pusu, intikam/diyet/sabır, barış sofrası, erkekleri eve kapatma |
+| `core/feud.ts` (0.8 ekleri: `rivalMoves`, `doRivalMove`, `scuffle`, `rivalCards`/`resolveRivalCard` — su/hayvan/iftira/dünür) |
+| ~feud~ | Köydeki rakip aile (`w.rival`; Kocabaş, sonra Sarıkaya, Bozbey, Gümüşdere). Erkekleri tükenen aile silinir (`checkGone`), yerine yenisi gelir. Adamlarla baskın (`attackRival`). toprak kapma, sınır kavgası, kız kaçırma, pusu, intikam/diyet/sabır, barış sofrası, erkekleri eve kapatma |
 | `core/baron.ts` | Kara para (`w.dirty`) ve aklama, maaşlı adamlar (`w.gang`), Kara Rıza'nın şebekesi, Çukurkent: fabrikalar (`FACS`), şehir evi, taşınma, mahalleler, rakip çete (`w.crew`), yeraltı unvanı (Baron) |
 | `core/era.ts` | Çağlar (`ERAS`: 1965 Toprak Yılları → 2020 Yeni Dünya) ve teknoloji (`TECHS`: kendiliğinden gelenler ve satın alınanlar), `buyTech`, `monthlyEra`, devletin gözetim çarpanı `policeFactor` |
 | `core/events.ts` | ~40 olay kartı (`ev:<id>`): askerlik, üniversite, sel, deprem, kriz, seçimler (muhtar/belediye/vekil), muhbir, rehine, kurşunlama, soygun, düğün, imece... `monthlyStories` (terhis, mezuniyet, kredi taksidi, koltuk süresi), `monthlyHostility` (rakip ve çete kendiliğinden saldırganlaşır) |
@@ -35,6 +38,8 @@ Bu dosya projeyi başka bir yapay zekâ ya da geliştiriciyle sürdürmek için 
 | `core/calendar.ts` | Takvim tabanı `World.y0` (yeni oyun 1925, eski kayıt 1965); `setBase` advance/newWorld/migrate içinde çağrılır. `kurbanMonth` kameri takvime göre bayram ayı |
 | `core/market.ts` | Yıllık ürün ve hayvan fiyat çarpanları (`w.mk`), tarihî şoklar (`SHOCKS`: buhran, savaş, kriz), `mk()` |
 | `core/health.ts` | Çağa göre hastalık adları ve tedavi seçenekleri (`cures`): ev, hoca, sağlıkçı/sağlık ocağı, hekim, hastane, özel hastane; rastgele fiyat; `eraMortality` |
+| `core/jandarma.ts` | Karakol komutanı: tayin, huy (rüşvetçi/dürüst/hırslı), baskın çarpanı `kmtFactor`; baskın seçenekleri `raidOpts`/`resolveRaidSpecial` (zarf, nüfuz, avukat) |
+| `core/family.ts` | Aile içi: küslük ve barışma, aile büyüğünün öğüdü, bayram harçlığı, gençlerin istekleri, kardeş kavgası, düğün kararı `weddingCard`; `rel` artık küslük (`Person.kus`) yaratır |
 | `core/history.ts` | 1925 sonrası tarihî olaylar (`hi:<id>`): harf devrimi, soyadı, eşkıya, kaçak tütün, buhran tarlası, seferberlik, karne, köy enstitüsü (öğretmen mesleği), topraklandırma, 1950 seçimi, ağanın traktörü, 1960, Almanya; hac, kurt, yangın, piyango, muhtarın tarla haberi |
 | `core/sim.ts` | Aylık adım `advance`: ekonomi, beceri ve sağlık, yaşam, kartlar. Oyuncu eylemleri: `setJob`, `setHeir`, `payDebt`, `resolveCard`. Test botu `botTurn` |
 | `ui/app.ts` | Açılış, oyun ekranı, Aile/Hane/Kronik panelleri, olay kartı (evrak görünümü), ilk tapu töreni, son ekranı. Kayıt anahtarı `ilktapu_v1` |

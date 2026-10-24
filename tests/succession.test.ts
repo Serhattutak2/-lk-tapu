@@ -28,11 +28,15 @@ describe('veraset', () => {
     expect(advance(w)).toBe(true);
   });
 
-  it('kan bağı kalmayınca hanedan biter', () => {
+  it('kan bağı kalmayınca uzak akraba ocağı devralır', () => {
     const w = newWorld({ seed: 13 });
     for (const p of bloodLiving(w)) if (p.id !== w.playerId) die(w, p, 'test');
-    die(w, w.people[w.playerId], 'test');
-    expect(w.over).not.toBeNull();
-    expect(advance(w)).toBe(false);
+    const old = w.playerId;
+    die(w, w.people[old], 'test');
+    // Ocak sönmez: uzak bir akraba gelir
+    expect(w.over).toBeNull();
+    expect(w.playerId).not.toBe(old);
+    expect(alive(w.people[w.playerId])).toBe(true);
+    expect(w.people[w.playerId].blood).toBe(true);
   });
 });

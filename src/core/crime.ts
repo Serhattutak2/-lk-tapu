@@ -11,6 +11,7 @@ import { payDirtyFirst } from './baron';
 import { has, policeFactor } from './era';
 import { jailYears } from './events';
 import { makeSpouseFor, marry } from './life';
+import { kmtFactor, monthlyKomutan, raidOpts, resolveRaidSpecial } from './jandarma';
 
 /** Ağanın kira evi için üst sınır (temel lira). */
 export const RENT_CAP = 110;
@@ -74,7 +75,8 @@ export function crimeCards(w: World): boolean {
   const evidence = stashFound || labFound || fieldFound;
 
   // Jandarma baskını
-  const raidP = (Math.max(0, w.heat - 12) / 100 * 0.09 + (evidence ? 0.004 : 0)) * policeFactor(w) * (w.pol.seat === 'vekil' ? 0.5 : 1);
+  if (monthlyKomutan(w)) return true;
+  const raidP = (Math.max(0, w.heat - 12) / 100 * 0.09 + (evidence ? 0.004 : 0)) * policeFactor(w) * kmtFactor(w) * (w.pol.seat === 'vekil' ? 0.5 : 1);
   if (w.heat > 12 && chance(w, raidP)) {
     if (!evidence) {
       w.heat = clamp(w.heat - 12, 0, 100);
@@ -83,21 +85,20 @@ export function crimeCards(w: World): boolean {
     }
     const bc = bribeCost(w) * (labFound ? 2 : 1);
     const sg = scapegoats(w)[0];
-    const opts: { t: string; k: string }[] = [];
-    if (w.hh.cash + w.dirty >= bc) opts.push({ t: `Komutana zarf ver (${fmt(bc)} lira)`, k: 'rusvet' });
+    const opts: { t: string; k: string }[] = raidOpts(w, bc, labFound);
     if (sg) opts.push({ t: `Suçu ${sg.first} üstlensin`, k: 'ustlen:' + sg.id });
     opts.push({ t: 'Suçu ben üstleneyim', k: 'ustlen:' + pl.id });
     pushCard(w, {
       id: 'baskin',
-      text: `Jandarma baskını. ${stashFound ? `Zulada ${w.hh.stash} çuval mal bulundu. ` : ''}${labFound ? `${SITES[w.lab!.site].ad} basıldı: atölye, kazanlar ve ${w.lab!.prod + w.lab!.hap} birim ürün tutanağa geçti. ` : ''}${fieldFound ? 'Ruhsatsız tarla tutanağa geçti. ' : ''}Komutan birinin götürüleceğini söylüyor.${labFound ? ' Atölye için zarf da kalın olmalı.' : ''}`,
+      text: `Jandarma baskını. ${stashFound ? `Zulada ${w.hh.stash} çuval mal bulundu. ` : ''}${labFound ? `${SITES[w.lab!.site].ad} basıldı: atölye, kazanlar ve ${w.lab!.prod + w.lab!.hap} birim ürün tutanağa geçti. ` : ''}${fieldFound ? 'Ruhsatsız tarla tutanağa geçti. ' : ''}${String(w.flags.kmtAd || 'Komutan')} birinin götürüleceğini söylüyor.${labFound ? ' Atölye için zarf da kalın olmalı.' : ''}`,
       opts,
       data: { bribe: bc, stash: stashFound, lab: labFound },
     });
     return true;
   }
 
-  // Ruhsat başvurusu (Ağustos)
-  if (mo === 7 && w.hh.parcels.length && w.ruhsat !== yr && w.flags.ruhsatSor !== yr) {
+  // Ruhsat başvurusu (Ağustos; kaçarsa Eylül–Ekim'de de gelir)
+  if (mo >= 7 && mo <= 9 && w.hh.parcels.length && w.ruhsat !== yr && w.flags.ruhsatSor !== yr) {
     w.flags.ruhsatSor = yr;
     if (isBanYear(yr)) {
       pushCard(w, { id: 'bilgi', text: `Yasak sürüyor: bu yıl haşhaş ruhsatı verilmiyor. Ruhsatsız eken jandarmanın kara listesine girer. Kaçak malın fiyatı ise hiç bu kadar yüksek olmamıştı.`, opts: [{ t: 'Anlaşıldı', k: 'ok' }] });
@@ -161,14 +162,24 @@ export function crimeCards(w: World): boolean {
 export function resolveCrime(w: World, c: Card, k: string): boolean {
   switch (c.id) {
     case 'ruhsat': {
-      if (k === 'evet') {
-        w.hh.cash -= c.data!.fee as number;
-        if (w.heat >= 45 && chance(w, 0.6)) {
-          log(w, `Ruhsat başvurusu reddedildi: "Hakkınızda şikâyet var." Harç geri verilmedi.`, 'olay');
-        } else {
+      if (k === 'evet') applyRuhsat(w, c.data!.fee as number);
+      return true;
+    }
+    case 'ruhsat_red': {
+      if (k === 'zarf') {
+        payDirtyFirst(w, c.data!.zarf as number);
+        if (chance(w, 0.75)) {
           w.ruhsat = year(w.m);
-          log(w, `${year(w.m)} yılı için haşhaş ekim ruhsatı alındı.`, 'is');
+          log(w, `Tarım memuru dosyanın üstüne bir zarf koydu, ruhsat çıktı.`, 'is');
+        } else {
+          w.heat = clamp(w.heat + 10, 0, 100);
+          log(w, `Memur zarfı aldı ama ruhsatı vermedi: "Şikâyet Ankara'dan." Para gitti.`, 'olay');
         }
+      } else if (k === 'muhtar') {
+        if (chance(w, w.pol.seat === 'muhtar' ? 0.85 : 0.45)) {
+          w.ruhsat = year(w.m);
+          log(w, `Muhtarın kefaletiyle ruhsat çıktı.`, 'is');
+        } else log(w, `Muhtarın sözü de yetmedi; bu yıl ruhsat yok.`, 'olay');
       }
       return true;
     }
@@ -184,14 +195,10 @@ export function resolveCrime(w: World, c: Card, k: string): boolean {
       return true;
     }
     case 'baskin': {
-      if (k === 'rusvet') {
-        const b = c.data!.bribe as number;
-        payDirtyFirst(w, b);
-        w.heat = clamp(w.heat * 0.6, 0, 100);
-        log(w, `Jandarma baskını ${fmt(b)} liralık bir zarfla kapandı. Zula yerinde kaldı.`, 'olay');
-        return true;
-      }
-      const pid = k.split(':')[1];
+      const sp = resolveRaidSpecial(w, k, c.data!.bribe as number);
+      if (sp === 'kapandi') return true;
+      const extra = sp === 'agir' ? 3 : 0;
+      const pid = sp ? (scapegoats(w)[0]?.id ?? w.playerId) : k.split(':')[1];
       const p = P(w, pid);
       const seized = c.data?.stash ? w.hh.stash : 0;
       if (c.data?.stash) w.hh.stash = 0;
@@ -209,7 +216,7 @@ export function resolveCrime(w: World, c: Card, k: string): boolean {
       w.ruhsat = 0;
       w.heat = clamp(w.heat * 0.35, 0, 100);
       if (alive(p)) {
-        const yrs = jailYears(w, rint(w, 2, 4) + (seized > 20 ? 2 : 0) + (labHit ? 4 : 0));
+        const yrs = jailYears(w, rint(w, 2, 4) + (seized > 20 ? 2 : 0) + (labHit ? 4 : 0) + extra);
         p.away = 'hapis';
         p.awayUntil = w.m + yrs * 12;
         p.job = 'yok';
@@ -259,3 +266,30 @@ export function resolveCrime(w: World, c: Card, k: string): boolean {
 }
 
 export { scapegoats };
+
+/** Ruhsat başvurusu: kart ya da Tarla sekmesindeki düğmeden. Dikkat yüksekse reddedilebilir; o zaman zarf ya da muhtar. */
+export function applyRuhsat(w: World, fee = Math.round(80 * infl(w.m))): { ok: boolean; msg: string } {
+  const yr = year(w.m);
+  if (isBanYear(yr)) return { ok: false, msg: 'Yasak yıllarında ruhsat verilmiyor.' };
+  if (w.ruhsat === yr) return { ok: false, msg: 'Bu yılın ruhsatı zaten var.' };
+  if (w.hh.cash < fee) return { ok: false, msg: `Harç için ${fee} lira gerekiyor.` };
+  w.hh.cash -= fee;
+  w.flags.ruhsatSor = yr;
+  if (w.heat >= 45 && chance(w, 0.6)) {
+    const zarf = Math.round(900 * infl(w.m));
+    pushCard(w, {
+      id: 'ruhsat_red',
+      text: `Ruhsat başvurusu reddedildi: "Hakkınızda şikâyet var." Tarım memuru yine de kapıyı tam kapatmadı.`,
+      opts: [
+        { t: `Memura zarf (${fmt(zarf)} lira)`, k: 'zarf' },
+        { t: 'Muhtarı kefil göster', k: 'muhtar' },
+        { t: 'Bu yıl ruhsatsız kalalım', k: 'yok' },
+      ],
+      data: { zarf },
+    });
+    return { ok: false, msg: 'Başvuru reddedildi; bir yolu var mı bak.' };
+  }
+  w.ruhsat = yr;
+  log(w, `${yr} yılı için haşhaş ekim ruhsatı alındı.`, 'is');
+  return { ok: true, msg: `${yr} ruhsatı alındı. Ekim–Kasım'da haşhaş ekebilirsin.` };
+}

@@ -7,6 +7,7 @@ import { defaultJob, JOBS } from './jobs';
 import { year } from './calendar';
 import { pushCard } from './cards';
 import { hasDoctor } from './events';
+import { weddingCard } from './family';
 import { eraMortality } from './health';
 
 /** Yıllık ölüm olasılığı (1960'lar Anadolu'su, biraz yumuşatılmış). */
@@ -47,8 +48,19 @@ export function die(w: World, p: Person, cause: string) {
 export function succeed(w: World, dead: Person) {
   const heirs = bloodLiving(w);
   if (heirs.length === 0) {
-    w.over = { m: w.m, reason: `${w.surname} hanedanının yaşayan son ferdi de öldü. Ocak söndü.` };
-    log(w, w.over.reason, 'son');
+    // Ocak sönmez: uzak bir akraba çıkagelir, ama miras büyük ölçüde dağılır
+    const sex = 'E';
+    const kin = makePerson(w, { sex, b: w.m - rint(w, 22, 34) * 12 - rint(w, 0, 11), last: w.surname, blood: true, inHH: true });
+    kin.sk.tarim = clamp(Math.round(gauss(w, 35, 10)), 5, 80);
+    kin.sk.ticaret = clamp(Math.round(gauss(w, 15, 8)), 0, 60);
+    kin.job = defaultJob(w, kin);
+    const loss = Math.round(Math.max(0, w.hh.cash) * 0.45);
+    w.hh.cash -= loss;
+    w.dirty = Math.round(w.dirty * 0.5);
+    w.gang = Math.floor(w.gang / 2);
+    w.flags.namBonus = Number(w.flags.namBonus || 0) - 5;
+    setPlayer(w, kin);
+    log(w, `${fullName(dead)} ardında kan bağı kimse bırakmadan öldü. Cenazeye ${pick(w, ['Erzurum', 'Sivas', 'Konya', 'Malatya', 'Kayseri'])}'dan amcazadelerden ${fullName(kin)} geldi ve ocağı devraldı. Ortada kalan mirasın ${loss} lirası alacaklılara ve el altından dağıldı.`, 'miras');
     return;
   }
   const heir = P(w, w.heirId);
@@ -205,6 +217,11 @@ export function monthlyLife(w: World) {
     if (chance(w, 0.022)) {
       const s = makeSpouseFor(w, p, false);
       const wasIn = p.inHH;
+      if (wasIn) {
+        // Hanedeki evlilik: düğün kararını aile verir
+        if (!w.cards.some((c) => c.id === 'fa_dugun')) weddingCard(w, p, s);
+        continue;
+      }
       marry(w, p, s);
       if (wasIn || p.inHH) {
         log(w, `${fullName(p)}, ${fullName(s)} ile evlendi.${!p.inHH ? ' Gelin gitti.' : ''}`, 'evlilik');
