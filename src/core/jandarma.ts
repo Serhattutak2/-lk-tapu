@@ -91,7 +91,55 @@ export function resolveKomutan(w: World, id: string, k: string): boolean {
     }
     return true;
   }
+  if (id === 'kmt_sir') {
+    if (k === 'sakla') {
+      w.flags.kmtSir = true;
+      log(w, `${kmtAd(w)}'in sırrı bir kenara yazıldı; günü gelince kullanılacak.`, 'olay');
+    } else if (k === 'ihbar') {
+      w.flags.namBonus = Number(w.flags.namBonus || 0) + 2;
+      newKomutan(w);
+      log(w, `İhbar Ankara'ya ulaştı; komutan görevden alındı. Yerine ${kmtAd(w)} geldi.`, 'olay');
+    }
+    return true;
+  }
   return false;
+}
+
+/** Komutanın sırrını öğrenme fırsatı: kahvede kulağa fısıldanan bir söz */
+export function secretCard(w: World): boolean {
+  if (!w.flags.kmtAd || kmtSecret(w) || w.flags['kmtSirSor' + w.flags.kmtAd]) return false;
+  const p = (w.hh.biz.kahve ? 0.006 : 0.002) + (w.gang >= 3 ? 0.002 : 0);
+  if (!chance(w, p)) return false;
+  w.flags['kmtSirSor' + w.flags.kmtAd] = true;
+  const sir = pick(w, ['kasabada büyük bir kumar borcu var', 'el koyduğu malların bir kısmını kendisi satıyor', 'evli olduğu halde ilçede gizli bir ikinci hayatı var', 'askerden kaçan yeğenini saklıyor']);
+  pushCard(w, {
+    id: 'kmt_sir',
+    text: `Kahvede kulağına fısıldadılar: ${kmtAd(w)}'in ${sir}. Kanıtı da bulunur.`,
+    opts: [{ t: 'Bir kenara yaz, günü gelince kullan', k: 'sakla' }, { t: "Ankara'ya ihbar et, komutan gitsin", k: 'ihbar' }, { t: 'Duymamış ol', k: 'yok' }],
+  });
+  return true;
+}
+
+/** Komutanı adamlara izletip sırrını bulmak (Yeraltı sekmesi) */
+export function kmtFollow(w: World): { ok: boolean; msg: string } {
+  if (!w.flags.kmtAd) return { ok: false, msg: 'Karakolda komutan yok.' };
+  if (w.gang < 1) return { ok: false, msg: 'Komutanı izletecek bir adamın yok.' };
+  if (kmtSecret(w)) return { ok: false, msg: 'Sırrı zaten biliyorsun.' };
+  if (w.flags['kmtTakip' + w.flags.kmtAd]) return { ok: false, msg: 'Bu komutan zaten izlendi.' };
+  const c = L(w, 1500);
+  if (w.hh.cash + w.dirty < c) return { ok: false, msg: `${fmt(c)} lira gerekir.` };
+  payDirtyFirst(w, c);
+  w.flags['kmtTakip' + w.flags.kmtAd] = true;
+  w.flags.kmtBilinen = true;
+  if (chance(w, 0.55)) {
+    w.flags.kmtSir = true;
+    return { ok: true, msg: `Adamların ${kmtAd(w)}'in karanlık bir sırrını buldu. Baskında şantaj seçeneği açıldı.` };
+  }
+  if (chance(w, 0.3)) {
+    w.heat = clamp(w.heat + 10, 0, 100);
+    return { ok: false, msg: 'Adamın komutanı izlerken fark edildi. Jandarma huylandı.' };
+  }
+  return { ok: false, msg: 'Komutan temiz çıktı; bir şey bulunamadı.' };
 }
 
 /** Komutanla ilgili oyuncu eylemleri (Yeraltı sekmesi) */
@@ -118,6 +166,8 @@ export function raidOpts(w: World, bc: number, labFound: boolean): { t: string; 
   if (w.hh.cash + w.dirty >= bc) o.push({ t: `Komutana zarf ver (${fmt(bc)} lira)${z}`, k: 'rusvet' });
   if (w.pol.seat || nufuz(w) >= 40) o.push({ t: `Nüfuzunu kullan: ilçedeki tanıdıkları ara${w.pol.seat ? ' (makamın var)' : ''}`, k: 'nufuz' });
   o.push({ t: `Avukat tut, aramanın usulsüz olduğunu söyle (${fmt(L(w, 1200))} lira)`, k: 'avukat' });
+  if (kmtSecret(w)) o.push({ t: 'Şantaj: sırrını bildiğini kulağına fısılda', k: 'santaj' });
+  if (w.gang >= 2) o.push({ t: `Gözdağı ver: adamlarınla karakolun önünde bekle (${w.gang} adam)`, k: 'tehdit' });
   return o;
 }
 
@@ -150,6 +200,32 @@ export function resolveRaidSpecial(w: World, k: string, bribe: number): RaidOutc
     }
     w.heat = clamp(w.heat + 12, 0, 100);
     log(w, `Aranan tanıdıklar telefonu açmadı. ${kmtAd(w)} bunu da dosyaya yazdı.`, 'olay');
+    return 'agir';
+  }
+  if (k === 'santaj') {
+    if (chance(w, 0.85)) {
+      w.flags.kmtBizim = Number(w.flags.kmtBitis || w.m + 36);
+      w.flags.kmtDost = 100;
+      w.heat = clamp(w.heat * 0.4, 0, 100);
+      log(w, `${kmtAd(w)}'in yüzü bembeyaz oldu. Tutanak yırtıldı. Bundan sonra karakolda senin adamın var.`, 'olay');
+      return 'kapandi';
+    }
+    w.flags.kmtSir = false;
+    w.flags.kmtHuy = 'hirsli';
+    w.heat = clamp(w.heat + 20, 0, 100);
+    log(w, `Şantaj tutmadı: komutan sırrını önceden amirlerine kendisi açmış. Artık sana kişisel kini var.`, 'olay');
+    return 'agir';
+  }
+  if (k === 'tehdit') {
+    const p = clamp((h === 'rusvetci' ? 0.6 : h === 'hirsli' ? 0.3 : 0.25) + w.gang * 0.03, 0.1, 0.8);
+    if (chance(w, p)) {
+      w.heat = clamp(w.heat + 10, 0, 100);
+      w.flags.kmtDost = clamp(kmtDost(w) - 20, -100, 100);
+      log(w, `${kmtAd(w)} karakolun önündeki kalabalığı görünce geri adım attı. Tutanak "bir şey bulunamadı" diye yazıldı. Ama geri adım atan bir gün öç alır.`, 'olay');
+      return 'kapandi';
+    }
+    w.heat = clamp(w.heat + 30, 0, 100);
+    log(w, `Gözdağı ters tepti: komutan ilçeden takviye istedi, dosyana "devlete direnme" de eklendi.`, 'olay');
     return 'agir';
   }
   if (k === 'avukat') {

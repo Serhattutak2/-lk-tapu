@@ -11,7 +11,7 @@ import { payDirtyFirst } from './baron';
 import { has, policeFactor } from './era';
 import { jailYears } from './events';
 import { makeSpouseFor, marry } from './life';
-import { kmtFactor, monthlyKomutan, raidOpts, resolveRaidSpecial } from './jandarma';
+import { kmtFactor, monthlyKomutan, raidOpts, resolveRaidSpecial, secretCard } from './jandarma';
 
 /** Ağanın kira evi için üst sınır (temel lira). */
 export const RENT_CAP = 110;
@@ -76,6 +76,7 @@ export function crimeCards(w: World): boolean {
 
   // Jandarma baskını
   if (monthlyKomutan(w)) return true;
+  if (secretCard(w)) return true;
   const raidP = (Math.max(0, w.heat - 12) / 100 * 0.09 + (evidence ? 0.004 : 0)) * policeFactor(w) * kmtFactor(w) * (w.pol.seat === 'vekil' ? 0.5 : 1);
   if (w.heat > 12 && chance(w, raidP)) {
     if (!evidence) {

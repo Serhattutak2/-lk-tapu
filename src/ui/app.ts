@@ -12,7 +12,7 @@ import type { Pick } from './map';
 import { BASE_CAP, buildRoom, canBuild, capacity, crowded, residents, roomPrice, ROOMS, SLOTS } from '../core/home';
 import { AGIL_PRICE, buildLab, buyAgil, buyRaw, cevdetPay, hamPrice, hapPrice, hireCevdet, LAB_LEVELS, labCapacity, labPrice, labSkill, labWorkers, moveStash, paketPrice, sellProduct, siteOk, SITES, unlocked } from '../core/lab';
 import { attackRival, doRivalMove, feudLabel, gangPay, lockedOut, rivalMoves, rP, scuffle, targets, setLock } from '../core/feud';
-import { HUY_AD, kmtAd, kmtDost, kmtFactor, kmtGift, kmtHuy, kmtKnown, kmtOurs, ozelTim } from '../core/jandarma';
+import { HUY_AD, kmtAd, kmtDost, kmtFactor, kmtFollow, kmtGift, kmtHuy, kmtKnown, kmtOurs, ozelTim } from '../core/jandarma';
 import { buyCityHome, buyFac, CITY, FACS, facIncome, facPrice, hire, HOMES, homePrice, launderCap, launderFee, moveToCity, setFacMgr, takeTurf, underTitle } from '../core/baron';
 import type { DInv, DistId, FacId, TechId } from '../core/types';
 import { buyTech, eraOf, TECHS, techPrice } from '../core/era';
@@ -43,6 +43,7 @@ export const NEWS = {
     ['Çeteyi yenmek artık bir şeye yarıyor', 'Her kazanılan sokak savaşında çetenin bir mahallesi sana geçer. Çete dağılınca bütün mahalleleri senin olur, kalan adamları ya yanına alırsın ya haraç ödetirsin. Yıllar sonra yeni ve daha güçlü bir çete gelir. Yeni en yüksek unvan: Çukurkent\'in Babası.'],
     ['Çeteye karşı yeni yollar', 'Makamın ya da karakolda adamın varsa çeteyi polise satabilirsin; yeterince adamın varsa liderlerini şehirden sürersin.'],
     ['Koyun sürüsü', 'Ahır ve ağıl kadar koyun besle: baharda kuzu, yazın süt, haziranda yün, kışın yem. Ailede çoban varsa tam verim. Kurbanda sürüden kesersin, kurtlar kışın sürüye dadanır. Koyunlar haritada avlunun önünde otluyor.'],
+    ['Komutana şantaj ve gözdağı', 'Komutanın sırrını öğren: kahvede kulağına fısıldanır, adamlarına izletirsin ya da Kara Rıza\'nın defterinden çıkar. Baskında şantajla tutanağı yırttırır, komutanı kendi adamın yaparsın. Adamın varsa karakolun önünde gözdağı da verebilirsin; ters tepebilir.'],
     ['Yeni ekinler', 'Tütün (çok el ister, Tekel iyi para verir) ve 1950\'den sonra ayçiçeği. İkisinin de fiyatı her yıl değişiyor.'],
     ['Soy kütüğü', 'Aile sekmesinde nesil nesil bütün hanedan: kim ne zaman doğdu, kim ne zaman göçtü. Köyde yaptırdığın ek evler de haritada avlunun yanında görünüyor.'],
   ] as [string, string][],
@@ -750,8 +751,9 @@ export class App {
       ${w.crew?.gone ? `<p class="note">${esc(w.crew.name)} dağıldı. ${Number(w.flags.ceteHarac || 0) > w.m ? 'Kalanları sana haraç ödüyor. ' : ''}Boşluk uzun sürmez; ${CITY}'e yeni bir çete gelecek.</p>` : ''}
       <div class="group">Karakol komutanı</div>
       ${w.flags.kmtAd ? `<p class="note"><b>${esc(kmtAd(w))}</b>${kmtKnown(w) ? `, ${esc(HUY_AD[kmtHuy(w)])}` : ' — nasıl biri olduğunu henüz bilmiyorsun'}.${kmtOurs(w) ? ' Artık senin adamın.' : kmtDost(w) >= 40 ? ' Seninle arası iyi.' : ''}${ozelTim(w) ? ' Bölgede özel tim var; baskınlar sık.' : ''} Baskın ihtimaline etkisi: ${kmtFactor(w) < 0.9 ? 'düşük' : kmtFactor(w) > 1.15 ? 'yüksek' : 'orta'}.</p>
+      <div class="btnrow"><button class="small" data-kmt="follow"${w.gang ? '' : ' disabled'}>Adamlarına izlet, sırrını bul (${lira(1500 * infl(w.m))})</button>${w.flags.kmtSir ? '<span class="badge hasta">Sırrını biliyorsun</span>' : ''}</div>
       <div class="btnrow"><button class="small" data-kmt="gift">Komutana zarf götür (${lira(Math.round(600 * infl(w.m)))})</button></div>
-      <p class="note">Dürüst komutana zarf işe yaramaz, dikkat çeker. Rüşvetçi komutan dostun olur, baskınları azaltır.</p>` : '<p class="note">Karakolda henüz tanıdığın yok.</p>'}
+      <p class="note">Dürüst komutana zarf işe yaramaz, dikkat çeker. Rüşvetçi komutan dostun olur, baskınları azaltır. Sırrını bilirsen baskında şantajla komutanı kendi adamın yaparsın. Kara Rıza'nın defterinde de komutanların sırları yazılı.</p>` : '<p class="note">Karakolda henüz tanıdığın yok.</p>'}
       <div class="group">${r.gone ? 'Köyde rakip aile yok' : esc(rP(w))}</div>
       ${r.gone ? `<p class="note">${esc(String(w.flags.yokEdilen || ''))} köyden silindi. Boşluk uzun sürmez; yeni bir aile gelecek.</p>` : `
       <div class="labor"><span>${esc(feudLabel(r.feud))}</span><div class="meter heat"><i style="width:${Math.round(r.feud)}%"></i></div></div>
@@ -879,7 +881,7 @@ export class App {
     panel.querySelectorAll<HTMLButtonElement>('[data-attack]').forEach((b) => (b.onclick = act(() => this.toast(attackRival(w).msg))));
     panel.querySelectorAll<HTMLButtonElement>('[data-clash]').forEach((b) => (b.onclick = act(() => this.toast(scuffle(w)))));
     panel.querySelectorAll<HTMLButtonElement>('[data-rk]').forEach((b) => (b.onclick = act(() => this.toast(doRivalMove(w, b.dataset.rk!, nam(w)).msg))));
-    panel.querySelectorAll<HTMLButtonElement>('[data-kmt]').forEach((b) => (b.onclick = act(() => this.toast(kmtGift(w).msg))));
+    panel.querySelectorAll<HTMLButtonElement>('[data-kmt]').forEach((b) => (b.onclick = act(() => this.toast((b.dataset.kmt === 'follow' ? kmtFollow(w) : kmtGift(w)).msg))));
     panel.querySelectorAll<HTMLButtonElement>('[data-fac]').forEach((b) => (b.onclick = act(() => this.toast(buyFac(w, b.dataset.fac as FacId).msg))));
     panel.querySelectorAll<HTMLSelectElement>('[data-facmgr]').forEach((sel) => {
       sel.onchange = act(() => setFacMgr(w, sel.dataset.facmgr as FacId, sel.value || null));
