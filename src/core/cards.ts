@@ -1,5 +1,6 @@
 // Olay kartları: oyuncudan karar isteyen anlar.
 // Kartlar World içinde düz veri olarak durur; seçenekleri RESOLVE tablosundan çözülür.
+import { koyCards, resolveKoy } from './koyhayati';
 import { questCards, resolveQuest } from './quests';
 import { komsuCards, resolveKomsu } from './komsu';
 import { newsCards, resolveNews } from './news';
@@ -137,7 +138,7 @@ export function resolveCard(w: World, uid: number, k: string) {
     resolveJobCard(w, c.id, k);
     if (!w.cards.length) jobCards(w); // sıradaki kişiyi hemen sor
   }
-  else if (!resolveCrime(w, c, k) && !resolveLab(w, c.id, k) && !resolveFeud(w, c.id, c.pid, k, c.data) && !resolveBaron(w, c.id, k) && !resolveDeniz(w, c.id, k) && !resolveEvent(w, c.id, k, c.pid, c.data) && !resolveJobCard(w, c.id, k) && !resolveHistory(w, c.id, k, c.pid, c.data) && !resolveKomutan(w, c.id, k) && !resolveYear(w, c.id, k) && !resolveQuest(w, c.id, k, c.pid, c.data) && !resolveKomsu(w, c.id, k) && !resolveNews(w, c.id, k) && !resolveAga(w, c.id, k) && !resolveRivalCard(w, c.id, k, c.pid) && !resolveFamily(w, c.id, k, c.pid, c.data) && !resolveDistrict(w, c.id, k, c.data)) resolveHome(w, c.id, c.pid, k, c.data);
+  else if (!resolveCrime(w, c, k) && !resolveLab(w, c.id, k) && !resolveFeud(w, c.id, c.pid, k, c.data) && !resolveBaron(w, c.id, k) && !resolveDeniz(w, c.id, k) && !resolveEvent(w, c.id, k, c.pid, c.data) && !resolveJobCard(w, c.id, k) && !resolveHistory(w, c.id, k, c.pid, c.data) && !resolveKomutan(w, c.id, k) && !resolveYear(w, c.id, k) && !resolveQuest(w, c.id, k, c.pid, c.data) && !resolveKomsu(w, c.id, k) && !resolveKoy(w, c.id, k, c.pid) && !resolveNews(w, c.id, k) && !resolveAga(w, c.id, k) && !resolveRivalCard(w, c.id, k, c.pid) && !resolveFamily(w, c.id, k, c.pid, c.data) && !resolveDistrict(w, c.id, k, c.data)) resolveHome(w, c.id, c.pid, k, c.data);
   if (w.hh.cash < 0) {
     // Kasada olmayan para ağadan borç alınır
     w.hh.debt += -w.hh.cash;
@@ -169,6 +170,7 @@ export function generateCards(w: World) {
   if (homeCards(w)) return;
   if (familyCards(w)) return;
   if (komsuCards(w)) return;
+  if (koyCards(w)) return;
 
   // Görücü
   if (pa >= 17 && pa <= 50 && !alive(P(w, pl.sp)) && (!pl.sp || w.flags.gorucuIste) && chance(w, w.flags.gorucuIste ? 1 : 0.08)) {
@@ -271,6 +273,15 @@ export function gurbetReturns(w: World) {
     p.away = undefined;
     p.awayUntil = undefined;
     const ist = w.flags['gyer' + p.id] === 'ist';
+    const fut = w.flags['gyer' + p.id] === 'fut';
+    if (fut) {
+      const sav = Math.round(rint(w, 60, 120) * 200 * infl(w.m));
+      w.hh.cash += sav;
+      p.job = 'yok';
+      w.flags.namBonus = Number(w.flags.namBonus || 0) + 4;
+      log(w, `${fullName(p)} futbolu bıraktı ve köye döndü; yanında ${sav} lira birikim ve bir dolap dolusu kupa getirdi.`, 'para');
+      continue;
+    }
     if (chance(w, ist ? 0.93 : 0.85)) {
       const sav = Math.round(rint(w, 30, 60) * (ist ? 35 : 100) * infl(w.m));
       w.hh.cash += sav;

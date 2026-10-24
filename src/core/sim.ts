@@ -79,10 +79,12 @@ function economy(w: World, harvestBonus: number) {
   const cash0 = w.hh.cash;
   for (const p of mem) {
     if (p.away === 'gurbet') {
-      const ist = w.flags['gyer' + p.id] === 'ist';
-      const v = Math.round(rint(w, 25, 40) * (ist ? 4 : 10) * infl(w.m)); // her ay gelen mark ya da havale
+      const gy = w.flags['gyer' + p.id];
+      const ist = gy === 'ist';
+      const fut = gy === 'fut';
+      const v = Math.round(rint(w, 25, 40) * (fut ? 32 : ist ? 4 : 10) * infl(w.m)); // her ay gelen mark, havale ya da futbolcu maaşı
       w.hh.cash += v;
-      lines.push({ t: `${p.first}: ${ist ? 'İstanbul' : 'Almanya'}'dan gelen para`, v });
+      lines.push({ t: fut ? `${p.first}: futbolcu maaşından gönderdiği` : `${p.first}: ${ist ? 'İstanbul' : 'Almanya'}'dan gelen para`, v });
       continue;
     }
     if (p.away) continue;
@@ -287,7 +289,7 @@ export function botTurn(w: World) {
       const want = defaultJob(w, P(w, c.pid)!);
       k = (c.opts.find((o) => o.k === want) ?? c.opts[0]).k;
     }
-    if (c.id.startsWith('ev:') || c.id.startsWith('hi:') || c.id.startsWith('q:') || c.id.startsWith('km_') || c.id.startsWith('nw_') || c.id.startsWith('fa_') || c.id.startsWith('kmt') || c.id.startsWith('rk_') || c.id.startsWith('ce_') || c.id === 'plan_hashas' || c.id === 'ruhsat_red') {
+    if (c.id.startsWith('ev:') || c.id.startsWith('hi:') || c.id.startsWith('q:') || c.id.startsWith('kv_') || c.id.startsWith('km_') || c.id.startsWith('nw_') || c.id.startsWith('fa_') || c.id.startsWith('kmt') || c.id.startsWith('rk_') || c.id.startsWith('ce_') || c.id === 'plan_hashas' || c.id === 'ruhsat_red') {
       const cheap = c.opts.filter((o) => !/\(\d/.test(o.t) && !/lira\)/.test(o.t));
       const pool = w.hh.cash > 20000 * infl(w.m) ? c.opts : cheap.length ? cheap : c.opts;
       k = pool[Math.floor(rint(w, 0, pool.length - 1))].k;

@@ -47,6 +47,13 @@ export const GOALS: Goal[] = [
   { id: 'konak2', ad: 'Ağanın konağında oturmak', grup: 'Mülk', pts: 20, ok: (w) => !!w.flags.agaKonak },
   { id: 'suru', ad: 'Kırk koyunluk sürü', grup: 'Mülk', pts: 10, ok: (w) => (w.hh.suru || 0) >= 40 },
   { id: 'baba', ad: 'Şehrin Babası', grup: 'Yeraltı', pts: 60, ok: (w) => Number(w.flags.ceteYok || 0) >= 1 && w.city.turf >= 4 && !!w.city.net },
+  { id: 'hikaye10', ad: 'Hikâyeler kitabı: on hikâye', grup: 'Aile', pts: 25, ok: (w) => Object.keys(w.flags).filter((k) => /^q_[a-z]+$/.test(k) && Number(w.flags[k]) < 0).length >= 10 },
+  { id: 'futbolcu', ad: 'Ailenin futbolcusu', grup: 'Aile', pts: 15, ok: (w) => !!w.flags.futbolcu },
+  { id: 'sanatci', ad: 'Plak kapağında aile adı', grup: 'Aile', pts: 15, ok: (w) => !!w.flags.sanatci },
+  { id: 'muze', ad: 'Müzede aile adı', grup: 'Nam', pts: 15, ok: (w) => !!w.flags.muze },
+  { id: 'koop', ad: 'Kooperatif başkanı', grup: 'Siyaset', pts: 10, ok: (w) => w.flags.koop === 'baskan' },
+  { id: 'fab10', ad: 'On fabrika', grup: 'Şehir', pts: 30, ok: (w) => Object.values(w.city.facs).reduce((a, f) => a + (f?.n ?? 1), 0) >= 10 },
+  { id: 'filo', ad: 'Beş gemilik filo', grup: 'Şehir', pts: 30, ok: (w) => (w.city.deniz?.gemi || 0) >= 5 },
   { id: 'nam200', ad: 'Nam 200', grup: 'Nam', pts: 30, ok: (w) => nam(w) >= 200 },
 ];
 

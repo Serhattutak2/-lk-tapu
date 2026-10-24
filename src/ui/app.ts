@@ -37,13 +37,12 @@ import { agaOlu, konakBizim } from '../core/aga';
 const SAVE_KEY = 'ilktapu_v1';
 const NEWS_KEY = 'ilktapu_haber';
 export const NEWS = {
-  v: '1.1',
+  v: '1.2',
   items: [
-    ['Herkesin işini sen seçiyorsun', 'Artık kimse kendiliğinden bir işe atanmıyor. Oyun başında ailenin her ferdi için, sonra büyüyen çocuk, okulu bitiren, askerden, gurbetten ya da cezaevinden dönen, eve gelen gelin için bir meslek kartı geliyor. Her seçenekte işin ne getirdiği yazıyor; istersen "bir yıl boşta kalsın" da diyebilirsin.'],
-    ['Sınırsız fabrika', 'Aynı fabrikadan istediğin kadar kurabilirsin; her yenisi daha pahalı. Yeni fabrikalar: şarap, konserve, çimento, turizm oteli, liman işletmesi, özel banka, gazete ve televizyon. Her biri kendi yılında açılıyor.'],
-    ['Korumalar ve kundaklama', 'Rakip çete fabrikalarını gece ateşe vermeye çalışıyor. Adamlarını fabrikaların önüne koruma koy; koruma ne kadar çoksa saldırı o kadar boşa çıkar. Yanan fabrika onarılana kadar para getirmez; Şehir sekmesinden yeniden ayağa kaldırırsın.'],
-    ['Ticaret filosu', 'Liman işletmen varsa istediğin kadar yük gemisi alabilirsin. Gemiler fabrikalarının buğdayını, tekstilini, şarabını taşır; navlun temiz para olarak kasaya girer. Fırtınalar da olur.'],
-    ['Ev artık satın alınıyor ve zor', 'Köyde de şehirde de evler satın alınıyor, sınırsız; ama pahalı ve her yenisi daha pahalı. Şehirde fazla konutların kiraya verilip her ay kira getiriyor. Köydeki ana ev de eskisinden pahalı.'],
+    ['Hikâyeler kitabı: 18 yeni hikâye', 'Kasaba takımından İstanbul\'a giden futbolcu torun. Düğünde türkü söyleyip plak dolduran kız. Tarlandan çıkan höyük ve müzedeki mühür. Başkanı olduğun köy kooperatifi ve hesap dedikodusu. Kuraklıkta açtırdığın kuyu ve suyunu isteyen komşular. Kapına gelen Balkan göçmenleri. Babanın Sakarya\'daki siper arkadaşı. Almanya\'dan gelen gelin Ingrid. Üniversite sınavı ve dershane. Torunun internetten köy ürünü satması. Kurbanlık olan Pamuk adlı kuzu. Köy çeşmesi ve türküsü. Ölüm döşeğindeki büyüğün gümüş kuşağı. Gezgin âşığın destanı. İstanbul\'a gecekonduya giden oğul. Evlat edinilen Yetim Ali. Televizyon bilgi yarışması. Yayla göçü.'],
+    ['Köy hayatının takvimi', 'Her yıl dönen gelenekler: Hıdrellez gecesi, harman şenliğinde karakucak güreşi, kış gecelerinde masal ve sıra gezmesi, kurak baharda yağmur duası, sünnet düğünleri, bağ bozumu, seyyar satıcı, tipide kapanan yollar.'],
+    ['Hikâyelerin kalıcı izleri', 'Kuyu kuraklığı yarıya indirir, kooperatif ve göçmen ortağın dükkânı her ay pay getirir, futbolcu torun maaşından para yollar, internet dükkânı köye iş verir, Ankara\'daki dost seçimlerde arkanda durur.'],
+    ['Yedi yeni hedef', 'On hikâye, ailenin futbolcusu, plak kapağında aile adı, müzede aile adı, kooperatif başkanlığı, on fabrika, beş gemilik filo.'],
   ] as [string, string][],
 };
 const SPEEDS = [0, 4200, 1500, 500];

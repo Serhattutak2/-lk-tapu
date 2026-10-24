@@ -272,7 +272,7 @@ function harvest(w: World, p: Parcel, lines: LedgerLine[]) {
   const c = p.crop!;
   const d = CROPS[c];
   const best = Math.max(0, ...workersOf(w, p).map((q) => q.sk.tarim));
-  const rainF = 1 + (w.rain - 1) * d.rainSens * (w.tech?.sulama ? 0.5 : 1);
+  const rainF = 1 + (w.rain - 1) * d.rainSens * (w.tech?.sulama || w.flags.kuyu ? 0.5 : 1);
   const mult = (niyetIs(w, 'toprak') ? 1.08 : 1) * (w.tech?.pulluk ? 1.06 : 1) * qualityOf(w, p) * Math.pow(careOf(p), 1.2) * clamp(rainF, 0.3, 1.5) * (p.mode === 'yarici' ? 0.95 : 0.88 + best / 400) * clamp(gauss(w, 1, 0.08), 0.75, 1.25) * (w.flags.dolu === p.id ? 0.55 : 1);
   if (w.flags.dolu === p.id) w.flags.dolu = '';
   const weather = w.rain < 0.8 ? ', kurak yıl' : w.rain > 1.2 ? ', bereketli yıl' : '';

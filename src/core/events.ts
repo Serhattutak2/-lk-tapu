@@ -359,7 +359,7 @@ const EVENTS: Ev[] = [
       w.pol.tried = w.m;
       if (k !== 'evet') return;
       payDirtyFirst(w, L(w, 90000));
-      if (chance(w, clamp(0.15 + nam(w) / 300 + w.city.turf * 0.05, 0.15, 0.8))) {
+      if (chance(w, (w.flags.ankaraDost ? 0.1 : 0) + clamp(0.15 + nam(w) / 300 + w.city.turf * 0.05, 0.15, 0.8))) {
         w.pol.seat = 'belediye';
         w.pol.until = w.m + 60;
         log(w, `Belediye başkanı seçildin. Çukurkent'in anahtarları artık senin cebinde.`, 'olay');
@@ -379,7 +379,7 @@ const EVENTS: Ev[] = [
       if (k !== 'evet') return;
       payDirtyFirst(w, L(w, 250000));
       w.heat = clamp(w.heat + 10, 0, 100);
-      if (chance(w, clamp(0.2 + nam(w) / 600, 0.2, 0.7))) {
+      if (chance(w, (w.flags.ankaraDost ? 0.1 : 0) + clamp(0.2 + nam(w) / 600, 0.2, 0.7))) {
         w.pol.seat = 'vekil';
         w.pol.until = w.m + 48;
         log(w, `Milletvekili seçildin. Artık meclis kürsüsünden konuşuyorsun; dokunulmazlık kalkanın var.`, 'olay');

@@ -9,24 +9,9 @@ import { newParcel } from './fields';
 import { PLOTS, plotPrice } from './plots';
 import { addHatir, hatir } from './komsu';
 
-const L = (w: World, n: number) => Math.round(n * infl(w.m));
-const fmt = (n: number) => Math.round(n).toLocaleString('tr-TR');
-const nb = (w: World, n: number) => (w.flags.namBonus = Number(w.flags.namBonus || 0) + n);
-const step = (w: World, q: string) => Number(w.flags['q_' + q] || 0);
-const setStep = (w: World, q: string, s: number, wait = 0) => {
-  w.flags['q_' + q] = s;
-  w.flags['q_' + q + '_m'] = w.m + wait;
-};
-const due = (w: World, q: string) => step(w, q) > 0 && w.m >= Number(w.flags['q_' + q + '_m'] || 0);
-
-interface Built { text: string; opts: { t: string; k: string }[]; pid?: string; data?: Record<string, unknown> }
-interface Quest {
-  id: string;
-  ad: string;
-  start: (w: World) => boolean;
-  steps: Record<number, (w: World) => Built | null>;
-  res: (w: World, s: number, k: string, pid: string | undefined, d: Record<string, unknown>) => void;
-}
+import { due, fmt, L, nb, setStep, step } from './qutil';
+import type { Quest } from './qutil';
+import { monthlyQuests2, QUESTS2 } from './quests2';
 
 const hamzaPlot = (w: World) => PLOTS.findIndex((p, i) => p.owner === 'Deli Hamza' && w.plots[i]?.o === 'koy' && !w.flags['sahip' + i]);
 function giftPlot(w: World, i: number, why: string) {
@@ -37,7 +22,7 @@ function giftPlot(w: World, i: number, why: string) {
   log(w, `${first ? 'İLK TAPU: ' : ''}${PLOTS[i].yer} mevkiindeki 5 dönüm ${why}`, 'tapu');
 }
 
-export const QUESTS: Quest[] = [
+const BASE: Quest[] = [
   {
     id: 'vasiyet',
     ad: 'Deli Hamza\'nın vasiyeti',
@@ -340,6 +325,7 @@ export const QUESTS: Quest[] = [
     },
   },
 ];
+export const QUESTS: Quest[] = [...BASE, ...QUESTS2];
 const QMAP = Object.fromEntries(QUESTS.map((q) => [q.id, q]));
 
 export function questCards(w: World): boolean {
@@ -381,6 +367,7 @@ export const doneQuests = (w: World) => QUESTS.filter((q) => step(w, q.id) < 0).
 
 /** Aylık: Deli Hamza'nın bakımı, demiryolu gündeliği */
 export function monthlyQuests(w: World, lines: { t: string; v: number }[]) {
+  monthlyQuests2(w, lines);
   if (w.flags.hamzaBakim) {
     const c = L(w, 35);
     w.hh.cash -= c;
