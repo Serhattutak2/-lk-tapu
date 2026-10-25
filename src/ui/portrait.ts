@@ -96,11 +96,13 @@ export function sceneSVG(id: string, w: World): string {
   const scene = (() => {
     if (id.startsWith('kan') || id.includes('cenaze') || id.startsWith('ag_olum') || id.includes('yas')) return 'cenaze';
     if (id.startsWith('baskin') || id.startsWith('kmt') || id.startsWith('narkotik')) return 'karakol';
-    if (id.startsWith('dugun') || id.startsWith('fa_dugun') || id.startsWith('kv_sunnet') || id.startsWith('gorucu') || id.startsWith('kacirma')) return 'dugun';
-    if (id.startsWith('kv_') || id.startsWith('km_') || id.startsWith('kacakci')) return 'kahve';
-    if (id.startsWith('ce_') || id.startsWith('cete') || id.startsWith('it_') || id.startsWith('rk_') || id.startsWith('kursun')) return 'gece';
-    if (id.startsWith('tapu') || id.startsWith('q:') || id.startsWith('hi:')) return 'tarla';
-    return 'sehir';
+    if (id.startsWith('dugun') || id.startsWith('fa_dugun') || id.startsWith('kv_sunnet') || id.startsWith('kv_hidrellez') || id.startsWith('kv_bag') || id.startsWith('gorucu') || id.startsWith('kacirma') || id.includes('dugun')) return 'dugun';
+    if (id === 'kacakci' || id.startsWith('km_') || id.startsWith('kv_masal') || id.startsWith('kv_seyyar') || id === 'tuccar' || id === 'ev:kahve') return 'kahve';
+    if (id.startsWith('ce_') || id.startsWith('cete') || id.startsWith('it_') || id.startsWith('rk_') || id.startsWith('kursun') || id.startsWith('soygun')) return 'gece';
+    // Köy olayları: köy manzarası (tarla); yalnızca açıkça şehir/yeraltı olanlar şehir alır
+    if (id.startsWith('tapu') || id.startsWith('q:') || id.startsWith('hi:') || id.startsWith('ev:') || id.startsWith('kv_') || id.startsWith('fa_') || id.startsWith('ag_') || id.startsWith('ruhsat') || id.startsWith('plan_') || id.startsWith('meslek:') || id.startsWith('hastalik') || id.startsWith('hashas')) return 'tarla';
+    if (id.startsWith('nw_') || id.startsWith('dz_') || id === 'it_konsey') return 'sehir';
+    return 'tarla';
   })();
   if (scene === 'cenaze') {
     for (let i = 0; i < 5; i++) g(8 + i * 7, 9, 3, 6, '#2a2630'); // yas tutanlar
