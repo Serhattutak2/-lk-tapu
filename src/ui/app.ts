@@ -43,11 +43,10 @@ import { agaOlu, konakBizim } from '../core/aga';
 const SAVE_KEY = 'ilktapu_v1';
 const NEWS_KEY = 'ilktapu_haber';
 export const NEWS = {
-  v: '2.1',
+  v: '2.2',
   items: [
-    ['Herkesin bir yüzü var', 'Ailenin her ferdinin yaşına, cinsiyetine, huyuna ve çağına göre oluşan bir piksel portresi var. Yaşlanınca saçı ağarır, hastalanınca solar, küsünce surat asar. Aile listesinde ve olay kartlarında görünür.'],
-    ['Olaylar artık bir sahneyle geliyor', 'Her olay kartının başında küçük bir resim var: cenaze, gece baskını, düğün, kahvehane, karakol, tarla, şehir. Gece olayları kararır, gündüz açılır.'],
-    ['Sıradaki hedef', 'Haritanın altında artık seni yönlendiren bir şerit var: o an ne yapman gerektiğini söyler. Borcunu kapat, ilk tapunu al, Rıza\'yı devir, şehre taşın, Konsey\'e otur... Amaçsız dolaşmak yok.'],
+    ['Harita canlandı', 'Aylar ilerlerken olanlar artık haritanın üstünde kısa kısa uçuşuyor: doğum, ölüm, düğün, tapu, hasat, kan davası. Oyun aktığında ne olduğunu görüyorsun.'],
+    ['Herkesin bir mizacı var', 'Aile listesinde her kişinin huyu yazıyor: zeki, güçlü, hırslı, sadık, dik başlı... Varis ve sağ kol seçerken buna dikkat et; hırslı ve dik başlı biri bir gün gözünü tahtına dikebilir.'],
   ] as [string, string][],
 };
 const SPEEDS = [0, 4200, 1500, 500];
@@ -249,6 +248,7 @@ export class App {
     const w = this.w;
     if (!w || !canAdvance(w) || this.ceremony) return;
     if (w.flags.deneme) this.denemeTopUp(w);
+    const n0 = w.chronicle.length;
     advance(w);
     if (w.flags.deneme) this.denemeTopUp(w);
     save(w);
@@ -256,7 +256,25 @@ export class App {
       this.stop();
       return this.showEnd();
     }
+    this.flashEvents(w, n0);
     this.refresh();
+  }
+
+  /** Haritanın üstünde, geçen ayda olanları kısa kısa uçuran etiketler. */
+  private flashEvents(w: World, since: number) {
+    const wrap = this.root.querySelector('.mapwrap');
+    if (!wrap) return;
+    const fresh = w.chronicle.slice(since).filter((e) => ['olum', 'dogum', 'evlilik', 'tapu', 'miras', 'olay'].includes(e.k) || (e.k === 'para' && Math.abs(0) === 0));
+    const picked = fresh.slice(-2);
+    const ICON: Record<string, string> = { olum: '🕯', dogum: '🍼', evlilik: '💍', tapu: '📜', miras: '⚜', olay: '⚡', para: '💰', is: '🔨' };
+    picked.forEach((e, i) => {
+      const el = document.createElement('div');
+      el.className = 'mapev k-' + e.k;
+      el.innerHTML = `<b>${ICON[e.k] ?? '•'}</b> ${esc(e.t.length > 64 ? e.t.slice(0, 62) + '…' : e.t)}`;
+      el.style.animationDelay = i * 0.5 + 's';
+      wrap.appendChild(el);
+      setTimeout(() => el.remove(), 4200 + i * 500);
+    });
   }
 
   private denemeTopUp(w: World) {
@@ -346,6 +364,16 @@ export class App {
   }
 
   // ---------- Aile ----------
+  private mizac(p: Person): string {
+    const t = p.tr;
+    const tags: string[] = [];
+    if (t.zeka >= 8) tags.push('zeki'); else if (t.zeka <= 3) tags.push('saf');
+    if (t.beden >= 8) tags.push('güçlü'); else if (t.beden <= 3) tags.push('çelimsiz');
+    if (t.hirs >= 8) tags.push('hırslı'); else if (t.hirs <= 3) tags.push('kanaatkâr');
+    if (t.uyum >= 8) tags.push('sadık'); else if (t.uyum <= 3) tags.push('dik başlı');
+    return tags.slice(0, 2).join(', ');
+  }
+
   private personHTML(p: Person, inHouse: boolean): string {
     const w = this.w!;
     const pl = P(w, w.playerId);
@@ -390,7 +418,7 @@ export class App {
       <div class="face">${portraitSVG(p, w, 48)}</div>
       <div class="pbody">
       <div class="prow"><span class="pname">${esc(fullName(p))}</span>${badges}</div>
-      <div class="prow"><span class="prel">${isMe ? '' : esc(rel) + ', '}${a} yaşında</span></div>
+      <div class="prow"><span class="prel">${isMe ? '' : esc(rel) + ', '}${a} yaşında${this.mizac(p) ? ' · ' + esc(this.mizac(p)) : ''}</span></div>
       <div class="pmeta"><span class="hp${hp < 40 ? ' low' : ''}" title="Sağlık ${hp}"><i style="width:${hp}%"></i></span>${jobCtl}
         ${canHeir ? `<button class="small" data-heir="${p.id}">Varis yap</button>` : ''}</div>
       ${sk ? `<div class="skills">${sk}</div>` : ''}
