@@ -89,6 +89,11 @@ Bu dosya projeyi başka bir yapay zekâ ya da geliştiriciyle sürdürmek için 
 - Meslekler: `JobDef.sex` cinsiyet kısıtı (inşaat erkek); yeni çağ meslekleri `memur` (1930+), `elektrikci` (1955+/elektrik), `hemsire` (1945+).
 - Arayüz: haritada kalıcı/kapatılabilir olay akışı (`.feed`, `flashEvents`), Görev sekmesi (`challengeHTML`), haritadan işletme/tarla sorumlusu ve ekim planı atama (renderSheet `data-smgr/data-swork/data-splan`).
 
+## 3.2 — bölüm derinleştirme
+- Tarla: 3 yeni ürün (`misir` 1945+, `patates` 1935+, `susam` 1930+) — types.ts CropId, fields.ts CROPS, market.ts KEYS/MK_AD. Parsel başına gübre (`Parcel.fert`, one-season ×1.2) ve sulama (`Parcel.sulak`, kalıcı ×1.08 + kuraklık koruması) — `fertilize`/`irrigate`, fiyatlar `fertPrice`/`irrigatePrice`. UI: parsel panelinde "Toprak işleri".
+- Mülk: `core/ciftlik.ts` — süt ineği/tavuk/arı (CIFTLIK, sayılı), meyve/ceviz/bostan (BAHCE, tekil). `monthlyCiftlik` aylık temiz gelir (köyde yaşarken). UI: estateHTML `ciftlikHTML`, flags cf_<id>/bh_<id>.
+- Yeraltı: `core/yeralti.ts` — tefecilik/kumar (0-4 seviye) + muhbir ağı (0/1). `monthlyYeralti` kara para + ısı/korku etkisi; muhbir ısıyı söndürür. `yer_borc` kartı (ödeyemeyen borçlu). UI: underHTML `yeraltiHTML`, flags yr_<id>. Kurulum kara kasadan da ödenebilir.
+
 ## Sıradaki (Faz 1)
 - Fabrika seviye kademeleri (1:10 → 1:50 çalışan, 5-6 seviye) ve firma adı koyma.
 - Şehirde mafya tırmanışı (küçük çete → büyük → daha büyük) ve "her şeye kolay izin" dengesinin sıkılaştırılması.

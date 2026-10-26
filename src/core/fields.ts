@@ -33,6 +33,9 @@ export const CROPS: Record<CropId, CropDef> = {
   tutun: { id: 'tutun', ad: 'Tütün', sow: [4], grow: 4, need: 2.5, seed: 90, value: 3100, rainSens: 0.8, desc: 'Mayısta fide dikilir, eylülde kırılır, dizilip kurutulur. Çok el ister; Tekel iyi para verir.' },
   aycicegi: { id: 'aycicegi', ad: 'Ayçiçeği', sow: [3], grow: 5, need: 1, seed: 55, value: 2050, rainSens: 0.9, from: 1950, desc: 'Nisanda ekilir, eylülde biçilir. Yağ fabrikaları her yıl daha çok istiyor.' },
   hashas: { id: 'hashas', ad: 'Haşhaş', sow: [9, 10], grow: 8, need: 2, seed: 60, value: 3300, rainSens: 1, desc: 'Ruhsatla ekilir, hasat devlete teslim edilir. Kara para da buradan çıkar.' },
+  susam: { id: 'susam', ad: 'Susam', sow: [4, 5], grow: 4, need: 1, seed: 45, value: 1950, rainSens: 0.45, from: 1930, desc: 'Mayısta ekilir, eylülde toplanır. Sıcağı ve kuraklığı sever; az iş, orta para.' },
+  patates: { id: 'patates', ad: 'Patates', sow: [2, 3], grow: 4, need: 1.5, seed: 110, value: 2350, rainSens: 0.9, from: 1935, desc: 'Baharda dikilir, yazın sökülür. Tohumu pahalı ama bereketli; pazarda her zaman alıcısı var.' },
+  misir: { id: 'misir', ad: 'Mısır', sow: [3, 4], grow: 5, need: 1.5, seed: 60, value: 2150, rainSens: 1.25, from: 1945, desc: 'Nisanda ekilir, eylülde kırılır. Su ister; yem ve nişasta fabrikaları her yıl daha çok alıyor.' },
 };
 
 /** Haşhaş: tam bakımda bir parselden çıkan çuval, devlet ve kaçak fiyatı (1965 lirası). */
@@ -111,7 +114,8 @@ export function hasRuhsat(w: World): boolean {
 export function expectedValue(w: World, p: Parcel): number {
   if (!p.crop) return 0;
   const share = p.mode === 'yarici' ? YARICI_SHARE : 1;
-  return Math.round(CROPS[p.crop].value * Math.pow(careOf(p), 1.2) * qualityOf(w, p) * infl(w.m) * share * saleBonus(w) * mk(w, p.crop) * (w.tech?.pulluk ? 1.06 : 1) * (niyetIs(w, 'toprak') ? 1.08 : 1));
+  const fertMul = (p.fert !== undefined && p.fert >= p.sownM) ? 1.2 : 1;
+  return Math.round(CROPS[p.crop].value * Math.pow(careOf(p), 1.2) * qualityOf(w, p) * infl(w.m) * share * saleBonus(w) * mk(w, p.crop) * (w.tech?.pulluk ? 1.06 : 1) * (niyetIs(w, 'toprak') ? 1.08 : 1) * fertMul * (p.sulak ? 1.08 : 1));
 }
 
 export const YARICI_SHARE = 0.4;
@@ -173,6 +177,37 @@ export function setHired(w: World, parcelId: string, n: number): boolean {
   if (!p) return false;
   p.hired = clamp(Math.round(n), 0, 4);
   return true;
+}
+
+/** Gübre fiyatı (parsel başına, o sezon için). */
+export const fertPrice = (w: World) => Math.round(260 * infl(w.m));
+/** Sulama kanalı fiyatı (parsele kalıcı). */
+export const irrigatePrice = (w: World) => Math.round(3200 * infl(w.m));
+
+export function fertilize(w: World, parcelId: string): { ok: boolean; msg: string } {
+  const p = w.hh.parcels.find((x) => x.id === parcelId);
+  if (!p) return { ok: false, msg: 'Parsel yok.' };
+  if (!p.crop) return { ok: false, msg: 'Önce bu parsele ekim yap.' };
+  if (p.mode === 'yarici') return { ok: false, msg: 'Yarıcıdaki tarlaya gübreyi ortak atar.' };
+  if (p.fert !== undefined && p.fert >= p.sownM) return { ok: false, msg: 'Bu sezon zaten gübrelendi.' };
+  const c = fertPrice(w);
+  if (w.hh.cash < c) return { ok: false, msg: `Gübre için ${c.toLocaleString('tr-TR')} lira gerekiyor.` };
+  w.hh.cash -= c;
+  p.fert = w.m;
+  log(w, `${p.no}. parsele gübre atıldı (${c.toLocaleString('tr-TR')} lira); bu sezon verim ~%20 artar.`, 'is');
+  return { ok: true, msg: 'Gübre atıldı.' };
+}
+
+export function irrigate(w: World, parcelId: string): { ok: boolean; msg: string } {
+  const p = w.hh.parcels.find((x) => x.id === parcelId);
+  if (!p) return { ok: false, msg: 'Parsel yok.' };
+  if (p.sulak) return { ok: false, msg: 'Bu parselde zaten sulama kanalı var.' };
+  const c = irrigatePrice(w);
+  if (w.hh.cash < c) return { ok: false, msg: `Kanal için ${c.toLocaleString('tr-TR')} lira gerekiyor.` };
+  w.hh.cash -= c;
+  p.sulak = true;
+  log(w, `${p.no}. parsele sulama kanalı çekildi (${c.toLocaleString('tr-TR')} lira); artık kuraklık onu az etkiler, verim kalıcı yüksek.`, 'is');
+  return { ok: true, msg: 'Sulama kanalı açıldı.' };
 }
 
 // ---------- Aylık işleyiş ----------
@@ -272,9 +307,11 @@ function harvest(w: World, p: Parcel, lines: LedgerLine[]) {
   const c = p.crop!;
   const d = CROPS[c];
   const best = Math.max(0, ...workersOf(w, p).map((q) => q.sk.tarim));
-  const rainF = 1 + (w.rain - 1) * d.rainSens * (w.tech?.sulama || w.flags.kuyu ? 0.5 : 1);
-  const mult = (niyetIs(w, 'toprak') ? 1.08 : 1) * (w.tech?.pulluk ? 1.06 : 1) * qualityOf(w, p) * Math.pow(careOf(p), 1.2) * clamp(rainF, 0.3, 1.5) * (p.mode === 'yarici' ? 0.95 : 0.88 + best / 400) * clamp(gauss(w, 1, 0.08), 0.75, 1.25) * (w.flags.dolu === p.id ? 0.55 : 1);
+  const rainF = 1 + (w.rain - 1) * d.rainSens * (w.tech?.sulama || w.flags.kuyu || p.sulak ? 0.5 : 1);
+  const fertMul = (p.fert !== undefined && p.fert >= p.sownM) ? 1.2 : 1;
+  const mult = (niyetIs(w, 'toprak') ? 1.08 : 1) * (w.tech?.pulluk ? 1.06 : 1) * fertMul * (p.sulak ? 1.08 : 1) * qualityOf(w, p) * Math.pow(careOf(p), 1.2) * clamp(rainF, 0.3, 1.5) * (p.mode === 'yarici' ? 0.95 : 0.88 + best / 400) * clamp(gauss(w, 1, 0.08), 0.75, 1.25) * (w.flags.dolu === p.id ? 0.55 : 1);
   if (w.flags.dolu === p.id) w.flags.dolu = '';
+  p.fert = undefined; // gübrenin etkisi bu hasatla biter
   const weather = w.rain < 0.8 ? ', kurak yıl' : w.rain > 1.2 ? ', bereketli yıl' : '';
   if (c === 'hashas') {
     const sacks = Math.max(1, Math.round(HASHAS_SACKS * mult));

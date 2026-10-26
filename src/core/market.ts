@@ -6,8 +6,8 @@ import { year } from './calendar';
 import { log } from './people';
 
 export type MkId = CropId | 'hayvan';
-const KEYS: MkId[] = ['bugday', 'arpa', 'nohut', 'pancar', 'tutun', 'aycicegi', 'hayvan'];
-export const MK_AD: Record<MkId, string> = { bugday: 'Buğday', arpa: 'Arpa', nohut: 'Nohut', pancar: 'Şeker pancarı', tutun: 'Tütün', aycicegi: 'Ayçiçeği', hashas: 'Haşhaş', hayvan: 'Kurbanlık ve hayvan' };
+const KEYS: MkId[] = ['bugday', 'arpa', 'nohut', 'pancar', 'tutun', 'aycicegi', 'misir', 'patates', 'susam', 'hayvan'];
+export const MK_AD: Record<MkId, string> = { bugday: 'Buğday', arpa: 'Arpa', nohut: 'Nohut', pancar: 'Şeker pancarı', tutun: 'Tütün', aycicegi: 'Ayçiçeği', misir: 'Mısır', patates: 'Patates', susam: 'Susam', hashas: 'Haşhaş', hayvan: 'Kurbanlık ve hayvan' };
 
 /** Tarihî şoklar: yıl aralığı ve ürün başına çarpan */
 interface Shock { from: number; to: number; ad: string; f: Partial<Record<MkId, number>>; }

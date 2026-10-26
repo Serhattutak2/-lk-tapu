@@ -13,7 +13,7 @@ export type TechId = 'pulluk' | 'gramofon' | 'dikis' | 'kinin' | 'penisilin' | '
 export type DistId = 'liman' | 'carsi' | 'sanayi' | 'gecekondu' | 'yenisehir' | 'kordon';
 export type DInv = 'kahvehane' | 'galeri' | 'otel' | 'pavyon' | 'site';
 export type FacId = 'un' | 'nakliye' | 'tekstil' | 'gazino' | 'insaat' | 'sarap' | 'konserve' | 'cimento' | 'liman' | 'otel' | 'banka' | 'medya';
-export type CropId = 'bugday' | 'arpa' | 'nohut' | 'pancar' | 'hashas' | 'tutun' | 'aycicegi';
+export type CropId = 'bugday' | 'arpa' | 'nohut' | 'pancar' | 'hashas' | 'tutun' | 'aycicegi' | 'misir' | 'patates' | 'susam';
 
 export interface Traits {
   zeka: number;  // 1-10
@@ -87,6 +87,8 @@ export interface Parcel {
   lastNeed: number;     // geçen ayki iş gücü ihtiyacı
   lastGot: number;      // geçen ay gelen iş gücü
   plan?: CropId | null; // ekim planı: boş kalınca kendiliğinden ekilir
+  fert?: number;        // gübre atıldığı ay (p.sownM'den büyükse o sezon verim artar)
+  sulak?: boolean;      // bu parsele sulama kanalı çekildi: kuraklığa dayanıklı, verim yüksek
   hist: { m: number; crop: CropId; v: number; t: string }[];
 }
 

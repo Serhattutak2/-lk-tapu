@@ -31,6 +31,8 @@ import { monthlyHostility, monthlyStories } from './events';
 import { monthlyGoals } from './goals';
 import { monthlyChallenges } from './challenges';
 import { monthlyHarac } from './harac';
+import { monthlyCiftlik } from './ciftlik';
+import { monthlyYeralti } from './yeralti';
 import { DISTS, menNeeded, monthlyDistricts, takeDistrict } from './district';
 import { buildRoom, canBuild, crowded, monthlyHome, roomPrice } from './home';
 import { AGIL_PRICE, buildLab, buyAgil, buyRaw, cevdetPay, hamPrice, hireCevdet, labPrice, moveStash, sellProduct, unlocked } from './lab';
@@ -110,6 +112,7 @@ function economy(w: World, harvestBonus: number) {
   monthlyFields(w, lines);
   monthlyAmbar(w);
   monthlySuru(w, lines);
+  monthlyCiftlik(w, lines);
   monthlyKomsu(w, lines);
   monthlyQuests(w, lines);
   {
@@ -127,6 +130,7 @@ function economy(w: World, harvestBonus: number) {
   monthlyFeud(w, lines);
   monthlyBaron(w, lines);
   monthlyHarac(w, lines);
+  monthlyYeralti(w, lines);
   monthlyDistricts(w, lines);
   monthlyStories(w, lines);
   cityEvents(w);
