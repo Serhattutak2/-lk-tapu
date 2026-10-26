@@ -46,10 +46,17 @@ import { agaOlu, konakBizim } from '../core/aga';
 const SAVE_KEY = 'ilktapu_v1';
 const NEWS_KEY = 'ilktapu_haber';
 export const NEWS = {
-  v: '2.2',
+  v: '3.0',
   items: [
-    ['Harita canlandı', 'Aylar ilerlerken olanlar artık haritanın üstünde kısa kısa uçuşuyor: doğum, ölüm, düğün, tapu, hasat, kan davası. Oyun aktığında ne olduğunu görüyorsun.'],
-    ['Herkesin bir mizacı var', 'Aile listesinde her kişinin huyu yazıyor: zeki, güçlü, hırslı, sadık, dik başlı... Varis ve sağ kol seçerken buna dikkat et; hırslı ve dik başlı biri bir gün gözünü tahtına dikebilir.'],
+    ['Lakabın oynayışına göre oluşur', 'Köy sana yaptıklarına göre bir lakap takar: "Deli", "Kanlı", "Hacı", "Kaçakçı", "Toprak"... Hiç kaçak iş yapmadıysan kimse sana "Kaçakçı" demez. Açılışta aşiret adını da sen koyuyorsun.'],
+    ['Soyadını sen seçiyorsun', '1934 Soyadı Kanunu geldiğinde aile kütüğüne hangi soyadının yazılacağını sen belirliyorsun.'],
+    ['Bildirimler artık kaçmıyor', 'Olaylar haritanın yanında kalıcı bir akışta birikiyor; sen ✕\'e basana kadar duruyorlar.'],
+    ['60+ görev ve jeton', 'Yeni Görev sekmesi: ilk tapudan Büyük Baba\'ya, temiz aileden kan davasına onlarca hedef. Tamamladıkça jeton ve nam kazanıyorsun.'],
+    ['Sözleşmeli işler', 'Ara ara, ailenin yıllarca kazanacağı parayı tek seferde vaat eden tehlikeli teklifler gelir. Gönderdiğin kişi hapse girebilir ya da dönmeyebilir.'],
+    ['Kan davası torunlarla döner', 'Sildiğin bir aile yok olup gitmez; yıllar sonra torunları intikam için, daha öfkeli döner. Rakip artık kendi de saldırır, barışı o da teklif eder.'],
+    ['Kara Rıza\'yı devirince yeri senin', 'Şebekeyi devraldıktan sonra mallar artık "Kara Rıza\'ya" değil senin şebekene gider. Köyde sözün geçince köylüden haraç toplamaya başlayabilirsin.'],
+    ['Silahlanma, kasa ve meslekler', 'Mülk\'ten silahlanıp çelik kasa alabilirsin; baskınlarda elin güçlenir. Kadın-erkek meslek kuralları ve çağa göre açılan yeni meslekler (memur, elektrikçi, hemşire) eklendi.'],
+    ['Haritadan görevlendirme', 'Kahve, değirmen ya da tarlaya haritadan dokunup başına kimi koyacağını ve ne ekileceğini oracıkta seçebilirsin.'],
   ] as [string, string][],
 };
 const SPEEDS = [0, 4200, 1500, 500];
@@ -1188,9 +1195,13 @@ export class App {
       const st = w.plots[i];
       if (st.o === 'biz') {
         const f = w.hh.parcels.find((x) => x.id === st.pid)!;
+        const fcand = hhMembers(w).filter((q) => !q.away && age(w, q) >= 11 && (q.job === 'tarla' || q.job === 'kendi' || q.job === 'yok' || q.job === 'coban' || q.parcel === f.id));
+        const planNow = f.plan ?? f.crop ?? null;
         body = `<h3>${esc(d.yer)}, ${f.no}. parselimiz</h3>
           <p>5 dönüm, verim ${Math.round(d.q * 100)}. ${f.mode === 'yarici' ? 'Yarıcıda.' : f.crop ? `${esc(CROPS[f.crop].ad)}, hasat ${dateText(harvestMonth(f))}, bakım %${Math.round(careOf(f) * 100)}.` : 'Boş.'} Çalışan: ${workersOf(w, f).length} kişi${f.hired ? `, ${f.hired} ırgat` : ''}.</p>
-          <div class="btnrow"><button class="primary sm" data-sheet="goto:${f.id}">Tarlayı yönet</button></div>`;
+          <label class="field"><span>Bu tarlaya kimi koşalım</span><select data-swork="${f.id}"><option value="">Kimse (ırgatla)</option>${fcand.map((q) => `<option value="${q.id}"${q.parcel === f.id && q.job === 'kendi' ? ' selected' : ''}>${esc(q.first)}, tarım ${Math.round(q.sk.tarim)}</option>`).join('')}</select></label>
+          <label class="field"><span>Ekim planı</span><select data-splan="${f.id}">${(Object.keys(CROPS) as CropId[]).map((c) => `<option value="${c}"${planNow === c ? ' selected' : ''}>${esc(CROPS[c].ad)}</option>`).join('')}</select></label>
+          <div class="btnrow"><button class="primary sm" data-sheet="goto:${f.id}">Tarlayı ayrıntılı yönet</button></div>`;
       } else {
         const n = nam(w);
         const ch = offerChance(w, i, n);
@@ -1241,13 +1252,30 @@ export class App {
         const own = !!w.hh.biz[b];
         const why = bizAvailable(w, b);
         const mgr = bizManager(w, b);
+        const cand = hhMembers(w).filter((q) => !q.away && age(w, q) >= 16);
         body = `<h3>${esc(d.ad)}${own ? ', bizim' : ''}</h3><p>${esc(d.desc)}</p>
-          ${own ? `<p>Bu ay kazancı ${lira(bizIncome(w, b))}. ${mgr ? `Başında ${esc(mgr.first)} var.` : 'Başında kimse yok; Mülk sekmesinden birini görevlendir.'}</p><div class="btnrow"><button class="small" data-sheet="tab:mulk">Mülk sekmesi</button></div>`
+          ${own ? `<p>Bu ay kazancı ${lira(bizIncome(w, b))}.</p>
+            <label class="field"><span>Başına kim geçsin</span><select data-smgr="${b}"><option value="">Başında kimse yok</option>${cand.map((q) => `<option value="${q.id}"${mgr?.id === q.id ? ' selected' : ''}>${esc(q.first)}, ticaret ${Math.round(q.sk.ticaret)}</option>`).join('')}</select></label>`
           : why && why !== 'Zaten senin.' ? `<p class="note">${esc(why)}</p>` : `<div class="btnrow"><button class="primary sm" data-sheet="biz:${b}"${w.hh.cash < bizPrice(w, b) ? ' disabled' : ''}>Devral (${lira(bizPrice(w, b))})</button></div>`}`;
       }
     }
     el.innerHTML = `<div class="sheet" role="dialog" aria-label="Seçili yer"><button class="close" data-sheet="close" aria-label="Kapat">Kapat</button>${body}</div>`;
     el.querySelectorAll<HTMLButtonElement>('[data-sheet]').forEach((b) => (b.onclick = () => this.sheetAct(b.dataset.sheet!)));
+    el.querySelectorAll<HTMLSelectElement>('[data-smgr]').forEach((s) => (s.onchange = () => {
+      setManager(w, s.dataset.smgr as BizId, s.value || null);
+      save(w); this.renderSheet(); this.renderPanel(true);
+    }));
+    el.querySelectorAll<HTMLSelectElement>('[data-swork]').forEach((s) => (s.onchange = () => {
+      const fid = s.dataset.swork!;
+      if (s.value) assignWorker(w, s.value, fid);
+      else { const cur = Object.values(w.people).find((q) => q.job === 'kendi' && q.parcel === fid); if (cur) setJob(w, cur.id, 'tarla'); }
+      save(w); this.renderSheet(); this.renderPanel(true);
+    }));
+    el.querySelectorAll<HTMLSelectElement>('[data-splan]').forEach((s) => (s.onchange = () => {
+      setPlan(w, s.dataset.splan!, s.value === '-' ? null : (s.value as CropId));
+      this.toast(`Ekim planı: ${CROPS[s.value as CropId].ad.toLowerCase()}.`);
+      save(w); this.renderSheet(); this.renderPanel(true);
+    }));
   }
 
   private sheetAct(a: string) {

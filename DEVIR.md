@@ -77,7 +77,23 @@ Bu dosya projeyi başka bir yapay zekâ ya da geliştiriciyle sürdürmek için 
 - Tarla sekmesinde toplu yönetim: boş parsellere toplu ekim, gündelikçileri dağıtma, ırgat, yarıcıya verme.
 - Aynı ay biten haşhaş hasatları tek kartta birleşir.
 
+## 3.0 güncellemesi (yeni dosyalar ve sistemler)
+- `core/lakap.ts` — oyun tarzına göre lakap (`epithet`), lakaplı ad (`lakapName`) ve aşiret adı (`asiret`). Kaçakçılık yapmadıysan "Kaçakçı" denmez.
+- `core/challenges.ts` — 62 görev (`CHALLENGES`), jeton parası (`flags.jeton`), `monthlyChallenges`. Tamamlanınca `gorev` kartı. Temiz yol görevleri `flags.ilkKirliY` ile izlenir.
+- `core/teklif.ts` — sözleşmeli iş teklifleri (`teklif_tasi`/`teklif_is`): büyük tek seferlik ödeme; gönderilen kişi (adam/aile ferdi) hapse girebilir ya da ölebilir. `flags.teklifNext` bekleme.
+- `core/harac.ts` — köyün sahibi olunca köylüden haraç (`flags.koyHarac`: -1 almaz, 1 ölçülü, 2 sert). `canTribute`, `monthlyHarac`, `harac_basla` kartı.
+- Açılış: aşiret adı + ad soruluyor (`NewGameOpts.asiret`, `flags.asiret`). Soyadı Kanunu (1934) kartında oyuncu soyadını seçiyor; kan bağı olan herkesin `last` değişiyor.
+- Kan davası: silinen aile `flags.silinenAdlar`; yıllar sonra torunları intikam için döner (`arrive` içinde). `flags.baskinSayi`, `silinenAile`, `barisSayi`, `exMuhtar/exBelediye/exVekil` sayaçları.
+- Kara Rıza: şebekeyi devralınca (`city.net`) alıcı adı "Kara Rıza" yerine "şebeken" olur (fields.ts `aliciAd/aliciDat`, app.ts aynısı).
+- Silahlanma `flags.silah` (0-3) baskın/pusu gücünü artırır (feud.ts); çelik kasa `flags.kasa` rüşveti ve göze batan servet ısısını düşürür (crime.ts). Mülk sekmesinden alınır.
+- Meslekler: `JobDef.sex` cinsiyet kısıtı (inşaat erkek); yeni çağ meslekleri `memur` (1930+), `elektrikci` (1955+/elektrik), `hemsire` (1945+).
+- Arayüz: haritada kalıcı/kapatılabilir olay akışı (`.feed`, `flashEvents`), Görev sekmesi (`challengeHTML`), haritadan işletme/tarla sorumlusu ve ekim planı atama (renderSheet `data-smgr/data-swork/data-splan`).
+
 ## Sıradaki (Faz 1)
+- Fabrika seviye kademeleri (1:10 → 1:50 çalışan, 5-6 seviye) ve firma adı koyma.
+- Şehirde mafya tırmanışı (küçük çete → büyük → daha büyük) ve "her şeye kolay izin" dengesinin sıkılaştırılması.
+- Jeton harcama (TOKİ/ödül sistemi).
+- Köy haritasının daha zengin/büyük çizimi.
 - Capacitor ile iOS sarmalayıcı ve GitHub Actions derlemesi (Miras FC'deki `ios.yml` örnek alınacak).
 - Aile ağacı ekranı, varis adaylarının karşılaştırılması.
 - Köyde yer değiştirme (ilçeye/şehre göç), kahvehane ve bağlantı ağı, lisanslı haşhaş üretimi.

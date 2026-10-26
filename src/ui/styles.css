@@ -59,7 +59,7 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
 
 .mapwrap { position: relative; overflow: hidden; background: #1f2a20; }
 .mapwrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
-.clock { position: absolute; right: 10px; bottom: 10px; display: flex; gap: 6px; }
+.clock { position: absolute; right: 10px; bottom: 10px; display: flex; gap: 6px; z-index: 6; }
 .clock button { min-width: 44px; height: 40px; border-radius: 6px; border: 1px solid rgba(230, 214, 166, .25); background: rgba(42, 33, 23, .82); font-weight: 700; }
 .clock button[aria-pressed='true'] { background: var(--wheat); color: var(--soil); border-color: var(--wheat); }
 .who { pointer-events: none; position: absolute; left: 10px; top: 10px; background: rgba(42, 33, 23, .82); border-radius: 6px; padding: 6px 10px; font-size: 14px; max-width: 60%; }
@@ -235,7 +235,7 @@ details summary.group { cursor: pointer; }
 .doc.news { max-height: 88vh; overflow-y: auto; }
 
 /* ---------- 0.5: şehir, kara kasa ---------- */
-.maptog { position: absolute; right: calc(10px + var(--safe-r)); top: 10px; display: flex; gap: 4px; }
+.maptog { position: absolute; right: calc(10px + var(--safe-r)); top: 10px; display: flex; gap: 4px; z-index: 6; }
 .maptog button { background: rgba(42, 33, 23, .85); border: 1px solid rgba(230, 214, 166, .25); border-radius: 6px; padding: 6px 12px; font-weight: 700; font-size: 14px; }
 .maptog button[aria-pressed='true'] { background: var(--wheat); color: var(--soil); border-color: var(--wheat); }
 .stat.dirty b { color: #b9a2d6; }
@@ -282,7 +282,7 @@ details summary.group { cursor: pointer; }
 /* 2.0: müzik, deneme modu, kademe şeridi */
 .chk { display: flex; align-items: flex-start; gap: 8px; margin: 8px 0; font-size: 14px; color: var(--straw-dim); text-align: left; }
 .chk input { margin-top: 3px; width: 18px; height: 18px; accent-color: var(--wheat); flex: none; }
-.muzik { position: absolute; left: 10px; bottom: 10px; width: 38px; height: 38px; border-radius: 9px; border: 1px solid var(--soil-3); background: rgba(20,18,24,.6); color: var(--straw-dim); font-size: 18px; }
+.muzik { position: absolute; left: 10px; bottom: 10px; width: 38px; height: 38px; border-radius: 9px; border: 1px solid var(--soil-3); background: rgba(20,18,24,.6); color: var(--straw-dim); font-size: 18px; z-index: 6; }
 .muzik.on { color: var(--wheat); border-color: var(--wheat); }
 .stat.deneme b { color: var(--copper); }
 .kademe { display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: linear-gradient(90deg, var(--soil-2), transparent); border-left: 3px solid var(--copper); margin: 2px 0 10px; border-radius: 0 8px 8px 0; }
@@ -314,8 +314,8 @@ details summary.group { cursor: pointer; }
 
 /* 2.2: harita olay etiketleri */
 .mapwrap { position: relative; overflow: hidden; }
-.feed { position: absolute; left: 8px; right: 8px; bottom: 50px; display: flex; flex-direction: column; gap: 5px;
-  max-height: 60%; overflow-y: auto; pointer-events: none; z-index: 4; }
+.feed { position: absolute; left: 8px; right: auto; bottom: 58px; width: min(64%, 300px); display: flex; flex-direction: column; gap: 5px;
+  max-height: 46%; overflow-y: auto; pointer-events: none; z-index: 4; }
 .feedclear { align-self: flex-end; pointer-events: auto; cursor: pointer; font-size: 11px; color: var(--straw);
   background: rgba(20,18,24,.9); border: 1px solid var(--soil-3); border-radius: 7px; padding: 3px 9px; }
 .mapev { display: flex; align-items: flex-start; gap: 6px; pointer-events: auto;
