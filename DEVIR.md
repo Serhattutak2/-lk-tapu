@@ -92,7 +92,7 @@ Bu dosya projeyi başka bir yapay zekâ ya da geliştiriciyle sürdürmek için 
 ## Sıradaki (Faz 1)
 - Fabrika seviye kademeleri (1:10 → 1:50 çalışan, 5-6 seviye) ve firma adı koyma.
 - Şehirde mafya tırmanışı (küçük çete → büyük → daha büyük) ve "her şeye kolay izin" dengesinin sıkılaştırılması.
-- Jeton harcama (TOKİ/ödül sistemi).
+- (yapıldı 3.1) Jeton harcama: `challenges.ts` ODULLER + `buyOdul`/`ownsOdul`; etkiler flags.odul_<id> ile launder/fabrika/atölye/ölüm/rüşvet/ısı/baskın/toprak alım noktalarında uygulanır. Görev sekmesinde "Jeton ile ödüller".
 - Köy haritasının daha zengin/büyük çizimi.
 - Capacitor ile iOS sarmalayıcı ve GitHub Actions derlemesi (Miras FC'deki `ios.yml` örnek alınacak).
 - Aile ağacı ekranı, varis adaylarının karşılaştırılması.

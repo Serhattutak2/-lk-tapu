@@ -113,7 +113,7 @@ export function attackRival(w: World): { ok: boolean; msg: string } {
   const men = w.gang + Math.min(2, fam);
   if (w.gang < 2) return { ok: false, msg: 'Bu iş için en az iki maaşlı adam gerekir.' };
   w.flags.baskinSayi = Number(w.flags.baskinSayi || 0) + 1;
-  const arm = Number(w.flags.silah || 0);
+  const arm = Number(w.flags.silah || 0) + (w.flags.odul_demir ? 1 : 0);
   const p = clamp(0.3 + 0.07 * men - 0.06 * r.men + (has(w, 'cep') ? 0.08 : 0) + arm * 0.07, 0.1, 0.9);
   r.feud = 100;
   w.heat = clamp(w.heat + 14, 0, 100);
@@ -177,8 +177,9 @@ export function feudCards(w: World): boolean {
   // Pusu: husumet yüksekken
   if (r.feud >= 50) {
     const ts = targets(w);
-    const p = ((r.lock ? 0.008 : 0.035) * (r.feud / 80)) / (1 + w.gang * 0.25);
-    if (ts.length && chance(w, p) && w.gang > 0 && chance(w, 0.45)) {
+    const armP = Number(w.flags.silah || 0) + (w.flags.odul_demir ? 1 : 0);
+    const p = ((r.lock ? 0.008 : 0.035) * (r.feud / 80)) / (1 + w.gang * 0.25 + armP * 0.2);
+    if (ts.length && chance(w, p) && w.gang > 0 && chance(w, 0.45 + armP * 0.12)) {
       w.gang--;
       r.feud = clamp(r.feud + 6, 0, 100);
       log(w, `Pusu: ${rP(w)} yolu kesti, korumalardan biri vuruldu. Aileden kimseye bir şey olmadı.`, 'olay');

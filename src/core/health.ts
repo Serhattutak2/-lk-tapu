@@ -92,9 +92,10 @@ export function resolveSick(w: World, p: Person, k: string, data: Record<string,
 export function eraMortality(w: World, p: Person): number {
   const y = year(w.m);
   const a = age(w, p);
-  if (!has(w, 'penisilin')) return a < 5 ? 1.5 : p.sick ? 1.3 : 1.05;
-  if (y >= 1985) return 0.85;
-  return 1;
+  const od = w.flags.odul_ocak ? 0.82 : 1;
+  if (!has(w, 'penisilin')) return (a < 5 ? 1.5 : p.sick ? 1.3 : 1.05) * od;
+  if (y >= 1985) return 0.85 * od;
+  return 1 * od;
 }
 
 /** Aylık: yazın sıtma, kışın salgın (yalnızca antibiyotik ve sıtma savaşı öncesi daha sık). */

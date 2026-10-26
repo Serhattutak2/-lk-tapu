@@ -27,7 +27,7 @@ export function monthlyCrime(w: World) {
   }
   const yr = year(w.m);
   const illegalGrowing = w.hh.parcels.some((p) => p.illegal && p.crop);
-  w.heat = clamp(w.heat - (has(w, 'dinleme') ? 1.0 : 1.5) - (hhHasJob(w, 'gazeteci') ? 1.2 : 0) - (hhHasJob(w, 'bankaci') ? 0.5 : 0) + (w.hh.stash > 0 ? 0.3 + w.hh.stash * 0.02 : 0) + (illegalGrowing && (mo === 4 || mo === 5) ? 3 : 0), 0, 100);
+  w.heat = clamp(w.heat - (has(w, 'dinleme') ? 1.0 : 1.5) - (hhHasJob(w, 'gazeteci') ? 1.2 : 0) - (hhHasJob(w, 'bankaci') ? 0.5 : 0) - (w.flags.odul_devlet ? 0.8 : 0) + (w.hh.stash > 0 ? 0.3 + w.hh.stash * 0.02 : 0) + (illegalGrowing && (mo === 4 || mo === 5) ? 3 : 0), 0, 100);
   if (!w.flags.kasa && w.hh.cash > 20000 * infl(w.m) && chance(w, 0.02)) w.heat = clamp(w.heat + 4, 0, 100); // göze batan servet (kasa gizler)
 
   // Hapisten çıkış
@@ -56,7 +56,7 @@ const fmt = (n: number) => n.toLocaleString('tr-TR');
 
 export function bribeCost(w: World) {
   // Çelik kasa varsa servetin bir kısmı göz önünde değil; rüşvet pazarlığı daha ucuz.
-  const rate = w.flags.kasa ? 0.16 : 0.25;
+  const rate = (w.flags.kasa ? 0.16 : 0.25) * (w.flags.odul_devlet ? 0.8 : 1);
   return Math.max(Math.round(600 * infl(w.m)), Math.round(w.hh.cash * rate / 100) * 100);
 }
 

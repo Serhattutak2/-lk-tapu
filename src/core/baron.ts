@@ -33,7 +33,7 @@ export function launderCap(w: World): number {
   for (const b of Object.keys(BIZ) as (keyof typeof BIZ)[]) if (w.hh.biz[b]) c += b === 'bakkal' ? 1500 : b === 'kahve' ? 2500 : 4000;
   for (const f of Object.keys(w.city.facs) as FacId[]) if (!facDown(w, f)) c += FACS[f].launder * facN(w, f);
   if (w.flags.medyaVar) c += 0;
-  return Math.round((c * infl(w.m) + distLaunder(w)) * (has(w, 'bilgisayar') ? 1.25 : 1) * (hhHasJob(w, 'bankaci') ? 1.4 : 1));
+  return Math.round((c * infl(w.m) + distLaunder(w)) * (has(w, 'bilgisayar') ? 1.25 : 1) * (hhHasJob(w, 'bankaci') ? 1.4 : 1) * (w.flags.odul_karakutu ? 1.25 : 1));
 }
 export const launderFee = (w: World) => (w.city.facs.gazino ? 0.08 : 0.14) - (has(w, 'kripto') ? 0.04 : 0);
 
@@ -348,7 +348,7 @@ export function facIncome(w: World, f: FacId): number {
   if (hasEngineer(w)) k *= 1.1;
   // Çok fabrikada ölçek: her ek fabrika tam değil, biraz azalan verimle gelir
   const scale = n <= 1 ? 1 : 1 + (n - 1) * 0.8;
-  return Math.round(FACS[f].income * k * scale * infl(w.m) * (niyetIs(w, 'ticaret') ? 1.12 : 1) * (Number(w.flags.salgin || 0) > w.m ? 0.7 : 1));
+  return Math.round(FACS[f].income * k * scale * infl(w.m) * (niyetIs(w, 'ticaret') ? 1.12 : 1) * (Number(w.flags.salgin || 0) > w.m ? 0.7 : 1) * (w.flags.odul_usta ? 1.12 : 1));
 }
 
 export function buyFac(w: World, f: FacId): { ok: boolean; msg: string } {

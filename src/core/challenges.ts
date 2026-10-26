@@ -3,7 +3,7 @@
 //   flags.ch_<id> = tamamlandığı ay   |   flags.jeton = toplam jeton
 import type { World } from './types';
 import { log, hhMembers, bloodLiving, age, P } from './people';
-import { year } from './calendar';
+import { year, infl } from './calendar';
 import { nam } from './assets';
 import { underTitle } from './baron';
 import { pushCard } from './cards';
@@ -140,3 +140,36 @@ export function monthlyChallenges(w: World) {
 export const jeton = (w: World) => Number(w.flags.jeton || 0);
 export const challengeDone = (w: World, id: string) => !!w.flags['ch_' + id];
 export const challengesDoneCount = (w: World) => CHALLENGES.filter((c) => challengeDone(w, c.id)).length;
+
+// ---------- Jeton ödülleri: biriktirdiğin jetonları kalıcı avantaja çevir ----------
+export interface Odul { id: string; ad: string; desc: string; cost: number; }
+export const ODULLER: Odul[] = [
+  { id: 'servet', ad: 'Servet tohumu', desc: 'Bir çuval altın: kasana tek seferlik büyük bir nakit girer (yaklaşık bir buçuk yıllık gelir).', cost: 5 },
+  { id: 'itibar', ad: 'Köklü itibar', desc: 'Köyde adın kalıcı olarak büyür: +12 nam, hiç eksilmez.', cost: 6 },
+  { id: 'toprakgozu', ad: 'Toprak gözü', desc: 'Köylüler ve ağa sana toprak satmaya daha yatkın olur; teklif kabul şansın kalıcı artar.', cost: 7 },
+  { id: 'usta', ad: 'Usta eli', desc: 'Atölye ve fabrikaların kalıcı olarak %12 daha verimli çalışır.', cost: 9 },
+  { id: 'karakutu', ad: 'Kara kutu', desc: 'Aklama kapasiten kalıcı olarak %25 artar: kara paran daha hızlı temizlenir.', cost: 8 },
+  { id: 'ocak', ad: 'Sağlam ocak', desc: 'Ailende ölüm riski kalıcı olarak azalır; ocağın kolay sönmez.', cost: 8 },
+  { id: 'demir', ad: 'Demir yürek', desc: 'Adamların her baskın ve pusuda daha güçlü; kayıp nadir olur (bir seviye silah gibi).', cost: 10 },
+  { id: 'devlet', ad: 'Devlet kapısında dost', desc: 'Jandarmanın dikkati daha hızlı söner, rüşvet pazarlığı kalıcı olarak %20 ucuzlar.', cost: 12 },
+];
+export const ownsOdul = (w: World, id: string) => !!w.flags['odul_' + id];
+
+export function buyOdul(w: World, id: string): { ok: boolean; msg: string } {
+  const d = ODULLER.find((x) => x.id === id);
+  if (!d) return { ok: false, msg: 'Böyle bir ödül yok.' };
+  if (ownsOdul(w, id)) return { ok: false, msg: 'Bu ödülü zaten aldın.' };
+  if (jeton(w) < d.cost) return { ok: false, msg: `${d.cost - jeton(w)} jeton daha gerekiyor.` };
+  w.flags.jeton = jeton(w) - d.cost;
+  w.flags['odul_' + id] = 1;
+  if (id === 'itibar') w.flags.namBonus = Number(w.flags.namBonus || 0) + 12;
+  if (id === 'servet') {
+    const yillik = Math.max((w.lastIncome || 0) * 12, 3000 * infl(w.m) * (1 + w.hh.parcels.length * 0.4));
+    const amt = Math.round(yillik * 1.5 / 500) * 500;
+    w.hh.cash += amt;
+    log(w, `Jeton ödülü: Servet tohumu — kasaya ${amt.toLocaleString('tr-TR')} lira girdi (-${d.cost} jeton).`, 'para');
+  } else {
+    log(w, `Jeton ödülü alındı: ${d.ad} (-${d.cost} jeton).`, 'olay');
+  }
+  return { ok: true, msg: `${d.ad} alındı.` };
+}

@@ -131,7 +131,7 @@ export function sellProduct(w: World): number {
   const lab = w.lab;
   if (!lab || (!lab.prod && !lab.hap)) return 0;
   const qf = 0.7 + lab.q * 0.6;
-  const v = Math.round((lab.prod * paketPrice(w) + lab.hap * hapPrice(w)) * qf * routeBonus(w));
+  const v = Math.round((lab.prod * paketPrice(w) + lab.hap * hapPrice(w)) * qf * routeBonus(w) * (w.flags.odul_usta ? 1.12 : 1));
   w.heat = clamp(w.heat + lab.prod * 2.2 + lab.hap * 3, 0, 100);
   w.dirty += v;
   w.flags.labKazanc = Number(w.flags.labKazanc || 0) + v;

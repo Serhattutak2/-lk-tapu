@@ -36,7 +36,7 @@ import { buildEkEv, EKEV_MAX, ekEvPrice } from '../core/home';
 import { NIYET, niyet } from '../core/yil';
 import { kademe, kademeProgress, korku, korkuLabel, nextKademe, nextObjective, saygi } from '../core/guc';
 import { epithet, asiret } from '../core/lakap';
-import { CHALLENGES, challengeDone, challengesDoneCount, jeton } from '../core/challenges';
+import { CHALLENGES, challengeDone, challengesDoneCount, jeton, ODULLER, ownsOdul, buyOdul } from '../core/challenges';
 import { haracLabel, canTribute } from '../core/harac';
 import { konseyLabel, surgunEt } from '../core/konsey';
 import { sadakat, sagkol, setSagkol, toggleYetki, yetkiVar, YETKI_AD } from '../core/sagkol';
@@ -46,8 +46,9 @@ import { agaOlu, konakBizim } from '../core/aga';
 const SAVE_KEY = 'ilktapu_v1';
 const NEWS_KEY = 'ilktapu_haber';
 export const NEWS = {
-  v: '3.0',
+  v: '3.1',
   items: [
+    ['Jetonları harca', 'Görev sekmesine "Jeton ile ödüller" geldi: biriktirdiğin jetonları kalıcı avantajlara çevir — servet, köklü itibar, usta eli, kara kutu, demir yürek, sağlam ocak, devlet kapısında dost, toprak gözü.'],
     ['Lakabın oynayışına göre oluşur', 'Köy sana yaptıklarına göre bir lakap takar: "Deli", "Kanlı", "Hacı", "Kaçakçı", "Toprak"... Hiç kaçak iş yapmadıysan kimse sana "Kaçakçı" demez. Açılışta aşiret adını da sen koyuyorsun.'],
     ['Soyadını sen seçiyorsun', '1934 Soyadı Kanunu geldiğinde aile kütüğüne hangi soyadının yazılacağını sen belirliyorsun.'],
     ['Bildirimler artık kaçmıyor', 'Olaylar haritanın yanında kalıcı bir akışta birikiyor; sen ✕\'e basana kadar duruyorlar.'],
@@ -956,7 +957,15 @@ export class App {
     const done = challengesDoneCount(w);
     const out: string[] = [];
     out.push(`<div class="jetonbar"><div><b>${jeton(w)}</b> jeton</div><div class="jnote">${done}/${total} görev tamam</div></div>`);
-    out.push(`<p class="note">Görevleri tamamladıkça jeton ve nam kazanırsın. Jeton, hanedanının prestijini gösterir; ileride açılacak ödüllerin anahtarıdır.</p>`);
+    out.push(`<p class="note">Görevleri tamamladıkça jeton ve nam kazanırsın. Jetonlarını aşağıdan kalıcı ödüllere çevirebilirsin.</p>`);
+    // Jeton ödülleri
+    out.push(`<details${jeton(w) > 0 ? ' open' : ''}><summary class="group">Jeton ile ödüller</summary>`);
+    for (const r of ODULLER) {
+      const have = ownsOdul(w, r.id);
+      const can = !have && jeton(w) >= r.cost;
+      out.push(`<div class="asset"><div class="prow"><span class="pname">${esc(r.ad)}</span>${have ? '<span class="badge sen">Alındı</span>' : `<span class="chjeton">${r.cost}◆</span>`}</div><p class="note">${esc(r.desc)}</p>${have ? '' : `<button class="small" data-odul="${r.id}"${can ? '' : ' disabled'}>Al (${r.cost} jeton)</button>`}</div>`);
+    }
+    out.push(`</details>`);
     for (const g of Object.keys(groups)) {
       const list = groups[g];
       const gd = list.filter((c) => challengeDone(w, c.id)).length;
@@ -1169,6 +1178,9 @@ export class App {
       w.hh.cash -= price;
       w.flags.kasa = true;
       this.toast('Çelik kasa alındı.');
+    })));
+    panel.querySelectorAll<HTMLButtonElement>('[data-odul]').forEach((b) => (b.onclick = act(() => {
+      this.toast(buyOdul(w, b.dataset.odul!).msg);
     })));
     panel.querySelectorAll<HTMLButtonElement>('[data-pay]').forEach((b) => (b.onclick = () => {
       const v = b.dataset.pay === 'all' ? w.hh.cash : Number(b.dataset.pay);

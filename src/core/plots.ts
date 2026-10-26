@@ -101,10 +101,11 @@ export function offerChance(w: World, i: number, nam: number): number {
   if (s.sale) return 1;
   if ((s.madM ?? -1) > w.m) return 0;
   if (s.o === 'rakip') return w.rival.feud < 10 && nam >= 30 ? 0.2 : 0;
-  if (s.o === 'aga') return nam >= 40 ? clamp(0.18 + (nam - 40) / 110, 0, 0.6) : 0;
+  const gozu = w.flags.odul_toprakgozu ? 0.12 : 0;
+  if (s.o === 'aga') return nam >= 40 ? clamp(0.18 + (nam - 40) / 110 + gozu, 0, 0.68) : 0;
   // Köylüler: adın büyüdükçe, muhtarlık sendeyse ya da muhtarın gözündeysen daha kolay satarlar
   const muhtar = w.pol?.seat === 'muhtar' ? 0.12 : w.flags.koyTarafi ? 0.06 : 0;
-  return clamp(0.38 + nam / 220 + muhtar + (niyetIs(w, 'toprak') ? 0.08 : 0) + hatirBonus(w, i), 0.2, 0.9);
+  return clamp(0.38 + nam / 220 + muhtar + gozu + (niyetIs(w, 'toprak') ? 0.08 : 0) + hatirBonus(w, i), 0.2, 0.92);
 }
 
 export function offerPrice(w: World, i: number): number {
