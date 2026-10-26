@@ -322,6 +322,10 @@ function hashasCard(w: World, p: Parcel, sacks: number, illegal: boolean) {
   pushCard(w, { id: 'hashas_hasat', text: built.text, opts: built.opts, data: { sacks: total, parcel: p.no, illegal, label } });
 }
 
+// Kaçak alıcının adı: şebekeyi devraldıysan artık "senin şebeken", Rıza değil.
+const aliciAd = (w: World) => (w.city.net ? 'Şebeken' : w.flags.rizaOrtak ? 'Rıza (ortağın)' : 'Kara Rıza');
+const aliciDat = (w: World) => (w.city.net ? 'şebekene' : w.flags.rizaOrtak ? "Rıza'ya" : "Kara Rıza'ya");
+
 function buildHashas(w: World, sacks: number, label: string, illegal: boolean) {
   const dp = devletPrice(w);
   const kp = kacakPrice(w);
@@ -333,15 +337,15 @@ function buildHashas(w: World, sacks: number, label: string, illegal: boolean) {
   if (!illegal) {
     text = `${where} haşhaş hasadı bitti: ${sacks} çuval. Devlet çuvalı ${dp} liradan alıyor, toplam ${(sacks * dp).toLocaleString('tr-TR')} lira.`;
     text += rza
-      ? ` Kara Rıza ise çuval başına ${kp} lira veriyor. Beyanda eksik gösterirsen fark senin olur, ama jandarmanın gözü de üstüne çevrilir.`
+      ? ` ${aliciAd(w)} ise çuval başına ${kp} lira veriyor. Beyanda eksik gösterirsen fark senin olur, ama jandarmanın gözü de üstüne çevrilir.`
       : ' Kayıt dışı alıcı tanımıyorsun; saklarsan bir gün işe yarayabilir.';
     opts.push({ t: `Hepsini devlete teslim et (${(sacks * dp).toLocaleString('tr-TR')} lira)`, k: 'devlet' });
-    if (rza) opts.push({ t: `Yarısını Kara Rıza'ya sat (${half} çuval)`, k: 'yari_kacak' });
+    if (rza) opts.push({ t: `Yarısını ${aliciDat(w)} sat (${half} çuval)`, k: 'yari_kacak' });
     opts.push({ t: `Yarısını zulaya sakla (${half} çuval)`, k: 'yari_zula' });
-    if (rza) opts.push({ t: `Hepsini Kara Rıza'ya sat, devlete kötü hasat de`, k: 'hepsi_kacak' });
+    if (rza) opts.push({ t: `Hepsini ${aliciDat(w)} sat, devlete kötü hasat de`, k: 'hepsi_kacak' });
   } else {
     text = `${where} ruhsatsız ektiğin haşhaştan ${sacks} çuval çıktı. Devlete teslim edemezsin; elde tutmak da tehlikeli.`;
-    if (rza) opts.push({ t: `Kara Rıza'ya sat (${(sacks * kp).toLocaleString('tr-TR')} lira)`, k: 'hepsi_kacak' });
+    if (rza) opts.push({ t: `${aliciDat(w).replace(/^./, (c) => c.toUpperCase())} sat (${(sacks * kp).toLocaleString('tr-TR')} lira)`, k: 'hepsi_kacak' });
     opts.push({ t: 'Zulaya sakla', k: 'hepsi_zula' });
     opts.push({ t: 'Yak, iz kalmasın', k: 'yak' });
   }
@@ -367,7 +371,7 @@ export function resolveHashas(w: World, sacks: number, no: number | string, k: s
   w.flags.kacakToplam = ((w.flags.kacakToplam as number) || 0) + black;
   const parts: string[] = [];
   if (gov) parts.push(`${gov} çuval devlete (${(gov * dp).toLocaleString('tr-TR')} lira)`);
-  if (black) parts.push(`${black} çuval Kara Rıza'ya (${(black * kp).toLocaleString('tr-TR')} lira)`);
+  if (black) parts.push(`${black} çuval ${aliciDat(w)} (${(black * kp).toLocaleString('tr-TR')} lira)`);
   if (stash) parts.push(`${stash} çuval zulaya`);
   if (k === 'yak') parts.push(`${sacks} çuval gece yakıldı`);
   log(w, `Haşhaş hasadı (${no}): ${parts.join(', ')}.`, black || stash ? 'olay' : 'para');
@@ -381,7 +385,7 @@ export function sellStash(w: World): number {
   w.hh.stash = 0;
   w.heat = clamp(w.heat + n * 1.2, 0, 100);
   w.flags.kacakToplam = ((w.flags.kacakToplam as number) || 0) + n;
-  log(w, `Zuladaki ${n} çuval Kara Rıza'ya ${v} liraya satıldı; para kara kasaya girdi.`, 'olay');
+  log(w, `Zuladaki ${n} çuval ${aliciDat(w)} ${v} liraya satıldı; para kara kasaya girdi.`, 'olay');
   return v;
 }
 

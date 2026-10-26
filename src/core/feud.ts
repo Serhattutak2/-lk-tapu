@@ -113,7 +113,8 @@ export function attackRival(w: World): { ok: boolean; msg: string } {
   const men = w.gang + Math.min(2, fam);
   if (w.gang < 2) return { ok: false, msg: 'Bu iş için en az iki maaşlı adam gerekir.' };
   w.flags.baskinSayi = Number(w.flags.baskinSayi || 0) + 1;
-  const p = clamp(0.3 + 0.07 * men - 0.06 * r.men + (has(w, 'cep') ? 0.08 : 0), 0.1, 0.85);
+  const arm = Number(w.flags.silah || 0);
+  const p = clamp(0.3 + 0.07 * men - 0.06 * r.men + (has(w, 'cep') ? 0.08 : 0) + arm * 0.07, 0.1, 0.9);
   r.feud = 100;
   w.heat = clamp(w.heat + 14, 0, 100);
   w.flags.baskiPuan = Number(w.flags.baskiPuan || 0) + 6;
@@ -126,8 +127,9 @@ export function attackRival(w: World): { ok: boolean; msg: string } {
     checkGone(w);
     return { ok: true, msg: r.gone ? `${rP(w)} köyden silindi.` : `${k} kişi düştü. Geriye ${r.men} erkekleri kaldı.` };
   }
-  w.gang = Math.max(0, w.gang - 1);
-  if (fam && chance(w, 0.25)) {
+  // İyi silahlanmışsan başarısız baskında bile adam kaybetmeyebilirsin
+  if (!(arm >= 2 && chance(w, 0.4))) w.gang = Math.max(0, w.gang - 1);
+  if (fam && chance(w, 0.25 - arm * 0.05)) {
     const a = targets(w).filter((t) => t.id !== w.playerId)[0];
     a.away = 'hapis';
     a.awayUntil = w.m + 12 * jailYears(w, rint(w, 5, 10));

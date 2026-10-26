@@ -37,6 +37,7 @@ import { NIYET, niyet } from '../core/yil';
 import { kademe, kademeProgress, korku, korkuLabel, nextKademe, nextObjective, saygi } from '../core/guc';
 import { epithet, asiret } from '../core/lakap';
 import { CHALLENGES, challengeDone, challengesDoneCount, jeton } from '../core/challenges';
+import { haracLabel, canTribute } from '../core/harac';
 import { konseyLabel, surgunEt } from '../core/konsey';
 import { sadakat, sagkol, setSagkol, toggleYetki, yetkiVar, YETKI_AD } from '../core/sagkol';
 import type { Yetki } from '../core/sagkol';
@@ -52,9 +53,12 @@ export const NEWS = {
   ] as [string, string][],
 };
 const SPEEDS = [0, 4200, 1500, 500];
-const KIND: Record<string, string> = { gorev: 'Görev', teklif_tasi: 'Teklif', teklif_is: 'Teklif', sonuc: 'Sonuç', nw_salgin: 'Salgın', yil: 'Yıl defteri', ag_olum: 'Ağa', ag_miras: 'Ağa', ag_yeni: 'Köy', ce_veda: 'Kara Rıza', ce_riza: 'Kara Rıza', ce_selim: 'Selim', ce_kalan: 'Çukurkent', cete: 'Çukurkent', kmt_yeni: 'Karakol', kmt_sir: 'Kahvehane', plan_hashas: 'Tarla', ruhsat_red: 'Ruhsat', fa_kus: 'Aile', fa_bayram: 'Bayram', fa_ogut: 'Aile büyüğü', fa_genc: 'Aile', fa_kavga: 'Aile', fa_dugun: 'Düğün', rk_su: 'Rakip', rk_hayvan: 'Rakip', rk_iftira: 'Rakip', rk_dunur: 'Dünürcü', veraset: 'Veraset', gorucu: 'Görücü', hastalik: 'Hastalık', gurbet: 'Gurbet', tuccar: 'Tanışıklık', tapu: 'Tapu', bilgi: 'Haber', hashas_hasat: 'Hasat', ruhsat: 'Ruhsat', kacakci: 'Kahvehane', baskin: 'Jandarma', aga_kira: 'Ağa', aga_kiz: 'Ağa' };
+const KIND: Record<string, string> = { gorev: 'Görev', teklif_tasi: 'Teklif', teklif_is: 'Teklif', harac_basla: 'Köy', sonuc: 'Sonuç', nw_salgin: 'Salgın', yil: 'Yıl defteri', ag_olum: 'Ağa', ag_miras: 'Ağa', ag_yeni: 'Köy', ce_veda: 'Kara Rıza', ce_riza: 'Kara Rıza', ce_selim: 'Selim', ce_kalan: 'Çukurkent', cete: 'Çukurkent', kmt_yeni: 'Karakol', kmt_sir: 'Kahvehane', plan_hashas: 'Tarla', ruhsat_red: 'Ruhsat', fa_kus: 'Aile', fa_bayram: 'Bayram', fa_ogut: 'Aile büyüğü', fa_genc: 'Aile', fa_kavga: 'Aile', fa_dugun: 'Düğün', rk_su: 'Rakip', rk_hayvan: 'Rakip', rk_iftira: 'Rakip', rk_dunur: 'Dünürcü', veraset: 'Veraset', gorucu: 'Görücü', hastalik: 'Hastalık', gurbet: 'Gurbet', tuccar: 'Tanışıklık', tapu: 'Tapu', bilgi: 'Haber', hashas_hasat: 'Hasat', ruhsat: 'Ruhsat', kacakci: 'Kahvehane', baskin: 'Jandarma', aga_kira: 'Ağa', aga_kiz: 'Ağa' };
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+// Kaçak alıcı adı: şebekeyi devraldıysan artık senin şebeken, Kara Rıza değil.
+const aliciAd = (w: World) => (w.city.net ? 'Şebeken' : w.flags.rizaOrtak ? 'Rıza (ortağın)' : 'Kara Rıza');
+const aliciDat = (w: World) => (w.city.net ? 'şebekene' : w.flags.rizaOrtak ? "Rıza'ya" : "Kara Rıza'ya");
 const lira = (n: number) => Math.round(n).toLocaleString('tr-TR') + ' lira';
 const $ = <T extends HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector(sel) as T | null;
 
@@ -606,10 +610,31 @@ export class App {
       <p class="note">${suruCap(w) ? `Koyun ${lira(sheepPrice(w))} (hayvan piyasası %${Math.round(mk(w, 'hayvan') * 100)}). Baharda kuzu, yazın süt, haziranda yün getirir; kışın yem ister. ${coban(w) ? 'Ailede çoban var: tam verim.' : 'Ailede çoban yok; verim yarıya iner, kışın kayıp olur. Birini çobanlığa ver.'}` : 'Koyun beslemek için ahır yap (12 koyun) ya da dağdaki ağılı al (40 koyun daha).'}</p>
       ${suruCap(w) ? `<div class="btnrow"><button class="small" data-sheep="5"${w.hh.cash < sheepPrice(w) ? ' disabled' : ''}>5 koyun al (${lira(sheepPrice(w) * 5)})</button><button class="small" data-sheep="-5"${suru(w) ? '' : ' disabled'}>5 koyun sat</button></div>` : ''}
       <div class="group">Taşıtlar</div>${veh}
+      ${this.securityHTML()}
       <div class="group">Teknoloji: ${esc(eraOf(w).ad)}</div>
       <p class="note">${esc(eraOf(w).desc)}</p>
       ${this.techHTML()}
       <div class="group">Köy işletmeleri</div>${biz}`;
+  }
+
+  // ---------- Güç ve güvenlik (silahlanma, kasa) ----------
+  private securityHTML(): string {
+    const w = this.w!;
+    if (!w.flags.kacakci && w.gang < 1 && !Number(w.flags.silah || 0)) return '';
+    const lvl = Number(w.flags.silah || 0);
+    const TIERS = [
+      { ad: 'Av tüfekleri', desc: 'Adamların artık silahlı. Baskında eliniz güçlenir.', price: 9000 },
+      { ad: 'Tabanca ve mavzer', desc: 'Ağır silahlar: baskın başarısı artar, başarısız baskında bile adam kaybı azalır.', price: 34000 },
+      { ad: 'Tam teçhizat', desc: 'En iyi donanım: çatışmada üstünlük sende; pusuda kayıp nadir.', price: 95000 },
+    ];
+    const next = TIERS[lvl];
+    const price = next ? Math.round(next.price * infl(w.m)) : 0;
+    const safe = !!w.flags.kasa;
+    return `<div class="group">Güç ve güvenlik</div>
+      <p class="note">${lvl ? `Silah seviyen: <b>${esc(TIERS[lvl - 1].ad)}</b>.` : 'Adamların henüz düzgün silahlı değil.'} Silahlanmak baskın ve pusularda ailenin elini güçlendirir, ama dikkat çeker.</p>
+      ${next ? `<div class="asset"><div class="prow"><span class="pname">${esc(next.ad)}</span></div><p class="note">${esc(next.desc)}</p><button class="small danger" data-silah="1"${w.hh.cash < price ? ' disabled' : ''}>Donan (${lira(price)})</button></div>` : '<p class="note">En üst donanıma sahipsin.</p>'}
+      <div class="asset"><div class="prow"><span class="pname">Çelik kasa</span>${safe ? '<span class="badge sen">Var</span>' : ''}</div><p class="note">Evde çelik kasa: jandarma baskınında elindeki nakdin bir kısmı kasada güvende kalır.</p>
+      ${safe ? '' : `<button class="small" data-kasa="1"${w.hh.cash < Math.round(6000 * infl(w.m)) ? ' disabled' : ''}>Kasa aldır (${lira(Math.round(6000 * infl(w.m)))})</button>`}</div>`;
   }
 
   private parcelHTML(f: Parcel, now: CropId[]): string {
@@ -862,19 +887,20 @@ export class App {
             ${!lab.chem ? `<button class="small" data-cevdet="1">Cevdet'i tut (ayda ${lira(cevdetPay(w))})</button>` : ''}</div>
           <div class="btnrow">
             ${w.hh.stash ? `<button class="small" data-labact="stash">Zuladaki ${w.hh.stash} çuvalı atölyeye taşı</button>` : ''}
-            <button class="small" data-labact="buy3"${w.hh.cash < hamPrice(w) * 3 ? ' disabled' : ''}>Rıza'dan 3 çuval ham mal al (${lira(hamPrice(w) * 3)})</button>
-            ${lab.prod + lab.hap ? `<button class="small danger" data-labact="sell">Ürünü Rıza'ya teslim et (~${lira((lab.prod * paketPrice(w) + lab.hap * hapPrice(w)) * (0.7 + lab.q * 0.6))})</button>` : ''}
+            <button class="small" data-labact="buy3"${w.hh.cash < hamPrice(w) * 3 ? ' disabled' : ''}>${w.city.net ? 'Şebekeden' : "Rıza'dan"} 3 çuval ham mal al (${lira(hamPrice(w) * 3)})</button>
+            ${lab.prod + lab.hap ? `<button class="small danger" data-labact="sell">Ürünü ${w.city.net ? 'şebekeye' : "Rıza'ya"} teslim et (~${lira((lab.prod * paketPrice(w) + lab.hap * hapPrice(w)) * (0.7 + lab.q * 0.6))})</button>` : ''}
           </div>
           <p class="note">Paket ${lira(paketPrice(w))}, hap kolisi ${lira(hapPrice(w))} civarı; kalite fiyatı oynatır. Ustalık düşükse kaza riski artar.</p></div>` : ''}
         ${nextL ? `<div class="group">${lab ? 'Büyüt: ' : 'Kur: '}${esc(nextL.ad)} (${lira(labPrice(w, nextL.lvl))}${year(w.m) < nextL.from ? `, ${nextL.from}'den sonra` : ''})</div><p class="note">${esc(nextL.desc)}</p><div class="sowgrid">${sitesHtml}</div>` : ''}
         ${!w.hh.agil ? `<div class="btnrow"><button class="small" data-agil="1">Dağdaki ağılı satın al (${lira(AGIL_PRICE * infl(w.m))})</button></div>` : ''}`;
     return `<div class="group">Jandarmanın dikkati</div>
       <div class="labor"><span>${esc(heatLabel(w.heat))}</span><div class="meter heat"><i style="width:${heatPct}%"></i></div></div>
-      <div class="group">Zula ve Kara Rıza</div>
+      <div class="group">Zula ve ${w.city.net ? 'şebeke' : 'kaçak alıcı'}</div>
       <p class="note">${w.hh.stash > 0 ? `Zulada ${w.hh.stash} çuval mal var${w.hh.rooms.samanlik ? ', samanlığın çift dibinde' : '; durdukça dikkat çeker'}.` : 'Zula boş.'}
-        ${w.flags.kacakci ? ` Kara Rıza çuvalı ${lira(kacakPrice(w))} liradan alıyor.` : ' Kayıt dışı bir alıcı tanımıyorsun.'}</p>
-      ${w.hh.stash > 0 && w.flags.kacakci ? `<div class="btnrow"><button class="small danger" data-stash="sell">Zulayı Kara Rıza'ya sat (${lira(w.hh.stash * kacakPrice(w))})</button></div>` : ''}
+        ${w.flags.kacakci ? ` ${aliciAd(w)} çuvalı ${lira(kacakPrice(w))} liradan alıyor.` : ' Kayıt dışı bir alıcı tanımıyorsun.'}</p>
+      ${w.hh.stash > 0 && w.flags.kacakci ? `<div class="btnrow"><button class="small danger" data-stash="sell">Zulayı ${aliciDat(w)} sat (${lira(w.hh.stash * kacakPrice(w))})</button></div>` : ''}
       ${(w.flags.kacakToplam as number) ? `<p class="note">Bugüne kadar kayıt dışına çıkan: ${w.flags.kacakToplam} çuval.${w.flags.labKazanc ? ` Atölyeden kazanılan: ${lira(Number(w.flags.labKazanc))}.` : ''}</p>` : ''}
+      ${haracLabel(w) ? `<div class="group">Köyün haracı</div><p class="note">${esc(haracLabel(w))}.${Number(w.flags.koyHarac || 0) > 0 ? ` <button class="small" data-harac="dur">Haracı kaldır</button>` : Number(w.flags.koyHarac) === -1 && canTribute(w) ? ` <button class="small" data-harac="basla">Haraç toplamaya başla</button>` : ''}</p>` : ''}
       <div class="group">Gizli atölye</div>
       ${labHtml}
       <div class="group">Kara kasa ve adamlar</div>
@@ -1115,6 +1141,28 @@ export class App {
       save(w);
       this.renderPanel(true);
     }));
+    panel.querySelectorAll<HTMLButtonElement>('[data-harac]').forEach((b) => (b.onclick = act(() => {
+      w.flags.koyHarac = b.dataset.harac === 'dur' ? -1 : 1;
+      this.toast(b.dataset.harac === 'dur' ? 'Köy haracını kaldırdın.' : 'Köyden haraç toplamaya başladın.');
+    })));
+    panel.querySelectorAll<HTMLButtonElement>('[data-silah]').forEach((b) => (b.onclick = act(() => {
+      const lvl = Number(w.flags.silah || 0);
+      const base = [9000, 34000, 95000][lvl];
+      if (base === undefined) return;
+      const price = Math.round(base * infl(w.m));
+      if (w.hh.cash < price) { this.toast('Paran yetmiyor.'); return; }
+      w.hh.cash -= price;
+      w.flags.silah = lvl + 1;
+      w.heat = Math.min(100, w.heat + 4);
+      this.toast('Adamların silahlandı.');
+    })));
+    panel.querySelectorAll<HTMLButtonElement>('[data-kasa]').forEach((b) => (b.onclick = act(() => {
+      const price = Math.round(6000 * infl(w.m));
+      if (w.hh.cash < price) { this.toast('Paran yetmiyor.'); return; }
+      w.hh.cash -= price;
+      w.flags.kasa = true;
+      this.toast('Çelik kasa alındı.');
+    })));
     panel.querySelectorAll<HTMLButtonElement>('[data-pay]').forEach((b) => (b.onclick = () => {
       const v = b.dataset.pay === 'all' ? w.hh.cash : Number(b.dataset.pay);
       payDebt(w, v);

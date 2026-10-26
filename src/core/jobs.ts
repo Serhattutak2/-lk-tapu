@@ -15,6 +15,7 @@ export interface JobDef {
   risk: number;     // aylık iş kazası olasılığı
   gain: number;     // aylık beceri kazancı
   desc: string;
+  sex?: 'E' | 'K';  // o çağda yalnızca bu cinsiyete açık meslek
   unlock?: (w: World, p: Person) => boolean;
 }
 
@@ -30,7 +31,7 @@ export const JOBS: Record<JobId, JobDef> = {
   muhendis: { id: 'muhendis', ad: 'Mühendis', skill: 'zanaat', minAge: 22, maxAge: 70, summer: 850, winter: 850, physical: false, risk: 0, gain: 0.5, desc: 'Fabrikalar ve atölye daha verimli çalışır.', unlock: (_w, p) => p.dip === 'muh' },
   ogretmen: { id: 'ogretmen', ad: 'Köy öğretmeni', skill: 'ticaret', minAge: 18, maxAge: 70, summer: 420, winter: 420, physical: false, risk: 0, gain: 0.5, desc: 'Köy okulunda ders verir. Düzenli maaş; köyde sözü dinlenir, çocukları okumaya meraklı olur.', unlock: (_w, p) => p.dip === 'ogret' },
   coban: { id: 'coban', ad: 'Çoban', skill: 'tarim', minAge: 10, maxAge: 70, summer: 130, winter: 110, physical: true, risk: 0.0003, gain: 0.8, desc: 'Köyün sürüsünü otlatır. Az ama her ay kazanç.' },
-  insaat: { id: 'insaat', ad: 'İnşaat işçisi', skill: 'insaat', minAge: 15, maxAge: 60, summer: 300, winter: 80, physical: true, risk: 0.0014, gain: 1.6, desc: 'İlçedeki şantiyelerde iş. İyi para, ama kaza riski yüksek.' },
+  insaat: { id: 'insaat', ad: 'İnşaat işçisi', skill: 'insaat', minAge: 15, maxAge: 60, summer: 300, winter: 80, physical: true, risk: 0.0014, gain: 1.6, sex: 'E', desc: 'İlçedeki şantiyelerde iş. İyi para, ama kaza riski yüksek.' },
   cirak: { id: 'cirak', ad: 'Demirci çırağı', skill: 'zanaat', minAge: 11, maxAge: 30, summer: 80, winter: 80, physical: false, risk: 0.0002, gain: 2.6, desc: 'Az kazanır ama hızlı öğrenir. Yeterince ustalaşınca usta olur.' },
   usta: { id: 'usta', ad: 'Demirci ustası', skill: 'zanaat', minAge: 18, maxAge: 75, summer: 380, winter: 340, physical: false, risk: 0.0002, gain: 0.6, desc: 'Köyün nalını, sabanını yapar. Yıl boyu düzenli kazanç.', unlock: (_w, p) => p.sk.zanaat >= 55 },
   tuccar: { id: 'tuccar', ad: 'Tüccar yanında', skill: 'ticaret', minAge: 16, maxAge: 70, summer: 270, winter: 230, physical: false, risk: 0.0001, gain: 1.8, desc: 'Hububat tüccarının yanında alım satım öğrenir. Bağlantı kazandırır.', unlock: (w) => !!w.flags.tuccar },
@@ -44,6 +45,9 @@ export const JOBS: Record<JobId, JobDef> = {
   mimar: { id: 'mimar', ad: 'Mimar', skill: 'zanaat', minAge: 23, maxAge: 70, summer: 900, winter: 900, physical: false, risk: 0, gain: 0.5, desc: 'Apartman, otel, fabrika; hepsini o çizer. İnşaat ve mülk işleri daha verimli.', unlock: (_w, p) => p.dip === 'muh' },
   bankaci: { id: 'bankaci', ad: 'Banka müdürü', skill: 'ticaret', minAge: 25, maxAge: 70, summer: 1100, winter: 1100, physical: false, risk: 0, gain: 0.5, desc: 'Paranın yolunu bilir. Aklama ve kredi işleri kolaylaşır.', unlock: (w, p) => (p.dip === 'hukuk' || p.sk.ticaret >= 55) && year(w.m) >= 1960 },
   sarkici: { id: 'sarkici', ad: 'Şarkıcı', skill: 'ticaret', minAge: 16, maxAge: 60, summer: 700, winter: 700, physical: false, risk: 0.0002, gain: 0.6, desc: 'Gazino sahnelerinin yıldızı. İyi para, çok göz; şehirde ailenin vitrini.', unlock: (w) => year(w.m) >= 1960 },
+  memur: { id: 'memur', ad: 'Devlet memuru', skill: 'ticaret', minAge: 18, maxAge: 65, summer: 360, winter: 360, physical: false, risk: 0, gain: 0.6, desc: 'Nüfus, tapu, vergi dairesi... Düzenli maaş ve devlet kapısında bir tanıdık. Resmî işler kolaylaşır.', unlock: (w, p) => year(w.m) >= 1930 && p.sk.ticaret + p.tr.zeka * 3 >= 24 },
+  elektrikci: { id: 'elektrikci', ad: 'Elektrikçi', skill: 'zanaat', minAge: 16, maxAge: 65, summer: 420, winter: 400, physical: true, risk: 0.0008, gain: 1.3, desc: 'Direkleri, sigortaları, motorları o onarır. Köye elektrik geldikten sonra aranan bir zanaat.', unlock: (w) => !!w.tech?.elektrik || year(w.m) >= 1955 },
+  hemsire: { id: 'hemsire', ad: 'Hemşire', skill: 'ticaret', minAge: 18, maxAge: 65, summer: 400, winter: 400, physical: false, risk: 0.0001, gain: 0.8, desc: 'İlçe hastanesinde ya da sağlık ocağında çalışır. Ailede hasta olursa daha iyi bakılır.', unlock: (w) => year(w.m) >= 1945 },
   ev: { id: 'ev', ad: 'Ev işleri', skill: null, minAge: 10, maxAge: 99, summer: 0, winter: 0, physical: false, risk: 0, gain: 0, desc: 'Evi çekip çevirir. Hanenin mutfak giderini azaltır, hastalara bakar.' },
   okul: { id: 'okul', ad: 'Okul', skill: null, minAge: 7, maxAge: 15, summer: 0, winter: 0, physical: false, risk: 0, gain: 0, desc: 'Okuyan çocuk ileride daha hızlı öğrenir ve daha iyi işlere girer.' },
   yok: { id: 'yok', ad: 'Boşta', skill: null, minAge: 0, maxAge: 999, summer: 0, winter: 0, physical: false, risk: 0, gain: 0, desc: 'Çalışmıyor.' },
@@ -53,6 +57,7 @@ export function jobAllowed(w: World, p: Person, j: JobId): boolean {
   const d = JOBS[j];
   const a = age(w, p);
   if (a < d.minAge || a > d.maxAge) return false;
+  if (d.sex && p.sex !== d.sex) return false;
   if (d.unlock && !d.unlock(w, p)) return false;
   return true;
 }
