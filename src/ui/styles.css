@@ -314,13 +314,37 @@ details summary.group { cursor: pointer; }
 
 /* 2.2: harita olay etiketleri */
 .mapwrap { position: relative; overflow: hidden; }
-.mapev { position: absolute; left: 10px; right: 10px; bottom: 54px; margin: 0 auto; max-width: 320px;
-  background: rgba(20,18,24,.86); border: 1px solid var(--soil-3); border-left: 3px solid var(--wheat);
-  color: var(--straw); font-size: 13px; line-height: 1.3; padding: 6px 10px; border-radius: 8px;
-  pointer-events: none; animation: mapev 4.2s ease-out forwards; backdrop-filter: blur(2px); }
-.mapev b { font-style: normal; margin-right: 4px; }
+.feed { position: absolute; left: 8px; right: 8px; bottom: 50px; display: flex; flex-direction: column; gap: 5px;
+  max-height: 60%; overflow-y: auto; pointer-events: none; z-index: 4; }
+.feedclear { align-self: flex-end; pointer-events: auto; cursor: pointer; font-size: 11px; color: var(--straw);
+  background: rgba(20,18,24,.9); border: 1px solid var(--soil-3); border-radius: 7px; padding: 3px 9px; }
+.mapev { display: flex; align-items: flex-start; gap: 6px; pointer-events: auto;
+  background: rgba(20,18,24,.9); border: 1px solid var(--soil-3); border-left: 3px solid var(--wheat);
+  color: var(--straw); font-size: 13px; line-height: 1.32; padding: 7px 9px 7px 10px; border-radius: 8px;
+  backdrop-filter: blur(2px); animation: mapevin .32s ease-out; box-shadow: 0 3px 10px rgba(0,0,0,.35); }
+.mapev b { font-style: normal; flex: 0 0 auto; }
+.mapev span { flex: 1 1 auto; }
+.mapev .x { flex: 0 0 auto; cursor: pointer; background: none; border: none; color: var(--soil-1);
+  font-size: 13px; line-height: 1; padding: 1px 2px; margin: -1px -2px 0 0; }
+.mapev .x:hover { color: var(--straw); }
 .mapev.k-olum { border-left-color: var(--madder); }
 .mapev.k-tapu, .mapev.k-miras { border-left-color: var(--wheat); }
 .mapev.k-evlilik, .mapev.k-dogum { border-left-color: var(--leaf); }
-.mapev.k-olay { border-left-color: var(--copper); }
-@keyframes mapev { 0% { opacity: 0; transform: translateY(14px); } 12% { opacity: 1; transform: translateY(0); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-10px); } }
+.mapev.k-olay, .mapev.k-son { border-left-color: var(--copper); }
+@keyframes mapevin { 0% { opacity: 0; transform: translateX(14px); } 100% { opacity: 1; transform: translateX(0); } }
+
+/* Görevler */
+.jetonbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;
+  background: linear-gradient(135deg, rgba(166,124,58,.18), rgba(120,30,30,.12)); border: 1px solid var(--soil-3);
+  border-radius: 10px; padding: 10px 14px; }
+.jetonbar b { font-size: 22px; color: var(--wheat); }
+.jetonbar .jnote { color: var(--straw); font-size: 13px; }
+.chrow { display: flex; align-items: flex-start; gap: 9px; padding: 7px 4px; border-bottom: 1px solid rgba(90,74,54,.25); }
+.chrow .chmark { flex: 0 0 auto; width: 18px; text-align: center; color: var(--soil-1); font-size: 15px; }
+.chrow.ok .chmark { color: var(--leaf); }
+.chrow .chtxt { flex: 1 1 auto; display: flex; flex-direction: column; }
+.chrow .chtxt b { font-size: 14px; }
+.chrow.ok .chtxt b { color: var(--wheat); }
+.chrow .chtxt span { font-size: 12.5px; color: var(--straw); line-height: 1.3; }
+.chrow .chjeton { flex: 0 0 auto; color: var(--copper); font-size: 12.5px; font-weight: 600; }
+.chrow.ok { opacity: .72; }

@@ -16,6 +16,7 @@ export const START_M = 2; // Mart 1925
 export interface NewGameOpts {
   seed?: number;
   surname?: string;
+  asiret?: string;
   first?: string;
   sex?: 'E' | 'K';
 }
@@ -57,8 +58,10 @@ export function newWorld(o: NewGameOpts = {}): World {
     pol: { seat: null, until: 0, tried: 0 },
     over: null,
   };
-  const surname = o.surname?.trim() || pick(w, SURNAMES);
+  const asiret = (o.asiret?.trim() || o.surname?.trim() || pick(w, SURNAMES));
+  const surname = o.surname?.trim() || asiret;
   w.surname = surname;
+  w.flags.asiret = asiret;
   const yr = (y: number) => START_M - y * 12 - rint(w, 0, 11);
 
   // Büyükanne (dul), baba, anne, oyuncu ve iki kardeş

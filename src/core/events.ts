@@ -342,6 +342,7 @@ const EVENTS: Ev[] = [
       if (chance(w, clamp(0.35 + nam(w) / 80 + Number(w.flags.kom_rifat ?? 10) / 400, 0.35, 0.92))) {
         w.pol.seat = 'muhtar';
         w.pol.until = w.m + 60;
+        w.flags.exMuhtar = 1;
         w.flags.namBonus = Number(w.flags.namBonus || 0) + 5;
         log(w, `${w.surname} ailesinden muhtar seçildi. Köyün mührü artık bizim evde.`, 'olay');
       } else log(w, `Muhtarlık seçimi kaybedildi.`, 'olay');
@@ -362,6 +363,7 @@ const EVENTS: Ev[] = [
       if (chance(w, (w.flags.ankaraDost ? 0.1 : 0) + clamp(0.15 + nam(w) / 300 + w.city.turf * 0.05, 0.15, 0.8))) {
         w.pol.seat = 'belediye';
         w.pol.until = w.m + 60;
+        w.flags.exBelediye = 1;
         log(w, `Belediye başkanı seçildin. Çukurkent'in anahtarları artık senin cebinde.`, 'olay');
       } else log(w, `Belediye seçimini kaybettin.`, 'olay');
     },
@@ -382,6 +384,7 @@ const EVENTS: Ev[] = [
       if (chance(w, (w.flags.ankaraDost ? 0.1 : 0) + clamp(0.2 + nam(w) / 600, 0.2, 0.7))) {
         w.pol.seat = 'vekil';
         w.pol.until = w.m + 48;
+        w.flags.exVekil = 1;
         log(w, `Milletvekili seçildin. Artık meclis kürsüsünden konuşuyorsun; dokunulmazlık kalkanın var.`, 'olay');
       } else log(w, `Milletvekilliği seçimi kaybedildi; para Ankara'da kaldı.`, 'olay');
     },

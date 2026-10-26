@@ -35,6 +35,8 @@ import { buySheep, coban, sellSheep, sheepPrice, suru, suruCap } from '../core/s
 import { buildEkEv, EKEV_MAX, ekEvPrice } from '../core/home';
 import { NIYET, niyet } from '../core/yil';
 import { kademe, kademeProgress, korku, korkuLabel, nextKademe, nextObjective, saygi } from '../core/guc';
+import { epithet, asiret } from '../core/lakap';
+import { CHALLENGES, challengeDone, challengesDoneCount, jeton } from '../core/challenges';
 import { konseyLabel, surgunEt } from '../core/konsey';
 import { sadakat, sagkol, setSagkol, toggleYetki, yetkiVar, YETKI_AD } from '../core/sagkol';
 import type { Yetki } from '../core/sagkol';
@@ -50,7 +52,7 @@ export const NEWS = {
   ] as [string, string][],
 };
 const SPEEDS = [0, 4200, 1500, 500];
-const KIND: Record<string, string> = { sonuc: 'Sonuç', nw_salgin: 'Salgın', yil: 'Yıl defteri', ag_olum: 'Ağa', ag_miras: 'Ağa', ag_yeni: 'Köy', ce_veda: 'Kara Rıza', ce_riza: 'Kara Rıza', ce_selim: 'Selim', ce_kalan: 'Çukurkent', cete: 'Çukurkent', kmt_yeni: 'Karakol', kmt_sir: 'Kahvehane', plan_hashas: 'Tarla', ruhsat_red: 'Ruhsat', fa_kus: 'Aile', fa_bayram: 'Bayram', fa_ogut: 'Aile büyüğü', fa_genc: 'Aile', fa_kavga: 'Aile', fa_dugun: 'Düğün', rk_su: 'Rakip', rk_hayvan: 'Rakip', rk_iftira: 'Rakip', rk_dunur: 'Dünürcü', veraset: 'Veraset', gorucu: 'Görücü', hastalik: 'Hastalık', gurbet: 'Gurbet', tuccar: 'Tanışıklık', tapu: 'Tapu', bilgi: 'Haber', hashas_hasat: 'Hasat', ruhsat: 'Ruhsat', kacakci: 'Kahvehane', baskin: 'Jandarma', aga_kira: 'Ağa', aga_kiz: 'Ağa' };
+const KIND: Record<string, string> = { gorev: 'Görev', teklif_tasi: 'Teklif', teklif_is: 'Teklif', sonuc: 'Sonuç', nw_salgin: 'Salgın', yil: 'Yıl defteri', ag_olum: 'Ağa', ag_miras: 'Ağa', ag_yeni: 'Köy', ce_veda: 'Kara Rıza', ce_riza: 'Kara Rıza', ce_selim: 'Selim', ce_kalan: 'Çukurkent', cete: 'Çukurkent', kmt_yeni: 'Karakol', kmt_sir: 'Kahvehane', plan_hashas: 'Tarla', ruhsat_red: 'Ruhsat', fa_kus: 'Aile', fa_bayram: 'Bayram', fa_ogut: 'Aile büyüğü', fa_genc: 'Aile', fa_kavga: 'Aile', fa_dugun: 'Düğün', rk_su: 'Rakip', rk_hayvan: 'Rakip', rk_iftira: 'Rakip', rk_dunur: 'Dünürcü', veraset: 'Veraset', gorucu: 'Görücü', hastalik: 'Hastalık', gurbet: 'Gurbet', tuccar: 'Tanışıklık', tapu: 'Tapu', bilgi: 'Haber', hashas_hasat: 'Hasat', ruhsat: 'Ruhsat', kacakci: 'Kahvehane', baskin: 'Jandarma', aga_kira: 'Ağa', aga_kiz: 'Ağa' };
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 const lira = (n: number) => Math.round(n).toLocaleString('tr-TR') + ' lira';
@@ -81,7 +83,7 @@ function wipe() {
 
 export class App {
   private w: World | null = null;
-  private tab: 'aile' | 'tarla' | 'mulk' | 'yeralti' | 'sehir' | 'hane' | 'kronik' = 'aile';
+  private tab: 'aile' | 'tarla' | 'mulk' | 'yeralti' | 'sehir' | 'hane' | 'gorev' | 'kronik' = 'aile';
   private pick: Pick | null = null;
   private speed = 0;
   private timer = 0;
@@ -109,7 +111,7 @@ export class App {
         <h1>İlk<span>Tapu</span></h1>
         <p class="lede">Mart 1925, Karaçam köyü. Savaşlar bitti, Cumhuriyet yeni kuruldu. Kendine ait bir karış toprağı olmayan bir ailenin on altı yaşındaki çocuğusun. Ailen ağaya borçlu, başkasının tarlasında gündelik çalışıyor. Önünde yüz yıl var: kara sabandan drona.</p>
         ${saved && !saved.over ? `<button class="primary" id="cont">${esc(saved.surname)} ailesiyle devam et, ${dateText(saved.m)}</button><div class="group">ya da yeni bir hayat</div>` : ''}
-        <label class="field"><span>Soyadı</span><input id="sur" maxlength="20" placeholder="Boş bırakırsan rastgele seçilir" autocomplete="off"></label>
+        <label class="field"><span>Aşiret / sülale adın</span><input id="sur" maxlength="20" placeholder="Köyde böyle bilineceksin — boşsa rastgele" autocomplete="off"></label>
         <label class="field"><span>Adın</span><input id="first" maxlength="20" placeholder="Boş bırakırsan rastgele seçilir" autocomplete="off"></label>
         <div class="field"><span>Doğduğun cinsiyet</span>
           <div class="seg"><button id="sxE" aria-pressed="true">Erkek</button><button id="sxK" aria-pressed="false">Kız</button></div></div>
@@ -134,7 +136,8 @@ export class App {
         return;
       }
       wipe();
-      const w = newWorld({ surname: $<HTMLInputElement>('#sur')!.value, first: $<HTMLInputElement>('#first')!.value, sex });
+      const clan = $<HTMLInputElement>('#sur')!.value;
+      const w = newWorld({ surname: clan, asiret: clan, first: $<HTMLInputElement>('#first')!.value, sex });
       if ($<HTMLInputElement>('#deneme')!.checked) w.flags.deneme = true;
       save(w);
       this.enter(w);
@@ -166,6 +169,7 @@ export class App {
           <button role="tab" data-tab="yeralti">Yeraltı</button>
           <button role="tab" data-tab="sehir" id="tabSehir">Şehir</button>
           <button role="tab" data-tab="hane">Hane</button>
+          <button role="tab" data-tab="gorev">Görev</button>
           <button role="tab" data-tab="kronik">Kronik</button>
         </nav>
         <div class="hedef" id="hedef"></div>
@@ -260,21 +264,46 @@ export class App {
     this.refresh();
   }
 
-  /** Haritanın üstünde, geçen ayda olanları kısa kısa uçuran etiketler. */
+  /** Geçen ayda olanları, oyuncu kapatana kadar duran bir akışa ekler. */
   private flashEvents(w: World, since: number) {
     const wrap = this.root.querySelector('.mapwrap');
     if (!wrap) return;
-    const fresh = w.chronicle.slice(since).filter((e) => ['olum', 'dogum', 'evlilik', 'tapu', 'miras', 'olay'].includes(e.k) || (e.k === 'para' && Math.abs(0) === 0));
-    const picked = fresh.slice(-2);
-    const ICON: Record<string, string> = { olum: '🕯', dogum: '🍼', evlilik: '💍', tapu: '📜', miras: '⚜', olay: '⚡', para: '💰', is: '🔨' };
-    picked.forEach((e, i) => {
+    let feed = wrap.querySelector('.feed') as HTMLElement | null;
+    if (!feed) {
+      feed = document.createElement('div');
+      feed.className = 'feed';
+      wrap.appendChild(feed);
+    }
+    const fresh = w.chronicle.slice(since).filter((e) => ['olum', 'dogum', 'evlilik', 'tapu', 'miras', 'olay', 'son'].includes(e.k));
+    if (!fresh.length) return;
+    const ICON: Record<string, string> = { olum: '🕯', dogum: '🍼', evlilik: '💍', tapu: '📜', miras: '⚜', olay: '⚡', para: '💰', is: '🔨', son: '🔚' };
+    for (const e of fresh) {
       const el = document.createElement('div');
       el.className = 'mapev k-' + e.k;
-      el.innerHTML = `<b>${ICON[e.k] ?? '•'}</b> ${esc(e.t.length > 64 ? e.t.slice(0, 62) + '…' : e.t)}`;
-      el.style.animationDelay = i * 0.5 + 's';
-      wrap.appendChild(el);
-      setTimeout(() => el.remove(), 4200 + i * 500);
-    });
+      el.innerHTML = `<b>${ICON[e.k] ?? '•'}</b><span>${esc(e.t)}</span><button class="x" aria-label="Kapat">✕</button>`;
+      (el.querySelector('.x') as HTMLButtonElement).onclick = () => { el.remove(); this.syncFeedClear(); };
+      feed.appendChild(el);
+    }
+    // En fazla 8 bildirim dursun; en eskiler düşsün.
+    while (feed.children.length > 9) feed.firstElementChild?.remove();
+    this.syncFeedClear();
+  }
+
+  private syncFeedClear() {
+    const wrap = this.root.querySelector('.mapwrap');
+    const feed = wrap?.querySelector('.feed') as HTMLElement | null;
+    if (!feed) return;
+    const items = feed.querySelectorAll('.mapev').length;
+    let btn = feed.querySelector('.feedclear') as HTMLButtonElement | null;
+    if (items > 2) {
+      if (!btn) {
+        btn = document.createElement('button');
+        btn.className = 'feedclear';
+        btn.textContent = 'Tümünü kapat';
+        btn.onclick = () => { feed.querySelectorAll('.mapev').forEach((n) => n.remove()); btn!.remove(); };
+        feed.insertBefore(btn, feed.firstChild);
+      }
+    } else btn?.remove();
   }
 
   private denemeTopUp(w: World) {
@@ -321,7 +350,7 @@ export class App {
     if (who) {
       who.classList.toggle('hasface', alive(pl));
       who.innerHTML = alive(pl)
-        ? `${portraitSVG(pl!, w, 46)}<div class="whotxt"><b>${esc(fullName(pl))}</b>, ${age(w, pl)} yaşında, ${JOBS[pl.job].ad.toLowerCase()}<span class="ttl">${esc(tt.ad)} · nam ${nam(w)}${tt.next ? ` / ${tt.next.min}` : ''}${underTitle(w).ad !== 'Temiz' ? ` · ${esc(underTitle(w).ad)}` : ''}${w.pol.seat ? ` · ${w.pol.seat === 'muhtar' ? 'Muhtar' : w.pol.seat === 'belediye' ? 'Belediye başkanı' : 'Milletvekili'}` : ''}</span></div>`
+        ? `${portraitSVG(pl!, w, 46)}<div class="whotxt"><b>"${esc(epithet(w))}" ${esc(fullName(pl))}</b>, ${age(w, pl)} yaşında, ${JOBS[pl.job].ad.toLowerCase()}<span class="ttl">${esc(asiret(w))} aşireti · ${esc(tt.ad)} · nam ${nam(w)}${tt.next ? ` / ${tt.next.min}` : ''}${underTitle(w).ad !== 'Temiz' ? ` · ${esc(underTitle(w).ad)}` : ''}${w.pol.seat ? ` · ${w.pol.seat === 'muhtar' ? 'Muhtar' : w.pol.seat === 'belediye' ? 'Belediye başkanı' : 'Milletvekili'}` : ''}</span></div>`
         : 'Aile yasta';
     }
     this.root.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === this.tab)));
@@ -356,6 +385,7 @@ export class App {
     else if (this.tab === 'yeralti') panel.innerHTML = this.underHTML();
     else if (this.tab === 'sehir') panel.innerHTML = this.cityHTML();
     else if (this.tab === 'hane') panel.innerHTML = this.householdHTML();
+    else if (this.tab === 'gorev') panel.innerHTML = this.challengeHTML();
     else panel.innerHTML = this.chronicleHTML();
     if (!top) panel.querySelectorAll('details').forEach((d) => { if (openD.has(key(d))) d.open = true; });
     panel.scrollTop = keep;
@@ -882,6 +912,29 @@ export class App {
       <p class="note">Sopalı kavgada kimse ölmez; silahlı baskın kan davasını büyütür ve jandarmayı üstüne çeker. Köyü sürdürmek için köyde sözün geçmeli (nam ve saygı).</p>`}
       ${konseyLabel(w) ? `<div class="group">Konsey</div><p class="note">${esc(konseyLabel(w))}.${w.flags.konsey === 'dusman' ? ` Beş aile sana karşı; husumet ${Math.round(Number(w.flags.konseyFeud || 0))}. Güçlü adam kadrosuyla hamlelerini püskürttükçe masa dağılır.` : ''}</p>` : ''}
       ${w.crew && !w.crew.gone ? `<div class="group">${esc(w.crew.name)}</div><div class="labor"><span>Husumet</span><div class="meter heat"><i style="width:${Math.round(w.crew.feud)}%"></i></div></div><p class="note">${CITY}'te ${w.crew.men} silahlı adamları ve ${w.crew.turf} mahalleleri var.</p>` : ''}`;
+  }
+
+  // ---------- Görevler ----------
+  private challengeHTML(): string {
+    const w = this.w!;
+    const groups: Record<string, typeof CHALLENGES> = {};
+    for (const c of CHALLENGES) (groups[c.grup] ||= []).push(c);
+    const total = CHALLENGES.length;
+    const done = challengesDoneCount(w);
+    const out: string[] = [];
+    out.push(`<div class="jetonbar"><div><b>${jeton(w)}</b> jeton</div><div class="jnote">${done}/${total} görev tamam</div></div>`);
+    out.push(`<p class="note">Görevleri tamamladıkça jeton ve nam kazanırsın. Jeton, hanedanının prestijini gösterir; ileride açılacak ödüllerin anahtarıdır.</p>`);
+    for (const g of Object.keys(groups)) {
+      const list = groups[g];
+      const gd = list.filter((c) => challengeDone(w, c.id)).length;
+      out.push(`<details${gd < list.length ? ' open' : ''}><summary class="group">${esc(g)} — ${gd}/${list.length}</summary>`);
+      for (const c of list) {
+        const ok = challengeDone(w, c.id);
+        out.push(`<div class="chrow${ok ? ' ok' : ''}"><span class="chmark">${ok ? '✓' : '○'}</span><div class="chtxt"><b>${esc(c.ad)}</b><span>${esc(c.desc)}</span></div><span class="chjeton">${c.jeton}◆</span></div>`);
+      }
+      out.push(`</details>`);
+    }
+    return out.join('');
   }
 
   // ---------- Kronik ----------

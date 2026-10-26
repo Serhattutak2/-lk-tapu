@@ -55,24 +55,34 @@ const HIST: Hi[] = [
     to: 1935,
     once: true,
     p: 0.15,
-    make: (w) => ({
-      text: `Soyadı Kanunu çıktı. Nüfus memuru köye geldi, her aile kütüğe bir soyadıyla yazılacak. Köyde size öteden beri "${w.surname}" deniyor. Memur bir de soruyor: "Bu ad nereden gelir?"`,
-      opts: [
-        { t: `Dedemizin lakabıdır, ${w.surname} kalsın`, k: 'dede' },
-        { t: `Memura bahşiş, kütüğe "toprak sahibi" diye geçsin (${fmt(L(w, 80))} lira)`, k: 'bahsis' },
-        { t: 'Ağa ne derse o', k: 'aga' },
-      ],
-    }),
-    res: (w, k) => {
-      if (k === 'dede') for (const id of w.hh.members) w.people[id].rel = clamp(w.people[id].rel + 6, -100, 100);
-      else if (k === 'bahsis') {
-        w.hh.cash -= L(w, 80);
-        bonus(w, 2);
-      } else {
-        w.hh.debt = Math.max(0, Math.round(w.hh.debt * 0.9));
-        bonus(w, -1);
-      }
-      log(w, `Aile nüfus kütüğüne ${w.surname} soyadıyla yazıldı.`, 'miras');
+    make: (w) => {
+      // Oyuncu kendi soyadını seçsin. Aşiret adı + yaptıklarına uygun öneriler.
+      const pool = ['Demir', 'Toprak', 'Kurt', 'Yılmaz', 'Çelik', 'Aslan', 'Doğan', 'Karataş', 'Şahin', 'Kara', 'Taş', 'Yıldırım', 'Kaya', 'Bozkurt', 'Korkmaz'];
+      const clan = String(w.flags.asiret || w.surname).trim();
+      const deed = w.hh.parcels.length >= 3 ? 'Toprak' : (w.flags.kacakci || w.gang > 0) ? 'Demir' : nam(w) >= 30 ? 'Yıldırım' : 'Çelik';
+      const uniq: string[] = [];
+      for (const n of [clan, deed, ...pool.filter((x) => x !== clan && x !== deed)]) { if (!uniq.includes(n)) uniq.push(n); if (uniq.length >= 4) break; }
+      return {
+        text: `Soyadı Kanunu çıktı. Nüfus memuru köye geldi, her aile kütüğe bir soyadıyla yazılacak. Köyde size "${clan}" deniyor ama kütüğe ne yazılacağını siz seçeceksiniz. Hangi adla anılmak istersin?`,
+        opts: [
+          { t: `"${clan}" kalsın (aşiret adımız)`, k: 'n0' },
+          { t: `"${uniq[1]}" olsun`, k: 'n1' },
+          { t: `"${uniq[2]}" olsun`, k: 'n2' },
+          { t: `"${uniq[3]}" olsun`, k: 'n3' },
+        ],
+        data: { names: uniq },
+      };
+    },
+    res: (w, k, _pid, d) => {
+      const names = (d?.names as string[]) || [w.surname];
+      const i = k === 'n1' ? 1 : k === 'n2' ? 2 : k === 'n3' ? 3 : 0;
+      const yeni = names[i] || w.surname;
+      const eski = w.surname;
+      w.surname = yeni;
+      for (const p of Object.values(w.people)) if (p.blood) p.last = yeni;
+      if (i === 0) for (const id of w.hh.members) w.people[id].rel = clamp(w.people[id].rel + 6, -100, 100);
+      else bonus(w, 2);
+      log(w, eski === yeni ? `Aile nüfus kütüğüne ${yeni} soyadıyla yazıldı.` : `Aile artık ${yeni} soyadıyla anılacak; eski "${eski}" adı aşiret lakabı olarak kaldı.`, 'miras');
     },
   },
   {

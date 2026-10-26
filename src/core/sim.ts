@@ -29,6 +29,7 @@ import { monthlyEra, buyTech, techIncome, TECHS, techPrice } from './era';
 import { mk } from './market';
 import { monthlyHostility, monthlyStories } from './events';
 import { monthlyGoals } from './goals';
+import { monthlyChallenges } from './challenges';
 import { DISTS, menNeeded, monthlyDistricts, takeDistrict } from './district';
 import { buildRoom, canBuild, crowded, monthlyHome, roomPrice } from './home';
 import { AGIL_PRICE, buildLab, buyAgil, buyRaw, cevdetPay, hamPrice, hireCevdet, labPrice, moveStash, sellProduct, unlocked } from './lab';
@@ -68,6 +69,7 @@ export function advance(w: World): boolean {
   monthlyGuc(w);
   monthlyKonsey(w);
   monthlyGoals(w);
+  monthlyChallenges(w);
   if (w.hh.cash < 0) {
     w.hh.debt += -w.hh.cash;
     w.hh.cash = 0;

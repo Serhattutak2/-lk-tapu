@@ -86,7 +86,7 @@ export function portraitSVG(p: Person, w: World, size = 40): string {
 
 /** Olay kartı sahnesi: türüne göre küçük bir manzara. */
 export function sceneSVG(id: string, w: World): string {
-  const night = /^(kan|baskin|kacirma|kursun|rk_|ce_|cete|it_oylama|kmt|narkotik|soygun|zehir)/.test(id) || id.includes('yas');
+  const night = /^(kan|baskin|kacirma|kursun|rk_|ce_|cete|it_oylama|kmt|narkotik|soygun|zehir|teklif_is)/.test(id) || id.includes('yas');
   const sky = night ? '#141828' : (year(w.m) >= 1985 ? '#3a4a6a' : '#6a7a94');
   const o: string[] = [`<rect width="48" height="20" fill="${sky}"/>`];
   const g = (x: number, y: number, ww: number, hh: number, c: string) => o.push(`<rect x="${x}" y="${y}" width="${ww}" height="${hh}" fill="${c}"/>`);
@@ -97,8 +97,8 @@ export function sceneSVG(id: string, w: World): string {
     if (id.startsWith('kan') || id.includes('cenaze') || id.startsWith('ag_olum') || id.includes('yas')) return 'cenaze';
     if (id.startsWith('baskin') || id.startsWith('kmt') || id.startsWith('narkotik')) return 'karakol';
     if (id.startsWith('dugun') || id.startsWith('fa_dugun') || id.startsWith('kv_sunnet') || id.startsWith('kv_hidrellez') || id.startsWith('kv_bag') || id.startsWith('gorucu') || id.startsWith('kacirma') || id.includes('dugun')) return 'dugun';
-    if (id === 'kacakci' || id.startsWith('km_') || id.startsWith('kv_masal') || id.startsWith('kv_seyyar') || id === 'tuccar' || id === 'ev:kahve') return 'kahve';
-    if (id.startsWith('ce_') || id.startsWith('cete') || id.startsWith('it_') || id.startsWith('rk_') || id.startsWith('kursun') || id.startsWith('soygun')) return 'gece';
+    if (id === 'kacakci' || id === 'teklif_tasi' || id.startsWith('km_') || id.startsWith('kv_masal') || id.startsWith('kv_seyyar') || id === 'tuccar' || id === 'ev:kahve') return 'kahve';
+    if (id.startsWith('ce_') || id.startsWith('cete') || id.startsWith('it_') || id.startsWith('rk_') || id.startsWith('kursun') || id.startsWith('soygun') || id === 'teklif_is') return 'gece';
     // Köy olayları: köy manzarası (tarla); yalnızca açıkça şehir/yeraltı olanlar şehir alır
     if (id.startsWith('tapu') || id.startsWith('q:') || id.startsWith('hi:') || id.startsWith('ev:') || id.startsWith('kv_') || id.startsWith('fa_') || id.startsWith('ag_') || id.startsWith('ruhsat') || id.startsWith('plan_') || id.startsWith('meslek:') || id.startsWith('hastalik') || id.startsWith('hashas')) return 'tarla';
     if (id.startsWith('nw_') || id.startsWith('dz_') || id === 'it_konsey') return 'sehir';

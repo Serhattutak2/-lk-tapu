@@ -59,6 +59,11 @@ export function checkGone(w: World) {
   });
   w.flags.namBonus = Number(w.flags.namBonus || 0) + 8;
   w.flags.yokEdilen = (w.flags.yokEdilen ? w.flags.yokEdilen + ', ' : '') + rP(w);
+  w.flags.silinenAile = Number(w.flags.silinenAile || 0) + 1;
+  // Sildiğin ailenin adını sakla: torunları ileride intikam için dönebilir.
+  const sil = String(w.flags.silinenAdlar || '').split('|').filter(Boolean);
+  if (!sil.includes(r.name)) sil.push(r.name);
+  w.flags.silinenAdlar = sil.join('|');
   w.flags.nextRival = w.m + rint(w, 18, 48);
   log(w, `${rA(w)} silah tutacak erkek kalmadı. Kadınlar ve çocuklar bir gece köyü terk etti.${n ? ` ${n} tarlaları ucuza satışa çıktı.` : ''} Köyde artık ${w.surname} adı korkuyla anılıyor.`, 'olay');
 }
@@ -69,8 +74,23 @@ const NEXT: { name: string; intro: string }[] = [
   { name: 'Gümüşdere', intro: 'Gümüşdere aşiretinden bir kol Karaçam\'a indi. Kalabalıklar, sert insanlar; kaçakçılıkta da gözleri var.' },
 ];
 
-/** Gelen yeni rakip aile */
+const PLOF: Record<string, string> = { Kocabaş: 'Kocabaşlar', Sarıkaya: 'Sarıkayalar', Bozbey: 'Bozbeyler', Gümüşdere: 'Gümüşdereliler' };
+
+/** Gelen yeni rakip aile — ya taze bir aile, ya da sildiğin bir ailenin intikam için dönen torunları. */
 function arrive(w: World) {
+  // Sildiğin ailelerin torunları: güçlüysen ve yıllar geçtiyse kan davası güderek dönebilirler.
+  const silinen = String(w.flags.silinenAdlar || '').split('|').filter(Boolean);
+  const dondu = String(w.flags.donenAdlar || '').split('|').filter(Boolean);
+  const geriDonebilir = silinen.filter((n) => !dondu.includes(n));
+  if (geriDonebilir.length && (w.city.open || w.hh.parcels.length >= 6) && chance(w, 0.55)) {
+    const name = pick(w, geriDonebilir);
+    const cog = PLOF[name] || name + ' ailesi';
+    w.flags.donenAdlar = [...dondu, name].join('|');
+    w.rival = { name, power: 48, feud: 72, blood: -2, lock: false, dead: 0, theirDead: 0, peaceM: w.m, men: rint(w, 6, 9), gone: false, since: w.m };
+    log(w, `Yıllar önce köyden sürdüğün ${cog}'ın torunları döndü. Dedelerinin kanını unutmamışlar; bu kez daha kalabalık, daha öfkeliler. "${w.surname} ocağını biz söndüreceğiz" diyorlar.`, 'olay');
+    w.flags.intikamDonus = w.m; // yakında bir intikam hamlesi yapacaklar
+    return;
+  }
   const used = String(w.flags.rakipler || 'Kocabaş').split(',');
   const nx = NEXT.find((n) => !used.includes(n.name)) ?? { name: 'Gümüşdere', intro: NEXT[2].intro };
   w.flags.rakipler = [...used, nx.name].join(',');
@@ -92,6 +112,7 @@ export function attackRival(w: World): { ok: boolean; msg: string } {
   const fam = targets(w).filter((t) => t.id !== w.playerId).length;
   const men = w.gang + Math.min(2, fam);
   if (w.gang < 2) return { ok: false, msg: 'Bu iş için en az iki maaşlı adam gerekir.' };
+  w.flags.baskinSayi = Number(w.flags.baskinSayi || 0) + 1;
   const p = clamp(0.3 + 0.07 * men - 0.06 * r.men + (has(w, 'cep') ? 0.08 : 0), 0.1, 0.85);
   r.feud = 100;
   w.heat = clamp(w.heat + 14, 0, 100);
@@ -320,6 +341,7 @@ export function resolveFeud(w: World, id: string, pid: string | undefined, k: st
           r.blood = 0;
           r.feud = clamp(r.feud - 45, 0, 100);
           r.peaceM = w.m;
+          w.flags.barisSayi = Number(w.flags.barisSayi || 0) + 1;
           log(w, `Arabulucular araya girdi; ${rP(w)} diyet ödedi, Kuran'a el basıldı. Kan davası şimdilik bitti.`, 'olay');
         } else {
           log(w, `${rP(w)} arabulucuları kapıdan çevirdi.`, 'olay');
@@ -340,6 +362,7 @@ export function resolveFeud(w: World, id: string, pid: string | undefined, k: st
         r.blood = 0;
         r.peaceM = w.m;
         if (r.lock) r.lock = false;
+        w.flags.barisSayi = Number(w.flags.barisSayi || 0) + 1;
         log(w, `Barış sofrası kuruldu (${fmt(c)} lira). İki aile el sıkıştı.`, 'olay');
       } else {
         r.feud = clamp(r.feud + 8, 0, 100);
