@@ -33,6 +33,9 @@ import { monthlyChallenges } from './challenges';
 import { monthlyHarac } from './harac';
 import { monthlyCiftlik } from './ciftlik';
 import { monthlyYeralti } from './yeralti';
+import { monthlyYapi } from './yapi';
+import { monthlyAileYatirim } from './aileyatirim';
+import { monthlyBanka } from './banka';
 import { DISTS, menNeeded, monthlyDistricts, takeDistrict } from './district';
 import { buildRoom, canBuild, crowded, monthlyHome, roomPrice } from './home';
 import { AGIL_PRICE, buildLab, buyAgil, buyRaw, cevdetPay, hamPrice, hireCevdet, labPrice, moveStash, sellProduct, unlocked } from './lab';
@@ -113,6 +116,9 @@ function economy(w: World, harvestBonus: number) {
   monthlyAmbar(w);
   monthlySuru(w, lines);
   monthlyCiftlik(w, lines);
+  monthlyYapi(w, lines);
+  monthlyAileYatirim(w, lines);
+  monthlyBanka(w);
   monthlyKomsu(w, lines);
   monthlyQuests(w, lines);
   {
@@ -205,23 +211,26 @@ function growth(w: World) {
     const base = a < 35 ? 90 : Math.max(25, 90 - (a - 35) * 1.1);
     p.hp += (base - p.hp) * 0.04;
     if (p.inHH && poor) p.hp -= 0.6;
+    if (p.inHH && w.flags.hekim && p.hp < base) p.hp += 1.2; // aile hekimi: toparlanma hızlı
     if (p.sick) {
-      p.hp -= 2.5;
+      p.hp -= w.flags.hekim && p.inHH ? 1.4 : 2.5;
       p.sick--;
-      if (p.sick <= 0) p.sick = undefined;
+      if (w.flags.hekim && p.inHH && p.sick > 0) p.sick--; // hekim hastalığı kısaltır
+      if (p.sick !== undefined && p.sick <= 0) p.sick = undefined;
     }
     p.hp = clamp(p.hp, 1, 100);
 
     if (!p.inHH || p.away) continue;
+    const hoca = w.flags.hoca && age(w, p) <= 25 ? 1.5 : 1;
     const d = JOBS[p.job];
     if (d?.skill && d.gain) {
       const cur = p.sk[d.skill];
-      const g = 0.5 * d.gain * (0.55 + p.tr.zeka / 10) * (1 - cur / 110);
+      const g = 0.5 * d.gain * (0.55 + p.tr.zeka / 10) * (1 - cur / 110) * hoca;
       p.sk[d.skill] = clamp(cur + g, 0, 100);
     }
     if (p.job === 'okul') {
-      p.sk.ticaret = clamp(p.sk.ticaret + 0.25 * (0.5 + p.tr.zeka / 10) * (Number(w.flags.okulBonus || 0) > w.m ? 1.5 : 1), 0, 30);
-      p.sk.zanaat = clamp(p.sk.zanaat + 0.15, 0, 30);
+      p.sk.ticaret = clamp(p.sk.ticaret + 0.25 * hoca * (0.5 + p.tr.zeka / 10) * (Number(w.flags.okulBonus || 0) > w.m ? 1.5 : 1), 0, 30);
+      p.sk.zanaat = clamp(p.sk.zanaat + 0.15 * hoca, 0, 30);
     }
     if (p.job === 'cirak' && p.sk.zanaat >= 55) {
       p.job = 'usta';

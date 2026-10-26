@@ -12,6 +12,8 @@ export interface YerOp { id: string; ad: string; desc: string; max: number; cost
 export const YEROPS: YerOp[] = [
   { id: 'tefeci', ad: 'Tefecilik', desc: 'Köyün ve esnafın sıkışanına faizle para verirsin. Her ay faiz döner; ödeyemeyen kapına düşer.', max: 4, cost: (w, l) => Math.round((4000 + l * 6000) * infl(w.m)) },
   { id: 'kumar', ad: 'Kumarhane', desc: 'Arka odada iskambil, tavla, zar. Kaybeden hep kasadır — yani sen. Para akar ama polis de kokuyu alır.', max: 4, cost: (w, l) => Math.round((5000 + l * 8000) * infl(w.m)) },
+  { id: 'kacak', ad: 'Kaçak mal (sigara/içki)', desc: 'Gümrüksüz sigara, içki, çay... Kamyonlarla girer, mahalleye dağılır. İyi para, ama en çok dikkat çeken iş.', max: 4, cost: (w, l) => Math.round((6000 + l * 9000) * infl(w.m)) },
+  { id: 'sahte', ad: 'Sahte evrak atölyesi', desc: 'Pasaport, ruhsat, tapu sureti, fatura... Hem başkasına satarsın hem kendi işini kolaylaştırırsın; jandarmanın gözünü boyarsın.', max: 2, cost: (w, l) => Math.round((11000 + l * 14000) * infl(w.m)) },
   { id: 'muhbir', ad: 'Muhbir ağı', desc: 'Karakolda, belediyede, kahvede kulakların olur. Baskın öncesi haber alır, dikkati hızlı söndürürsün. Aylık gider.', max: 1, cost: (w) => Math.round(9000 * infl(w.m)) },
 ];
 
@@ -29,7 +31,7 @@ export function buildYerOp(w: World, id: string): { ok: boolean; msg: string } {
   // Önce kara para, sonra temiz
   if (w.dirty >= c) w.dirty -= c; else w.hh.cash -= c;
   w.flags['yr_' + id] = lvl + 1;
-  const adlar: Record<string, string> = { tefeci: 'Tefecilik ağını', kumar: 'Kumarhaneyi', muhbir: 'Muhbir ağını' };
+  const adlar: Record<string, string> = { tefeci: 'Tefecilik ağını', kumar: 'Kumarhaneyi', kacak: 'Kaçak mal ağını', sahte: 'Sahte evrak atölyesini', muhbir: 'Muhbir ağını' };
   log(w, `${adlar[id]} ${lvl === 0 ? 'kurdun' : 'büyüttün'} (seviye ${lvl + 1}).`, 'olay');
   return { ok: true, msg: `${d.ad} seviye ${lvl + 1}.` };
 }
@@ -53,6 +55,22 @@ export function monthlyYeralti(w: World, lines: LedgerLine[]) {
     w.dirty += v;
     w.heat = clamp(w.heat + kum * 0.7, 0, 100);
     lines.push({ t: `Kumarhane kazancı (sv.${kum})`, v: 0 });
+    void v;
+  }
+  const kac = yerLvl(w, 'kacak');
+  if (kac > 0) {
+    const v = Math.round(kac * 820 * inf * city);
+    w.dirty += v;
+    w.heat = clamp(w.heat + kac * 1.1, 0, 100);
+    lines.push({ t: `Kaçak mal kazancı (sv.${kac})`, v: 0 });
+    void v;
+  }
+  const sah = yerLvl(w, 'sahte');
+  if (sah > 0) {
+    const v = Math.round(sah * 500 * inf);
+    w.dirty += v;
+    w.heat = clamp(w.heat - sah * 0.9, 0, 100); // evrak işleri izi karartır
+    lines.push({ t: `Sahte evrak atölyesi (sv.${sah})`, v: 0 });
     void v;
   }
   if (yerLvl(w, 'muhbir') > 0) {

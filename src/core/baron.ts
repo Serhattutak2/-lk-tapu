@@ -343,7 +343,7 @@ export function facIncome(w: World, f: FacId): number {
   if (f === 'insaat') k *= (0.6 + ((year(w.m) * 7) % 10) / 10) * (hhHasJob(w, 'mimar') ? 1.2 : 1);
   if (f === 'cimento' && hhHasJob(w, 'mimar')) k *= 1.15;
   if ((f === 'otel' || f === 'gazino') && hhHasJob(w, 'sarkici')) k *= 1.15;
-  if (f === 'tekstil' && w.flags.grev === year(w.m)) k *= 0.3;
+  if (f === 'tekstil') { k *= 1 + Math.min(0.35, w.hh.parcels.filter((p) => p.crop === 'pamuk').length * 0.06); if (w.flags.grev === year(w.m)) k *= 0.3; }
   if (has(w, 'bilgisayar')) k *= 1.1;
   if (hasEngineer(w)) k *= 1.1;
   // Çok fabrikada ölçek: her ek fabrika tam değil, biraz azalan verimle gelir

@@ -92,7 +92,7 @@ export function resolveSick(w: World, p: Person, k: string, data: Record<string,
 export function eraMortality(w: World, p: Person): number {
   const y = year(w.m);
   const a = age(w, p);
-  const od = w.flags.odul_ocak ? 0.82 : 1;
+  const od = (w.flags.odul_ocak ? 0.82 : 1) * (w.flags.hekim ? 0.9 : 1);
   if (!has(w, 'penisilin')) return (a < 5 ? 1.5 : p.sick ? 1.3 : 1.05) * od;
   if (y >= 1985) return 0.85 * od;
   return 1 * od;

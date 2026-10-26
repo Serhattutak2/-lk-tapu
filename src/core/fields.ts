@@ -36,6 +36,8 @@ export const CROPS: Record<CropId, CropDef> = {
   susam: { id: 'susam', ad: 'Susam', sow: [4, 5], grow: 4, need: 1, seed: 45, value: 1950, rainSens: 0.45, from: 1930, desc: 'Mayısta ekilir, eylülde toplanır. Sıcağı ve kuraklığı sever; az iş, orta para.' },
   patates: { id: 'patates', ad: 'Patates', sow: [2, 3], grow: 4, need: 1.5, seed: 110, value: 2350, rainSens: 0.9, from: 1935, desc: 'Baharda dikilir, yazın sökülür. Tohumu pahalı ama bereketli; pazarda her zaman alıcısı var.' },
   misir: { id: 'misir', ad: 'Mısır', sow: [3, 4], grow: 5, need: 1.5, seed: 60, value: 2150, rainSens: 1.25, from: 1945, desc: 'Nisanda ekilir, eylülde kırılır. Su ister; yem ve nişasta fabrikaları her yıl daha çok alıyor.' },
+  cavdar: { id: 'cavdar', ad: 'Çavdar', sow: [9, 10], grow: 9, need: 1, seed: 45, value: 1350, rainSens: 0.5, desc: 'En kurağa, en soğuğa dayanan tahıl. Para etmez ama taşlık, zayıf toprakta bile ekmek çıkarır.' },
+  pamuk: { id: 'pamuk', ad: 'Pamuk', sow: [3, 4], grow: 6, need: 2.8, seed: 110, value: 3600, rainSens: 1.1, from: 1950, desc: 'Nisanda ekilir, sonbaharda elle toplanır. Çok el ister; tekstil fabrikaları kuruldukça altın değerinde.' },
 };
 
 /** Haşhaş: tam bakımda bir parselden çıkan çuval, devlet ve kaçak fiyatı (1965 lirası). */
@@ -552,7 +554,7 @@ export function nextSowText(c: CropId): string {
 
 // ---------- Ambar ----------
 
-export const STORABLE: CropId[] = ['bugday', 'arpa', 'nohut'];
+export const STORABLE: CropId[] = ['bugday', 'arpa', 'nohut', 'cavdar'];
 /** Ambar kapasitesi (temel değer birimi): ev ambarı + samanlık */
 export const ambarCap = (w: World) => 1800 * (3 + (w.hh.rooms?.samanlik || 0) * 4 + (w.hh.house >= 2 ? 2 : 0));
 export const ambarUsed = (w: World) => Object.values(w.hh.ambar || {}).reduce((a, b) => a + (b || 0), 0);

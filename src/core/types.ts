@@ -13,7 +13,7 @@ export type TechId = 'pulluk' | 'gramofon' | 'dikis' | 'kinin' | 'penisilin' | '
 export type DistId = 'liman' | 'carsi' | 'sanayi' | 'gecekondu' | 'yenisehir' | 'kordon';
 export type DInv = 'kahvehane' | 'galeri' | 'otel' | 'pavyon' | 'site';
 export type FacId = 'un' | 'nakliye' | 'tekstil' | 'gazino' | 'insaat' | 'sarap' | 'konserve' | 'cimento' | 'liman' | 'otel' | 'banka' | 'medya';
-export type CropId = 'bugday' | 'arpa' | 'nohut' | 'pancar' | 'hashas' | 'tutun' | 'aycicegi' | 'misir' | 'patates' | 'susam';
+export type CropId = 'bugday' | 'arpa' | 'nohut' | 'pancar' | 'hashas' | 'tutun' | 'aycicegi' | 'misir' | 'patates' | 'susam' | 'cavdar' | 'pamuk';
 
 export interface Traits {
   zeka: number;  // 1-10

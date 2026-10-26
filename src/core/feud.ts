@@ -211,6 +211,10 @@ export function feudCards(w: World): boolean {
   // Kocabaşlar baskı yapar: ekin yakma, ihbar
   if (r.feud >= 75 && chance(w, 0.02)) {
     const grow = w.hh.parcels.filter((f) => f.crop);
+    if (w.flags.yp_duvar && chance(w, 0.55)) {
+      log(w, `${rP(w)} gece eve yanaştı ama avlu duvarını aşamadı; bekçi köpekleri havlayınca kaçtılar.`, 'olay');
+      return false;
+    }
     if (grow.length && chance(w, 0.5)) {
       const f = pick(w, grow);
       f.crop = null;

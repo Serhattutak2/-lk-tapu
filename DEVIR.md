@@ -94,6 +94,13 @@ Bu dosya projeyi başka bir yapay zekâ ya da geliştiriciyle sürdürmek için 
 - Mülk: `core/ciftlik.ts` — süt ineği/tavuk/arı (CIFTLIK, sayılı), meyve/ceviz/bostan (BAHCE, tekil). `monthlyCiftlik` aylık temiz gelir (köyde yaşarken). UI: estateHTML `ciftlikHTML`, flags cf_<id>/bh_<id>.
 - Yeraltı: `core/yeralti.ts` — tefecilik/kumar (0-4 seviye) + muhbir ağı (0/1). `monthlyYeralti` kara para + ısı/korku etkisi; muhbir ısıyı söndürür. `yer_borc` kartı (ödeyemeyen borçlu). UI: underHTML `yeraltiHTML`, flags yr_<id>. Kurulum kara kasadan da ödenebilir.
 
+## 3.3 — tüm bölümlere ekleme
+- Tarla: +2 ürün (`cavdar`, `pamuk`); pamuk tekstil fabrikası gelirini artırır (baron.ts facIncome). cavdar STORABLE.
+- Mülk: `core/yapi.ts` — kuyu (flags.kuyu), taş fırın+kiler (monthlyYapi tasarruf), avlu duvarı (feud arson'u %55 engeller, yp_duvar), köy çeşmesi, cami (hayır → nam/saygı). UI: estateHTML `yapiHTML`, flags yp_<id>.
+- Aile: `core/aileyatirim.ts` — özel hoca (flags.hoca, growth skill ×1.5 <25 yaş), aile hekimi (flags.hekim, growth recovery + eraMortality ×0.9), harçlık (yılda bir rel+8), büyük tören (3 yılda bir nam+8/saygı+8/rel+5). UI: familyHTML `aileYatirimHTML`. Aylık gider monthlyAileYatirim.
+- Yeraltı: YEROPS'a `kacak` (0-4) ve `sahte` (0-2, ısıyı düşürür) eklendi.
+- Hane: `core/banka.ts` — banka hesabı (flags.banka), parayı kasadan çıkarır (ısı/baskından korur), aylık ~%0,35 faiz. monthlyBanka. UI: householdHTML.
+
 ## Sıradaki (Faz 1)
 - Fabrika seviye kademeleri (1:10 → 1:50 çalışan, 5-6 seviye) ve firma adı koyma.
 - Şehirde mafya tırmanışı (küçük çete → büyük → daha büyük) ve "her şeye kolay izin" dengesinin sıkılaştırılması.
