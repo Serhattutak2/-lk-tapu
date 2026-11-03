@@ -142,12 +142,28 @@ export interface CityState {
   home: number;         // şehirdeki ev kademesi (en iyi daire)
   homes?: number;       // şehirde sahip olunan toplam konut sayısı
   moved: boolean;       // aile şehre taşındı mı
-  facs: Partial<Record<FacId, { since: number; mgr?: string; n?: number; guard?: number; down?: number }>>;
+  facs: Partial<Record<FacId, { since: number; mgr?: string; n?: number; guard?: number; down?: number; lvl?: number }>>;
+  firm?: string;        // kurulan holdingin/şirketin adı
   deniz?: { gemi: number; ihracat: number; kazanc: number }; // deniz aşırı operasyonlar
   turf: number;         // kontrol edilen mahalle
   net: boolean;         // Kara Rıza'nın şebekesi artık bizim
   laundered: number;    // bugüne kadar aklanan
   dist: DistrictState[]; // şehrin mahalleleri
+  fams?: CityFamily[];  // Konsey'in büyük aileleri
+  baba?: string;        // hüküm süren Büyük Baba: '' boş, 'biz' oyuncu, yoksa aile id'si
+  throneM?: number;     // tahta çıkılan ay
+}
+
+/** Konsey'in büyük mafya aileleri. */
+export interface CityFamily {
+  id: string;           // 'karayel' vb.
+  ad: string;           // 'Karayel'
+  reis: string;         // reisin adı
+  men: number;          // silahlı adamları
+  bond: number;         // -100 düşman .. +100 dost
+  trait: 'kan' | 'para' | 'siyaset' | 'sadakat' | 'hirs'; // huyu
+  dist?: DistId;        // etki alanı (mahalle)
+  alive: boolean;       // masada mı (dağıtılmadı mı)
 }
 
 export interface DistrictState {

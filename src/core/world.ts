@@ -10,7 +10,7 @@ import { jobCards, seedJobMilestone } from './jobcard';
 import { setBase, START_YEAR } from './calendar';
 import { initMarket } from './market';
 
-export const VERSION = 7;
+export const VERSION = 8;
 export const START_M = 2; // Mart 1925
 
 export interface NewGameOpts {

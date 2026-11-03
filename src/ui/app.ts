@@ -15,7 +15,8 @@ import { BASE_CAP, buildRoom, canBuild, capacity, crowded, residents, roomPrice,
 import { AGIL_PRICE, buildLab, buyAgil, buyRaw, cevdetPay, hamPrice, hapPrice, hireCevdet, LAB_LEVELS, labCapacity, labPrice, labSkill, labWorkers, moveStash, paketPrice, sellProduct, siteOk, SITES, unlocked } from '../core/lab';
 import { attackRival, doRivalMove, feudLabel, gangPay, lockedOut, rivalMoves, rP, scuffle, targets, setLock } from '../core/feud';
 import { HUY_AD, kmtAd, kmtDost, kmtFactor, kmtFollow, kmtGift, kmtHuy, kmtKnown, kmtOurs, ozelTim } from '../core/jandarma';
-import { buyGemi, denizOpen, facDown, facN, facTotal, gemiPrice, rebuildFac, setFacGuard, buyCityHome, buyFac, CITY, FACS, facIncome, facPrice, hire, HOMES, homePrice, launderCap, launderFee, moveToCity, setFacMgr, takeTurf, underTitle } from '../core/baron';
+import { buyGemi, denizOpen, facDown, facN, facTotal, gemiPrice, rebuildFac, setFacGuard, buyCityHome, buyFac, CITY, FACS, facIncome, facPrice, hire, HOMES, homePrice, launderCap, launderFee, moveToCity, setFacMgr, takeTurf, underTitle, facLevel, FAC_LVL, facUpgrade, facUpgradePrice, setFirm } from '../core/baron';
+import { fams, aliveFams, babaLabel, isBaba, babaFam, canChallenge, votes, allies, TRAIT_AD, aileGift, ailePress, ailePeace, tahtHamle } from '../core/aile';
 import type { DInv, DistId, FacId, TechId } from '../core/types';
 import { buyTech, eraOf, TECHS, techPrice } from '../core/era';
 import { DISTS, distIncome, invest, invPrice, INVS, menNeeded, takeDistrict } from '../core/district';
@@ -51,8 +52,11 @@ import { agaOlu, konakBizim } from '../core/aga';
 const SAVE_KEY = 'ilktapu_v1';
 const NEWS_KEY = 'ilktapu_haber';
 export const NEWS = {
-  v: '3.3',
+  v: '3.4',
   items: [
+    ['Konsey ve Büyük Baba tahtı', 'Şehrin tepesinde artık beş gerçek mafya ailesi var: her birinin reisi, mahallesi, adamları ve sana bir bağı. Dost edin, pusu kur ya da masanın başına sen otur — ittifakla oylat, suikast düzenle ya da açık savaşa gir. Şehir sekmesinde "Konsey".'],
+    ['Tahtı korumak ayrı iş', 'Büyük Baba olduktan sonra rahat yok: hırslı aileler ve eski düşmanlar ayağa kalkar, koltuğun için meydan okur. Ez, satın al ya da dostlarınla sustur; başaramazsan taht elinden gider.'],
+    ['Fabrika kademeleri ve holding', 'Fabrikalar artık ~10 işçilik atölyeden ~50 işçilik dev tesise büyütülebiliyor — her kademe gelir ve aklamayı artırır, biriken parayı emer. İki fabrikan olunca hepsini tek bir holding adı altında toplayıp nam kazanırsın.'],
     ['Tarla daha da zengin', 'Beş yeni ürün (mısır, patates, susam, çavdar, pamuk); gübre ve kalıcı sulama kanalı. Pamuk, tekstil fabrikasını besler.'],
     ['Mülke su, yapı ve çiftlik', 'Kuyu (kuraklığa karşı), taş fırın, avlu duvarı (baskına karşı), köy çeşmesi ve cami (hayırla nam); süt ineği, tavuk, arı, meyve bahçesi, ceviz, bostan.'],
     ['Aile yatırımları', 'Özel hoca (çocuklar hızlı öğrenir), aile hekimi (hastalık kısalır, ölüm azalır), harçlık (aile bağı) ve büyük tören (nam + saygı). Aile sekmesinde.'],
@@ -948,9 +952,9 @@ export class App {
       const down = facDown(w, f);
       const soon = y < d.from;
       return `<div class="asset${down ? ' burnt' : ''}"><div class="prow"><span class="pname">${esc(d.ad)}</span>${n ? `<span class="badge sen">${n} tane</span>` : ''}${down ? '<span class="badge hasta">Yanık, kapalı</span>' : ''}</div><p class="note">${esc(d.desc)}</p>
-        ${st && n ? `<p class="note">${down ? 'Üretim durdu; onarılmadıkça para getirmez.' : `Bu ay kazancı ${lira(facIncome(w, f))}.`} Koruma: ${Number(st.guard || 0)} adam.</p>
+        ${st && n ? `<p class="note">${FAC_LVL[facLevel(w, f)].ad} (≈${FAC_LVL[facLevel(w, f)].isci} işçi). ${down ? 'Üretim durdu; onarılmadıkça para getirmez.' : `Bu ay kazancı ${lira(facIncome(w, f))}.`} Koruma: ${Number(st.guard || 0)} adam.</p>
           <select data-facmgr="${f}" aria-label="${esc(d.ad)} müdürü"><option value="">Müdür yok (kazanç düşük)</option>${cand.map((q) => `<option value="${q.id}"${st.mgr === q.id ? ' selected' : ''}>${esc(q.first)}, ticaret ${Math.round(q.sk.ticaret)}</option>`).join('')}</select>
-          <div class="btnrow"><button class="small" data-guard="${f}:1"${w.gang ? '' : ' disabled'}>Koruma ekle</button><button class="small" data-guard="${f}:-1"${Number(st.guard || 0) ? '' : ' disabled'}>Koruma çek</button>${down ? `<button class="small danger" data-rebuild="${f}">Onar (${lira(Math.round(facPrice(w, f) * 0.3))})</button>` : ''}</div>` : ''}
+          <div class="btnrow"><button class="small" data-guard="${f}:1"${w.gang ? '' : ' disabled'}>Koruma ekle</button><button class="small" data-guard="${f}:-1"${Number(st.guard || 0) ? '' : ' disabled'}>Koruma çek</button>${!down && facLevel(w, f) < 5 ? `<button class="small" data-facup="${f}"${w.hh.cash < facUpgradePrice(w, f) ? ' disabled' : ''}>Büyüt → ${FAC_LVL[facLevel(w, f) + 1].ad.toLowerCase()} (${lira(facUpgradePrice(w, f))})</button>` : ''}${down ? `<button class="small danger" data-rebuild="${f}">Onar (${lira(Math.round(facPrice(w, f) * 0.3))})</button>` : ''}</div>` : ''}
         ${soon ? `<p class="note">${d.from}'de kurulabilir.</p>` : `<button class="small" data-fac="${f}"${w.hh.cash < facPrice(w, f) ? ' disabled' : ''}>${n ? `Bir tane daha kur` : 'Satın al'} (${lira(facPrice(w, f))})</button>`}</div>`;
     }).join('');
     const nextLvl = Math.min(3, (w.city.homes || 0) + 1);
@@ -961,12 +965,49 @@ export class App {
       <div class="btnrow"><button class="small" data-chome="1"${w.hh.cash < homePrice(w, nextLvl) ? ' disabled' : ''}>${esc(HOMES[nextLvl].ad)} satın al (${lira(homePrice(w, nextLvl))})</button>
         ${w.city.home ? `<button class="small" data-move="${w.city.moved ? 0 : 1}">${w.city.moved ? 'Köye geri dön' : 'Şehre taşın'}</button>` : ''}</div>
       <div class="group">Fabrikalar ve şirketler: ${facTotal(w)}</div>${facs}
+      ${facTotal(w) >= 2 ? `<div class="btnrow"><input class="firminput" data-firm-input maxlength="28" placeholder="${esc(w.surname)} Holding" value="${esc(w.city.firm || '')}" aria-label="Holding adı"><button class="small" data-firm="1">${w.city.firm ? 'Adı değiştir' : 'Holding kur'}</button></div>
+      <p class="note">${w.city.firm ? `Bütün fabrikalar, gemiler ve işletmeler <b>${esc(w.city.firm)}</b> çatısı altında.` : 'İki fabrikan var: hepsini tek bir holding adı altında toplayabilirsin (bir kerelik nam kazandırır).'}</p>` : ''}
       <div class="group">Ticaret filosu: ${dz?.gemi || 0} gemi</div>
       <p class="note">${denizOpen(w) ? `Yük gemileri limanından buğday, tekstil ve şarap taşır; navlun temiz para olarak kasaya girer.${dz?.kazanc ? ` Bugüne kadar ${lira(dz.kazanc)} kazandırdı.` : ''}` : 'Gemi almak için önce bir liman işletmesi kur (1985 sonrası).'}</p>
       ${denizOpen(w) ? `<div class="btnrow"><button class="small" data-gemi="1"${w.hh.cash < gemiPrice(w) ? ' disabled' : ''}>Yük gemisi al (${lira(gemiPrice(w))})</button></div>` : ''}
       <div class="group">Mahalleler: ${w.city.turf} / ${w.city.dist.length}</div>
       <p class="note">Mahallelerden gelen haraç ve kazanç kara kasaya girer. Esnafın bağlılığı düşerse isyan çıkar; polis varlığı arttıkça hem almak hem tutmak zorlaşır. Yatırımlar kazancı ve aklama kapasitesini büyütür.</p>
-      ${this.distHTML()}`;
+      ${this.distHTML()}
+      ${this.konseyHTML()}`;
+  }
+
+  // ---------- Konsey ve Büyük Baba ----------
+  private konseyHTML(): string {
+    const w = this.w!;
+    const F = fams(w);
+    if (!F.length) return '';
+    const al = aliveFams(w);
+    const bond = (b: number) => b >= 75 ? 'can dostu' : b >= 40 ? 'dost' : b >= 10 ? 'iyi' : b > -10 ? 'nötr' : b > -40 ? 'gergin' : 'düşman';
+    const bondCls = (b: number) => b >= 40 ? 'sen' : b <= -40 ? 'hasta' : '';
+    const rows = al.map((f) => {
+      const isB = w.city.baba === f.id;
+      return `<div class="asset"><div class="prow"><span class="pname">${esc(f.ad)}${isB ? ' 👑' : ''}</span><span class="badge ${bondCls(f.bond)}">${bond(f.bond)}</span></div>
+        <p class="note">Reis: ${esc(f.reis)} · ${TRAIT_AD[f.trait]} · ${f.dist ? esc(DISTS[f.dist].ad) : 'gezgin'} · ${f.men} adam · bağ ${Math.round(f.bond)}${isB ? ' · <b>Büyük Baba</b>' : ''}</p>
+        <div class="btnrow"><button class="small" data-aile="gift:${f.id}">Hediye (bağ +)</button>${w.gang >= 4 ? `<button class="small danger" data-aile="press:${f.id}">Pusu</button>` : ''}${f.bond < 20 ? `<button class="small" data-aile="peace:${f.id}">Barış</button>` : ''}</div></div>`;
+    }).join('');
+    let taht = '';
+    if (isBaba(w)) {
+      taht = `<p class="note"><b>Büyük Baba sensin.</b> ${CITY}'in masasının başı senin. Ama hırslı aileler ve eski düşmanlar tahtını ister; güçlü kalmazsan bir gün biri ayağa kalkar.</p>`;
+    } else {
+      const c = canChallenge(w);
+      const v = votes(w);
+      const b = babaFam(w);
+      taht = `<p class="note">${b ? `Masanın başında <b>${esc(b.reis)}</b> (${esc(b.ad)}) oturuyor — Büyük Baba o.` : 'Taht şu an boş.'} Dost ailelerin: ${allies(w).length}. Masadaki oyun: ${v.mine.toFixed(1)} / ${v.need.toFixed(1)}.</p>`;
+      if (c.ok && b) {
+        taht += `<div class="btnrow"><button class="small" data-taht="oylama"${v.mine < v.need ? ' disabled' : ''}>Oylama ile geç (oy ${v.mine.toFixed(1)}/${v.need.toFixed(1)})</button><button class="small danger" data-taht="suikast">Suikast (${w.gang} adam)</button>${w.gang >= 14 ? `<button class="small danger" data-taht="savas">Açık savaş</button>` : ''}</div>
+        <p class="note">Oylama için aileleri yanına çek; suikast kanlı ama hızlı; açık savaş en riskli.</p>`;
+      } else if (b) {
+        taht += `<p class="note">Tahta oynamak için: şehirde Baba seviyesine çık ve en az on adam topla. (${esc(c.why)})</p>`;
+      }
+    }
+    return `<div class="group">Konsey — ${esc(babaLabel(w))}</div>
+      <p class="note">${CITY}'i beş büyük aile paylaşır. Her birinin bir reisi, bir mahallesi ve sana bir bağı var. Dost edin, bastır ya da masanın başına sen otur.</p>
+      ${rows}${taht}`;
   }
 
   // ---------- Yeraltı ----------
@@ -1227,6 +1268,16 @@ export class App {
       this.toast(invest(w, d as DistId, i as DInv).msg);
     })));
     panel.querySelectorAll<HTMLButtonElement>('[data-turf]').forEach((b) => (b.onclick = act(() => this.toast(takeTurf(w).msg))));
+    panel.querySelectorAll<HTMLButtonElement>('[data-facup]').forEach((b) => (b.onclick = act(() => this.toast(facUpgrade(w, b.dataset.facup as FacId).msg))));
+    panel.querySelectorAll<HTMLButtonElement>('[data-firm]').forEach((b) => (b.onclick = act(() => {
+      const inp = panel.querySelector<HTMLInputElement>('[data-firm-input]');
+      this.toast(setFirm(w, inp?.value || '').msg);
+    })));
+    panel.querySelectorAll<HTMLButtonElement>('[data-aile]').forEach((b) => (b.onclick = act(() => {
+      const [op, id] = b.dataset.aile!.split(':');
+      this.toast((op === 'gift' ? aileGift(w, id) : op === 'press' ? ailePress(w, id) : ailePeace(w, id)).msg);
+    })));
+    panel.querySelectorAll<HTMLButtonElement>('[data-taht]').forEach((b) => (b.onclick = act(() => this.toast(tahtHamle(w, b.dataset.taht as 'oylama' | 'suikast' | 'savas').msg))));
     panel.querySelectorAll<HTMLButtonElement>('[data-lock]').forEach((b) => (b.onclick = act(() => setLock(w, b.dataset.lock === '1'))));
     panel.querySelectorAll<HTMLButtonElement>('[data-sow]').forEach((b) => (b.onclick = () => {
       const [fid, c] = b.dataset.sow!.split(':');

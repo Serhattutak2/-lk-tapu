@@ -2,6 +2,7 @@
 import { delegate, monthlySagkol } from './sagkol';
 import { monthlyGuc } from './guc';
 import { monthlyKonsey } from './konsey';
+import { monthlyAile } from './aile';
 import { monthlyNews } from './news';
 import { monthlyKomsu } from './komsu';
 import { monthlyQuests } from './quests';
@@ -23,7 +24,8 @@ import { ambarValue, assignWorker, CROPS, hasRuhsat, idleWage, laborNeed, monthl
 import { monthlyCrime, RENT_CAP } from './crime';
 import { monthlyLab } from './lab';
 import { attackRival, lockedOut, monthlyFeud, setLock } from './feud';
-import { buyCityHome, buyFac, cityEvents, FACS, facPrice, hire, homePrice, monthlyBaron, moveToCity, setFacMgr } from './baron';
+import { buyCityHome, buyFac, cityEvents, FACS, facPrice, hire, homePrice, monthlyBaron, moveToCity, setFacMgr, facLevel, facUpgrade, facUpgradePrice, facTotal, setFirm } from './baron';
+import { isBaba, canChallenge, votes, tahtHamle, aliveFams, aileGift } from './aile';
 import type { FacId, TechId } from './types';
 import { monthlyEra, buyTech, techIncome, TECHS, techPrice } from './era';
 import { mk } from './market';
@@ -74,6 +76,7 @@ export function advance(w: World): boolean {
   monthlyNiyet(w);
   monthlyGuc(w);
   monthlyKonsey(w);
+  monthlyAile(w);
   monthlyGoals(w);
   monthlyChallenges(w);
   if (w.hh.cash < 0) {
@@ -411,6 +414,20 @@ function botEstate(w: World) {
     if (w.city.moved && chance(w, 0.05)) {
       const d = w.city.dist.find((x) => x.o !== 'biz' && year(w.m) >= DISTS[x.id].from && w.gang >= menNeeded(w, x));
       if (d) takeDistrict(w, d.id);
+    }
+    // Fabrikaları büyüt (biriken parayı emer), holding kur
+    for (const f of Object.keys(w.city.facs) as FacId[]) {
+      if (facLevel(w, f) < 5 && w.hh.cash > facUpgradePrice(w, f) * 2.2) facUpgrade(w, f);
+    }
+    if (!w.city.firm && facTotal(w) >= 2) setFirm(w, `${w.surname} Holding`);
+    // Tahta oyna: güçlüyken ara sıra hamle, dostluk için hediye
+    if (w.city.fams && w.dirty > 30000 * infl(w.m) && chance(w, 0.06)) {
+      const f = aliveFams(w).filter((x) => x.bond < 55).sort((a, b) => b.bond - a.bond)[0];
+      if (f) aileGift(w, f.id);
+    }
+    if (!isBaba(w) && canChallenge(w).ok && chance(w, 0.1)) {
+      const v = votes(w);
+      tahtHamle(w, v.mine >= v.need ? 'oylama' : w.gang >= 16 ? 'suikast' : 'oylama');
     }
   }
   if (w.lab) {

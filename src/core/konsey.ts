@@ -174,6 +174,8 @@ export function monthlyKonsey(w: World) {
   if (Number(w.flags.konseyFeud || 0) <= 0 && !w.flags.konseyYenildi) {
     w.flags.konseyYenildi = true;
     w.flags.konsey = 'baba';
+    w.city.baba = 'biz';
+    w.city.throneM = w.m;
     log(w, `Konsey'in beş ailesi birer birer çekildi. Masanın başında artık tek bir isim var. Büyük Baba sensin.`, 'miras');
   }
 }

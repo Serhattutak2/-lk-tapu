@@ -31,7 +31,7 @@ export const canPay = (w: World, amount: number) => w.dirty + w.hh.cash >= amoun
 export function launderCap(w: World): number {
   let c = 0;
   for (const b of Object.keys(BIZ) as (keyof typeof BIZ)[]) if (w.hh.biz[b]) c += b === 'bakkal' ? 1500 : b === 'kahve' ? 2500 : 4000;
-  for (const f of Object.keys(w.city.facs) as FacId[]) if (!facDown(w, f)) c += FACS[f].launder * facN(w, f);
+  for (const f of Object.keys(w.city.facs) as FacId[]) if (!facDown(w, f)) c += FACS[f].launder * facN(w, f) * facLvlMult(w, f);
   if (w.flags.medyaVar) c += 0;
   return Math.round((c * infl(w.m) + distLaunder(w)) * (has(w, 'bilgisayar') ? 1.25 : 1) * (hhHasJob(w, 'bankaci') ? 1.4 : 1) * (w.flags.odul_karakutu ? 1.25 : 1));
 }
@@ -83,7 +83,8 @@ export function monthlyBaron(w: World, lines: LedgerLine[]) {
     const st = w.city.facs[f]!;
     const mgr = P(w, st.mgr);
     const n = facN(w, f);
-    lines.push({ t: `${FACS[f].ad}${n > 1 ? ` ×${n}` : ''}${facDown(w, f) ? ' (yanmış, kapalı)' : alive(mgr) && mgr.job === 'isletme' ? ` (${mgr.first})` : ''}`, v });
+    const lv = facLevel(w, f);
+    lines.push({ t: `${FACS[f].ad}${lv > 1 ? ` (${FAC_LVL[lv].ad.toLowerCase()})` : ''}${n > 1 ? ` ×${n}` : ''}${facDown(w, f) ? ' (yanmış, kapalı)' : alive(mgr) && mgr.job === 'isletme' ? ` (${mgr.first})` : ''}`, v });
   }
   facAttacks(w);
   monthlyDeniz(w, lines);
@@ -323,6 +324,46 @@ export const FACS: Record<FacId, FacDef> = {
   banka: { id: 'banka', ad: 'Özel banka', price: 900000, income: 14000, launder: 90000, from: 1990, desc: 'Kendi bankan. Para artık görünmez yollardan akıyor; aklama kapasitesi uçar.' },
   medya: { id: 'medya', ad: 'Gazete ve televizyon', price: 700000, income: 6000, launder: 40000, from: 1992, desc: 'Manşet senin elinde. Hakkındaki haberler susar, siyasette elin güçlenir; dikkat yavaş söner.' },
 };
+// Fabrika büyüklük kademeleri: ~10 işçilik atölyeden ~50 işçilik dev tesise.
+export const FAC_LVL = [
+  { ad: '', isci: 0, mult: 1 },
+  { ad: 'Atölye', isci: 10, mult: 1 },
+  { ad: 'Fabrika', isci: 20, mult: 1.6 },
+  { ad: 'Büyük fabrika', isci: 30, mult: 2.2 },
+  { ad: 'Tesis', isci: 40, mult: 2.9 },
+  { ad: 'Dev tesis', isci: 50, mult: 3.7 },
+];
+export const facLevel = (w: World, f: FacId) => clamp(w.city.facs[f]?.lvl ?? 1, 1, 5);
+export const facLvlMult = (w: World, f: FacId) => FAC_LVL[facLevel(w, f)].mult;
+export const facUpgradePrice = (w: World, f: FacId) => Math.round((FACS[f].price * 0.6 * facLevel(w, f) * infl(w.m)) / 1000) * 1000;
+
+/** Fabrikayı bir kademe büyüt: daha çok işçi, daha çok gelir ve aklama. Temiz parayla. */
+export function facUpgrade(w: World, f: FacId): { ok: boolean; msg: string } {
+  if (!w.city.facs[f]) return { ok: false, msg: 'Böyle bir fabrikan yok.' };
+  const lvl = facLevel(w, f);
+  if (lvl >= 5) return { ok: false, msg: `${FACS[f].ad} zaten en büyük kademede.` };
+  const p = facUpgradePrice(w, f);
+  if (w.hh.cash < p) return { ok: false, msg: `Büyütmek için ${fmt(p - w.hh.cash)} lira eksik (temiz para).` };
+  w.hh.cash -= p;
+  w.city.facs[f]!.lvl = lvl + 1;
+  log(w, `${FACS[f].ad} büyütüldü: artık ${FAC_LVL[lvl + 1].ad.toLowerCase()} (≈${FAC_LVL[lvl + 1].isci} işçi). ${fmt(p)} lira.`, 'tapu');
+  return { ok: true, msg: `${FACS[f].ad} ${FAC_LVL[lvl + 1].ad.toLowerCase()} oldu.` };
+}
+
+/** Bütün işletmeleri tek çatı altına alan holdinge ad ver. */
+export function setFirm(w: World, name: string): { ok: boolean; msg: string } {
+  const nm = (name || '').trim().replace(/\s+/g, ' ').slice(0, 28);
+  if (nm.length < 2) return { ok: false, msg: 'Holdinge bir ad yaz.' };
+  if (facTotal(w) < 2) return { ok: false, msg: 'Holding kurmak için en az iki fabrikan olmalı.' };
+  const first = !w.city.firm;
+  w.city.firm = nm;
+  if (first) {
+    w.flags.namBonus = Number(w.flags.namBonus || 0) + 15;
+    log(w, `${nm} kuruldu: fabrikalar, gemiler ve işletmeler tek çatı altında toplandı. ${w.surname} ailesinin adı artık bir marka.`, 'miras');
+  } else log(w, `Holdingin adı "${nm}" olarak değişti.`, 'olay');
+  return { ok: true, msg: `${nm} kuruldu.` };
+}
+
 export const facN = (w: World, f: FacId) => (w.city.facs[f]?.n ?? (w.city.facs[f] ? 1 : 0));
 export const facDown = (w: World, f: FacId) => Number(w.city.facs[f]?.down || 0) > w.m;
 export const facTotal = (w: World) => (Object.keys(FACS) as FacId[]).reduce((a, f) => a + facN(w, f), 0);
@@ -348,7 +389,7 @@ export function facIncome(w: World, f: FacId): number {
   if (hasEngineer(w)) k *= 1.1;
   // Çok fabrikada ölçek: her ek fabrika tam değil, biraz azalan verimle gelir
   const scale = n <= 1 ? 1 : 1 + (n - 1) * 0.8;
-  return Math.round(FACS[f].income * k * scale * infl(w.m) * (niyetIs(w, 'ticaret') ? 1.12 : 1) * (Number(w.flags.salgin || 0) > w.m ? 0.7 : 1) * (w.flags.odul_usta ? 1.12 : 1));
+  return Math.round(FACS[f].income * k * scale * facLvlMult(w, f) * infl(w.m) * (niyetIs(w, 'ticaret') ? 1.12 : 1) * (Number(w.flags.salgin || 0) > w.m ? 0.7 : 1) * (w.flags.odul_usta ? 1.12 : 1));
 }
 
 export function buyFac(w: World, f: FacId): { ok: boolean; msg: string } {

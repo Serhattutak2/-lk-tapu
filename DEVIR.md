@@ -55,7 +55,8 @@ Bu dosya projeyi başka bir yapay zekâ ya da geliştiriciyle sürdürmek için 
 | `core/quests.ts` | Hikâye zincirleri (`q:<id>:<adım>`): vasiyet, küp, öğretmen, mektup, köprü, film, tren |
 | `core/news.ts` | Gazete/radyo/TV manşetleri ve 2020 salgın kartı |
 | `core/guc.ts` | Gücün merdiveni (12 kademe, `kademeNo`), korku/saygı (`korku`,`saygi`,`monthlyGuc`) |
-| `core/konsey.ts` | Köyden sürgün (`it_` kartları), rakibi sürme (`surgunEt`), Konsey ve Büyük Baba |
+| `core/konsey.ts` | Köyden sürgün (`it_` kartları), rakibi sürme (`surgunEt`), Konsey daveti ve 'dusman' yolu |
+| `core/aile.ts` | Konsey'in beş mafya ailesi (`w.city.fams`), Büyük Baba tahtı (`w.city.baba`): hediye/pusu/barış, devirme (oylama/suikast/savaş) ve savunma |
 | `core/sagkol.ts` | Sağ kol yetki devri (`delegate`), sadakat, ihanet (`sg_ihanet`) |
 | `ui/music.ts` | WebAudio ile üretilen bağlama+darbuka müziği, ruh haline göre makam |
 | `core/sim.ts` | Aylık adım `advance`: ekonomi, beceri ve sağlık, yaşam, kartlar. Oyuncu eylemleri: `setJob`, `setHeir`, `payDebt`, `resolveCard`. Test botu `botTurn` |
@@ -101,9 +102,17 @@ Bu dosya projeyi başka bir yapay zekâ ya da geliştiriciyle sürdürmek için 
 - Yeraltı: YEROPS'a `kacak` (0-4) ve `sahte` (0-2, ısıyı düşürür) eklendi.
 - Hane: `core/banka.ts` — banka hesabı (flags.banka), parayı kasadan çıkarır (ısı/baskından korur), aylık ~%0,35 faiz. monthlyBanka. UI: householdHTML.
 
+## 3.4 — Konsey aileleri ve Büyük Baba tahtı + fabrika kademeleri
+- `core/aile.ts` — Konsey'in beş büyük ailesi artık gerçek varlık: `CityFamily` (reis, men, bond -100..100, trait kan/para/siyaset/sadakat/hirs, dist, alive), `w.city.fams` + `w.city.baba` ('' boş / 'biz' / aile id) + `throneM`. `ensureFams` lazily kurar, en güçlü aile hüküm süren Büyük Baba olur.
+  - Eylemler: `aileGift` (bağ +), `ailePress` (pusu: adam −, bağ −, ısı +), `ailePeace` (barış). Taht: `canChallenge`, `votes` (dost oyları), `tahtHamle('oylama'|'suikast'|'savas')` → `seizeThrone`. Savunma: Büyük Baba isen `it_baba_savun` kartı (ez/satın al/masa), kaybedersen `loseThrone`.
+  - Kartlar: `it_aile_intro`, `it_baba_firsat`, `it_baba_savun`, `it_aile_ev`. `aileCards`/`resolveAile` cards.ts zincirine, `monthlyAile` sim.ts'e bağlı. Mahalleni aldığın aile küser (denge: turfu bedelsiz büyütmek husumet doğurur).
+  - Eski `konsey.ts` 'dusman→baba' yolu da `city.baba='biz'` set eder (tutarlılık).
+- Fabrika kademeleri: `baron.ts` `FAC_LVL` (1-5: atölye→dev tesis, ≈10→50 işçi), `facLevel`/`facLvlMult`/`facUpgradePrice`/`facUpgrade`. Kademe geliri ve aklamayı (`launderCap`, `facIncome`) çarpar; biriken parayı emer. Firma: `setFirm` + `w.city.firm` (≥2 fabrika, bir kerelik nam).
+- UI: cityHTML'e fabrika "Büyüt" düğmesi + kademe, holding adı girişi (`data-firm`), ve `konseyHTML` (aileler + bağ + taht hamleleri/savunma). Testler: `tests/endgame.test.ts`.
+
 ## Sıradaki (Faz 1)
-- Fabrika seviye kademeleri (1:10 → 1:50 çalışan, 5-6 seviye) ve firma adı koyma.
-- Şehirde mafya tırmanışı (küçük çete → büyük → daha büyük) ve "her şeye kolay izin" dengesinin sıkılaştırılması.
+- (yapıldı 3.4) Fabrika seviye kademeleri ve firma adı koyma.
+- (yapıldı 3.4) Şehirde mafya tırmanışı derinleşti: Konsey aileleri + Büyük Baba taht kavgası ve savunması; turf büyütmenin diplomatik bedeli.
 - (yapıldı 3.1) Jeton harcama: `challenges.ts` ODULLER + `buyOdul`/`ownsOdul`; etkiler flags.odul_<id> ile launder/fabrika/atölye/ölüm/rüşvet/ısı/baskın/toprak alım noktalarında uygulanır. Görev sekmesinde "Jeton ile ödüller".
 - Köy haritasının daha zengin/büyük çizimi.
 - Capacitor ile iOS sarmalayıcı ve GitHub Actions derlemesi (Miras FC'deki `ios.yml` örnek alınacak).
