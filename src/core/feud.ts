@@ -32,6 +32,10 @@ export function targets(w: World): Person[] {
   return hhMembers(w).filter((p) => p.blood && p.sex === 'E' && !p.away && age(w, p) >= 15 && age(w, p) <= 60);
 }
 
+/** Kan davasında savaşan toplam güç: maaşlı adamlar + hanedeki yetişkin erkekler (sen dâhil). */
+export const famFighters = (w: World) => Math.min(8, targets(w).length);
+export const fightForce = (w: World) => w.gang + famFighters(w);
+
 export function setLock(w: World, on: boolean) {
   w.rival.lock = on;
   log(w, on ? `Kan davası yüzünden ailenin erkekleri evden çıkmıyor. Tarlaya kadınlar ve ırgatlar gidiyor.` : `Erkekler yeniden sokağa çıkıyor.`, 'olay');
@@ -110,8 +114,8 @@ export function attackRival(w: World): { ok: boolean; msg: string } {
   const r = w.rival;
   if (r.gone) return { ok: false, msg: 'Köyde hesaplaşacak bir aile kalmadı.' };
   const fam = targets(w).filter((t) => t.id !== w.playerId).length;
-  const men = w.gang + Math.min(2, fam);
-  if (w.gang < 2) return { ok: false, msg: 'Bu iş için en az iki maaşlı adam gerekir.' };
+  const men = fightForce(w); // maaşlı adamlar + ailenin erkekleri (sen dâhil)
+  if (men < 3) return { ok: false, msg: 'Baskın için en az üç kişilik bir güç gerekir (adamların + ailenin erkekleri).' };
   w.flags.baskinSayi = Number(w.flags.baskinSayi || 0) + 1;
   const arm = Number(w.flags.silah || 0) + (w.flags.odul_demir ? 1 : 0);
   const p = clamp(0.3 + 0.07 * men - 0.06 * r.men + (has(w, 'cep') ? 0.08 : 0) + arm * 0.07, 0.1, 0.9);
@@ -178,7 +182,7 @@ export function feudCards(w: World): boolean {
   if (r.feud >= 50) {
     const ts = targets(w);
     const armP = Number(w.flags.silah || 0) + (w.flags.odul_demir ? 1 : 0);
-    const p = ((r.lock ? 0.008 : 0.035) * (r.feud / 80)) / (1 + w.gang * 0.25 + armP * 0.2);
+    const p = ((r.lock ? 0.008 : 0.035) * (r.feud / 80)) / (1 + fightForce(w) * 0.22 + armP * 0.2);
     if (ts.length && chance(w, p) && w.gang > 0 && chance(w, 0.45 + armP * 0.12)) {
       w.gang--;
       r.feud = clamp(r.feud + 6, 0, 100);

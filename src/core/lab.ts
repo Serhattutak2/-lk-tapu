@@ -15,7 +15,9 @@ export const LAB_LEVELS: LabLevel[] = [
   { lvl: 1, ad: 'Atölye', price: 9000, cap: 3, from: 1969, desc: 'Bir masa, birkaç kazan. Ayda 3 çuval ham malı pakete çevirir.' },
   { lvl: 2, ad: 'Laboratuvar', price: 36000, cap: 8, from: 1972, desc: 'Düzgün ekipman, havalandırma. Ayda 8 çuval; kaza riski düşer.' },
   { lvl: 3, ad: 'Hap imalathanesi', price: 110000, cap: 14, from: 1977, desc: 'Ham mal artık hap olarak çıkar: kolisi paketin iki katı eder. Ama böyle bir işin kokusu uzağa gider.' },
+  { lvl: 4, ad: 'Gizli tesis', price: 320000, cap: 26, from: 1985, desc: 'Vardiyalı çalışan, iyi gizlenmiş büyük bir tesis. Ayda 26 koliye kadar hap; bu ölçekte iş, koca bir imparatorluk demek — ve koca bir hedef.' },
 ];
+export const LAB_MAX = 4;
 
 export const SITES: Record<LabSite, { ad: string; heat: number; find: number; need: string }> = {
   bodrum: { ad: 'Evin gizli bodrumu', heat: 1.3, find: 1.0, need: 'Evde gizli bodrum olmalı.' },
@@ -56,12 +58,33 @@ export function labSkill(w: World): number {
   return Math.max(fam, lab.chem === 'cevdet' ? 72 : 0);
 }
 
+/** Üretim temposu: soyut bir yönetim tercihi (kimya değil). Temkinli az üretir az yakar; riskli çok üretir çok yakar. */
+export const MODES: Record<'temkin' | 'denge' | 'risk', { ad: string; cap: number; heat: number; risk: number; desc: string }> = {
+  temkin: { ad: 'Temkinli', cap: 0.65, heat: 0.55, risk: 0.4, desc: 'Yavaş ve sessiz çalış: daha az mal, çok daha az dikkat ve kaza.' },
+  denge: { ad: 'Dengeli', cap: 1, heat: 1, risk: 1, desc: 'Normal tempo.' },
+  risk: { ad: 'Riskli', cap: 1.45, heat: 1.6, risk: 2.2, desc: 'Sonuna kadar bas: çok daha fazla mal ama jandarmanın gözü ve kaza tehlikesi büyür.' },
+};
+export const labMode = (w: World) => (w.lab?.mode || 'denge');
+export function setLabMode(w: World, m: 'temkin' | 'denge' | 'risk'): { ok: boolean; msg: string } {
+  if (!w.lab) return { ok: false, msg: 'Atölye yok.' };
+  w.lab.mode = m;
+  return { ok: true, msg: `Üretim temposu: ${MODES[m].ad}.` };
+}
+
+/** Piyasa talebi: zamanla dalgalanan soyut bir fiyat çarpanı. Yüksekken satmak kârlı, düşükken beklemek akıllıca. */
+export const labDemand = (w: World) => clamp(Number(w.lab?.talep ?? 1), 0.75, 1.45);
+export function demandLabel(w: World): string {
+  const t = labDemand(w);
+  return t >= 1.22 ? 'çok yüksek' : t >= 1.08 ? 'yüksek' : t >= 0.93 ? 'normal' : t >= 0.82 ? 'düşük' : 'çok düşük';
+}
+
 export function labCapacity(w: World): number {
   const lab = w.lab;
   if (!lab) return 0;
   const hands = labWorkers(w).length + (lab.chem ? 1 : 0);
   if (!hands) return 0;
-  return Math.round(LAB_LEVELS[lab.lvl].cap * Math.min(1, 0.5 + hands * 0.25)) + (w.tech?.elektrik ? 1 : 0);
+  const base = LAB_LEVELS[lab.lvl].cap * Math.min(1, 0.5 + hands * 0.25) + (w.tech?.elektrik ? 1 : 0);
+  return Math.max(1, Math.round(base * MODES[labMode(w)].cap));
 }
 
 export function unlocked(w: World): string | null {
@@ -76,7 +99,7 @@ export function buildLab(w: World, site: LabSite): { ok: boolean; msg: string } 
   if (why) return { ok: false, msg: why };
   if (!siteOk(w, site)) return { ok: false, msg: SITES[site].need };
   const next = (w.lab?.lvl || 0) + 1;
-  if (next > 3) return { ok: false, msg: 'Daha büyüğü yok.' };
+  if (next > LAB_MAX) return { ok: false, msg: 'Daha büyüğü yok.' };
   const L = LAB_LEVELS[next];
   if (year(w.m) < L.from) return { ok: false, msg: `${L.ad} ancak ${L.from}'den sonra kurulabilir.` };
   const price = labPrice(w, next);
@@ -131,7 +154,7 @@ export function sellProduct(w: World): number {
   const lab = w.lab;
   if (!lab || (!lab.prod && !lab.hap)) return 0;
   const qf = 0.7 + lab.q * 0.6;
-  const v = Math.round((lab.prod * paketPrice(w) + lab.hap * hapPrice(w)) * qf * routeBonus(w) * (w.flags.odul_usta ? 1.12 : 1));
+  const v = Math.round((lab.prod * paketPrice(w) + lab.hap * hapPrice(w)) * qf * routeBonus(w) * labDemand(w) * (w.flags.odul_usta ? 1.12 : 1));
   w.heat = clamp(w.heat + lab.prod * 2.2 + lab.hap * 3, 0, 100);
   w.dirty += v;
   w.flags.labKazanc = Number(w.flags.labKazanc || 0) + v;
@@ -145,6 +168,8 @@ export function sellProduct(w: World): number {
 export function monthlyLab(w: World, lines: LedgerLine[]) {
   const lab = w.lab;
   if (!lab) return;
+  // Piyasa talebi her ay biraz dalgalanır (soyut fiyat hareketi)
+  lab.talep = clamp((lab.talep ?? 1) + (rint(w, -12, 12) / 100), 0.75, 1.45);
   if (lab.chem === 'cevdet') {
     const pay = cevdetPay(w);
     payDirtyFirst(w, pay);
@@ -159,7 +184,7 @@ export function monthlyLab(w: World, lines: LedgerLine[]) {
     if (lab.lvl >= 3) lab.hap += n;
     else lab.prod += n;
     lab.made += n;
-    w.heat = clamp(w.heat + n * 0.9 * SITES[lab.site].heat, 0, 100);
+    w.heat = clamp(w.heat + n * 0.9 * SITES[lab.site].heat * MODES[labMode(w)].heat, 0, 100);
     for (const p of labWorkers(w)) p.sk.zanaat = clamp(p.sk.zanaat + 0.8 * (0.55 + p.tr.zeka / 10) * (1 - p.sk.zanaat / 110), 0, 100);
   }
   // Depodaki ürün de kokar
@@ -167,7 +192,7 @@ export function monthlyLab(w: World, lines: LedgerLine[]) {
 
   // Kaza
   if (n > 0) {
-    const risk = 0.006 * (1.4 - sk / 100) * (lab.lvl === 2 ? 0.6 : 1);
+    const risk = 0.006 * (1.4 - sk / 100) * (lab.lvl === 2 ? 0.6 : 1) * MODES[labMode(w)].risk;
     if (chance(w, risk)) accident(w);
   }
 }
@@ -208,8 +233,22 @@ export function labCards(w: World): boolean {
     });
     return true;
   }
-  // Kimyager ihaneti: Isı yükselince ya da kovulunca
   const lab = w.lab;
+  // Büyük sipariş: depoda bir hayli mal varken gelen kârlı ama dikkat çeken teklif
+  if (lab && (lab.prod + lab.hap) >= Math.max(6, labCapacity(w)) && (w.city.net || w.flags.kacakci) && chance(w, 0.06)) {
+    const prem = 1.3 + rint(w, 0, 25) / 100;
+    pushCard(w, {
+      id: 'lab_siparis',
+      text: `${w.city.net ? 'Şebekeden' : "Kara Rıza'dan"} haber geldi: büyük bir alıcı depodaki malın tamamını normalin %${Math.round((prem - 1) * 100)} üstüne, peşin almak istiyor. Tek seferde çok para — ama tek seferde çok mal el değiştirince iz de kalır.`,
+      opts: [
+        { t: 'Sat, bu fırsat kaçmaz', k: 'sat' },
+        { t: 'Bu kadar malı birden hareket ettirmem, parça parça satarım', k: 'ret' },
+      ],
+      data: { prem },
+    });
+    return true;
+  }
+  // Kimyager ihaneti: Isı yükselince ya da kovulunca
   if (lab && (lab.chem === 'cevdet' || Number(w.flags.cevdetKizgin || 0) >= year(w.m)) && w.heat > 55 && chance(w, 0.02)) {
     pushCard(w, {
       id: 'cevdet_ihanet',
@@ -225,7 +264,21 @@ export function labCards(w: World): boolean {
   return false;
 }
 
-export function resolveLab(w: World, id: string, k: string): boolean {
+export function resolveLab(w: World, id: string, k: string, data?: Record<string, unknown>): boolean {
+  if (id === 'lab_siparis') {
+    const lab = w.lab;
+    if (k === 'sat' && lab && (lab.prod + lab.hap) > 0) {
+      const prem = Number(data?.prem || 1.3);
+      const qf = 0.7 + lab.q * 0.6;
+      const v = Math.round((lab.prod * paketPrice(w) + lab.hap * hapPrice(w)) * qf * routeBonus(w) * prem);
+      w.dirty += v;
+      w.flags.labKazanc = Number(w.flags.labKazanc || 0) + v;
+      w.heat = clamp(w.heat + (lab.prod + lab.hap) * 3.2, 0, 100);
+      log(w, `Büyük alıcıya tek partide ${lab.prod + lab.hap} birim mal verildi: ${v.toLocaleString('tr-TR')} lira peşin kara kasaya girdi. Böyle bir yük gözden kaçmaz.`, 'para');
+      lab.prod = 0; lab.hap = 0;
+    } else log(w, `Büyük sipariş geri çevrildi; malı sindire sindire satmak daha güvenli.`, 'olay');
+    return true;
+  }
   if (id === 'cevdet') {
     if (k === 'evet') {
       w.flags.cevdetTanis = true;

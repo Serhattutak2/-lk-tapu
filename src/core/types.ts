@@ -120,6 +120,8 @@ export interface LabState {
   chem: 'cevdet' | null; // dışarıdan kimyager
   q: number;            // son partinin kalitesi 0-1
   made: number;         // bugüne kadar üretilen
+  mode?: 'temkin' | 'denge' | 'risk'; // üretim temposu: temkinli / dengeli / riskli (soyut yönetim tercihi)
+  talep?: number;       // piyasa talebi çarpanı ~0.75–1.45 (dalgalanır)
 }
 
 /** Rakip aile ve kan davası. */

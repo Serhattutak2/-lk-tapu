@@ -10,7 +10,7 @@ import type { JobId, LedgerLine, World } from './types';
 import { chance, clamp, gauss, rint } from './rng';
 import { age, alive, fullName, hhHasJob, hhMembers, log, P } from './people';
 import { JOBS, jobAllowed, defaultJob, wage } from './jobs';
-import { monthlyLife } from './life';
+import { monthlyLife, monthlyJustice } from './life';
 import { generateCards, gurbetReturns, resolveCard, seasonalNotes } from './cards';
 import { infl, monthOf, setBase, year } from './calendar';
 import { yearlyPrices } from './market';
@@ -26,6 +26,7 @@ import { monthlyLab } from './lab';
 import { attackRival, lockedOut, monthlyFeud, setLock } from './feud';
 import { buyCityHome, buyFac, cityEvents, FACS, facPrice, hire, homePrice, monthlyBaron, moveToCity, setFacMgr, facLevel, facUpgrade, facUpgradePrice, facTotal, setFirm } from './baron';
 import { isBaba, canChallenge, votes, tahtHamle, aliveFams, aileGift } from './aile';
+import { monthlyLux, carsAvailable, ownsCar, carPrice, buyCar, LUX, luxOwned, doLux } from './lux';
 import type { FacId, TechId } from './types';
 import { monthlyEra, buyTech, techIncome, TECHS, techPrice } from './era';
 import { mk } from './market';
@@ -77,6 +78,8 @@ export function advance(w: World): boolean {
   monthlyGuc(w);
   monthlyKonsey(w);
   monthlyAile(w);
+  monthlyJustice(w);
+  monthlyLux(w);
   monthlyGoals(w);
   monthlyChallenges(w);
   if (w.hh.cash < 0) {
@@ -317,7 +320,7 @@ export function botTurn(w: World) {
       const want = defaultJob(w, P(w, c.pid)!);
       k = (c.opts.find((o) => o.k === want) ?? c.opts[0]).k;
     }
-    if (c.id.startsWith('ev:') || c.id.startsWith('hi:') || c.id.startsWith('q:') || c.id.startsWith('kv_') || c.id.startsWith('km_') || c.id.startsWith('nw_') || c.id.startsWith('fa_') || c.id.startsWith('kmt') || c.id.startsWith('rk_') || c.id.startsWith('ce_') || c.id.startsWith('it_') || c.id.startsWith('sg_') || c.id === 'sonuc' || c.id === 'plan_hashas' || c.id === 'ruhsat_red') {
+    if (c.id.startsWith('ev:') || c.id.startsWith('hi:') || c.id.startsWith('q:') || c.id.startsWith('kv_') || c.id.startsWith('km_') || c.id.startsWith('nw_') || c.id.startsWith('fa_') || c.id.startsWith('kmt') || c.id.startsWith('rk_') || c.id.startsWith('ce_') || c.id.startsWith('it_') || c.id.startsWith('sg_') || c.id.startsWith('kriz_') || c.id.startsWith('lux_') || c.id === 'sonuc' || c.id === 'plan_hashas' || c.id === 'ruhsat_red') {
       const cheap = c.opts.filter((o) => !/\(\d/.test(o.t) && !/lira\)/.test(o.t));
       const pool = w.hh.cash > 20000 * infl(w.m) ? c.opts : cheap.length ? cheap : c.opts;
       k = pool[Math.floor(rint(w, 0, pool.length - 1))].k;
@@ -394,7 +397,7 @@ function botEstate(w: World) {
   if (!unlocked(w) && chance(w, 0.5)) {
     if (!w.hh.agil && w.hh.cash > 4 * AGIL_PRICE * infl(w.m)) buyAgil(w);
     const lvl = w.lab?.lvl || 0;
-    if (w.hh.agil && lvl < 3 && w.hh.cash + w.dirty > labPrice(w, lvl + 1) * 2) buildLab(w, 'agil');
+    if (w.hh.agil && lvl < 4 && w.hh.cash + w.dirty > labPrice(w, lvl + 1) * 2) buildLab(w, 'agil');
   }
   // Adamlar ve kan davası
   if (w.flags.kacakci && w.dirty > 40000 * infl(w.m) && w.gang < 12) hire(w, 1);
@@ -433,13 +436,24 @@ function botEstate(w: World) {
   if (w.lab) {
     if (!w.lab.chem && w.hh.cash + w.dirty > cevdetPay(w) * 12) hireCevdet(w, true);
     moveStash(w);
+    // Tempo: ısı yüksekse temkinli, düşükse biraz daha cesur
+    w.lab.mode = w.heat > 62 ? 'temkin' : w.heat < 28 ? 'risk' : 'denge';
     if (w.lab.raw < 2 && w.hh.cash + w.dirty > hamPrice(w) * 6 + reserve) buyRaw(w, 3);
-    if (w.lab.prod + w.lab.hap >= 4 && w.heat < 70) sellProduct(w);
+    // Talep yüksekken ya da stok birikince sat; ısı tehlikeliyse elden çıkar
+    const stock = w.lab.prod + w.lab.hap;
+    const dem = Number(w.lab.talep ?? 1);
+    if (stock >= 4 && (w.heat < 70 || w.heat > 82) && (dem >= 1.08 || stock >= 8 || w.heat > 72)) sellProduct(w);
   }
   for (const t of Object.keys(TECHS) as TechId[]) {
     if (!TECHS[t].auto && !w.tech[t] && year(w.m) >= TECHS[t].from && w.hh.cash > techPrice(w, t) * 5) buyTech(w, t);
   }
   if (suruCap(w) > suru(w) + 5 && w.hh.cash > sheepPrice(w) * 20 + reserve) buySheep(w, 5);
+  // Lüks: biriken parayı ara sıra eğlenceye/arabaya harca
+  if (w.hh.cash > 150000 * infl(w.m) && chance(w, 0.04)) {
+    const av = carsAvailable(w).filter((c) => !ownsCar(w, c.id) && w.hh.cash > carPrice(w, c) * 3);
+    if (av.length) buyCar(w, av[av.length - 1].id);
+    else { const l = LUX.find((x) => year(w.m) >= x.from && !(x.once && luxOwned(w, x.id)) && w.hh.cash > x.price * infl(w.m) * 3); if (l) doLux(w, l.id); }
+  }
   staffAll(w);
 }
 

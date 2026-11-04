@@ -11,6 +11,10 @@ import { pushCard } from './cards';
 import { addSaygi, addKorku, kademeNo } from './guc';
 import { DISTS } from './district';
 import { payDirtyFirst, canPay, CITY } from './baron';
+import { fightForce } from './feud';
+
+/** Şehir kavgasında arkanı tutan güç: maaşlı adamlar + ailenin erkekleri (nüfuzun). */
+export const force = (w: World) => fightForce(w);
 
 const L = (w: World, n: number) => Math.round(n * infl(w.m));
 const fmt = (n: number) => Math.round(n).toLocaleString('tr-TR');
@@ -33,10 +37,11 @@ export function ensureFams(w: World): CityFamily[] {
   if (!w.city.fams) {
     w.city.fams = AILE_DEFS.map((d) => ({
       id: d.id, ad: d.ad, reis: d.reis, trait: d.trait, dist: d.dist,
-      men: rint(w, 14, 28), bond: 0, alive: true,
+      men: rint(w, 24, 42), bond: rint(w, -25, -5), alive: true, // köklü ve güçlüler; yeni gelene güvenmezler
     }));
-    // En güçlü aile masanın başında: hüküm süren Büyük Baba
+    // En güçlü aile masanın başında: hüküm süren Büyük Baba (ekstra güçlü)
     const strong = [...w.city.fams].sort((a, b) => b.men - a.men)[0];
+    strong.men += rint(w, 10, 18);
     w.city.baba = strong.id;
   }
   return w.city.fams;
@@ -50,12 +55,13 @@ export const babaFam = (w: World) => (w.city.baba && w.city.baba !== 'biz' ? fam
 
 /** Sana dost aileler (bağ ≥ 40). */
 export const allies = (w: World) => aliveFams(w).filter((f) => f.bond >= 40);
-/** Masadaki toplam oy: sen + dostların. Büyük Baba oyu iki sayılır. */
+/** Masadaki toplam oy: sen + dostların. Büyük Baba'ya oy veren aileler sana karşı sayılır. */
 export function votes(w: World): { mine: number; need: number } {
   const al = aliveFams(w);
   let mine = 1; // kendi oyun
-  for (const f of al) if (f.bond >= 40) mine += f.bond >= 75 ? 1.5 : 1;
-  const need = Math.ceil((al.length + 1) / 2) + 0.5;
+  for (const f of al) if (w.city.baba !== f.id && f.bond >= 45) mine += f.bond >= 78 ? 1.5 : 1;
+  // Masanın çoğunluğu gerekir ve hüküm süren aile hiçbir zaman sana oy vermez: neredeyse herkesi kazanmalısın
+  const need = Math.max(3, al.length - 0.5);
   return { mine, need };
 }
 
@@ -122,8 +128,10 @@ export function ailePeace(w: World, id: string): { ok: boolean; msg: string } {
 export function canChallenge(w: World): { ok: boolean; why: string } {
   if (isBaba(w)) return { ok: false, why: 'Büyük Baba zaten sensin.' };
   if (kademeNo(w) < 9) return { ok: false, why: 'Önce şehirde Baba seviyesine çık.' };
-  if (!babaFam(w)) return { ok: false, why: 'Taht şu an boş; ' };
-  if (w.gang < 10) return { ok: false, why: 'En az on adam gerek.' };
+  if (!babaFam(w)) return { ok: false, why: 'Taht şu an boş.' };
+  if (w.gang < 16) return { ok: false, why: 'En az on altı adam gerek.' };
+  // Tek başına bir imparatorluğu deviremezsin: ya en az iki dost aile, ya çok büyük bir kadro
+  if (allies(w).length < 2 && w.gang < 28) return { ok: false, why: 'Önce ailelerden en az ikisini yanına çek ya da çok daha büyük bir kadro topla.' };
   return { ok: true, why: '' };
 }
 
@@ -134,36 +142,40 @@ export function tahtHamle(w: World, kind: 'oylama' | 'suikast' | 'savas'): { ok:
   const b = babaFam(w)!;
   if (kind === 'oylama') {
     const v = votes(w);
-    if (v.mine < v.need) return { ok: false, msg: `Masada yeterli oyun yok (${v.mine.toFixed(1)}/${v.need.toFixed(1)}). Önce aileleri yanına çek.` };
-    // Büyük Baba ailesi karşı çıkar; hırslı aileler cayabilir
-    const risk = aliveFams(w).filter((f) => f.trait === 'hirs' && f.bond < 60).length * 0.12;
-    if (chance(w, clamp(0.82 - risk, 0.4, 0.95))) return seizeThrone(w, 'oylama', b);
+    if (v.mine < v.need) return { ok: false, msg: `Masada yeterli oyun yok (${v.mine.toFixed(1)}/${v.need.toFixed(1)}). Neredeyse bütün aileleri yanına çekmen gerek.` };
+    // Büyük Baba ailesi karşı çıkar; hırslı aileler son anda cayar
+    const risk = aliveFams(w).filter((f) => f.trait === 'hirs' && f.bond < 70).length * 0.16;
+    if (chance(w, clamp(0.7 - risk, 0.25, 0.88))) return seizeThrone(w, 'oylama', b);
     b.bond = clamp(b.bond - 20, -100, 100);
+    for (const f of aliveFams(w)) if (f.id !== b.id && f.trait === 'hirs') f.bond = clamp(f.bond - 15, -100, 100);
     log(w, `Oylamada son anda iki aile çark etti; ${b.reis} koltuğunu korudu. Bu iş sana düşman kazandırdı.`, 'olay');
     return { ok: false, msg: 'Oylama tutmadı; aileler cesaret edemedi.' };
   }
   if (kind === 'suikast') {
-    if (w.gang < 10) return { ok: false, msg: 'Suikast için en az on adam gerek.' };
-    w.heat = clamp(w.heat + 25, 0, 100);
-    const sagkol = w.flags.rizaOgul === 'sag' || w.flags.delegate ? 0.1 : 0;
-    const p = clamp(0.32 + w.gang * 0.025 - b.men * 0.02 + allies(w).length * 0.05 + sagkol, 0.12, 0.8);
+    if (w.gang < 16) return { ok: false, msg: 'Suikast için en az on altı adam gerek.' };
+    w.heat = clamp(w.heat + 34, 0, 100);
+    const sagkol = w.flags.rizaOgul === 'sag' || w.flags.delegate ? 0.08 : 0;
+    // Vuruş gücü: maaşlı adamların + ailenin silah tutan erkekleri (nüfuzun)
+    const p = clamp(0.2 + force(w) * 0.016 - b.men * 0.028 + allies(w).length * 0.04 + sagkol, 0.08, 0.66);
     if (chance(w, p)) return seizeThrone(w, 'suikast', b);
-    w.gang = Math.max(0, w.gang - rint(w, 2, 4));
+    w.gang = Math.max(0, w.gang - rint(w, 3, 6));
     addKorku(w, 8);
-    for (const f of aliveFams(w)) if (f.id !== b.id) f.bond = clamp(f.bond - 15, -100, 100);
-    log(w, `Suikast tutmadı: ${b.reis} sağ kurtuldu, adamların kırıldı. Masa sana sırtını döndü.`, 'olay');
+    for (const f of aliveFams(w)) if (f.id !== b.id) f.bond = clamp(f.bond - 18, -100, 100);
+    log(w, `Suikast tutmadı: ${b.reis} sağ kurtuldu, adamların kırıldı. Masa sana sırtını döndü; artık herkes seni bitirmek istiyor.`, 'olay');
     return { ok: false, msg: 'Suikast tutmadı; şimdi herkes sana düşman.' };
   }
   // açık savaş
-  if (w.gang < 14) return { ok: false, msg: 'Açık savaş için en az on dört adam gerek.' };
-  w.heat = clamp(w.heat + 30, 0, 100);
-  const enemy = b.men + aliveFams(w).filter((f) => f.id !== b.id && f.bond < -20).reduce((a, f) => a + f.men * 0.5, 0);
-  const p = clamp(0.28 + w.gang * 0.028 - enemy * 0.015 + allies(w).length * 0.06, 0.12, 0.82);
+  if (w.gang < 18) return { ok: false, msg: 'Açık savaş için en az on sekiz adam gerek.' };
+  w.heat = clamp(w.heat + 40, 0, 100);
+  const enemy = b.men * 1.3 + aliveFams(w).filter((f) => f.id !== b.id && f.bond < 20).reduce((a, f) => a + f.men * 0.6, 0);
+  const p = clamp(0.18 + force(w) * 0.018 - enemy * 0.016 + allies(w).length * 0.05, 0.08, 0.68);
   if (chance(w, p)) return seizeThrone(w, 'savas', b);
-  w.gang = Math.max(0, w.gang - rint(w, 3, 6));
+  w.gang = Math.max(0, Math.round(w.gang * 0.5) - rint(w, 1, 3));
   if (w.lab) { w.lab.prod = 0; w.lab.hap = 0; }
-  log(w, `Açık savaş kaybedildi: ${b.ad} ve müttefikleri ağır bastı; adamların kırıldı, depolar yağmalandı.`, 'olay');
-  return { ok: false, msg: `${b.ad} savaşı kazandı. Bu yaraları sarmak zaman alır.` };
+  const loss = Math.round(w.hh.cash * 0.25);
+  w.hh.cash -= loss;
+  log(w, `Açık savaş kaybedildi: ${b.ad} ve müttefikleri ağır bastı; adamlarının yarısı kırıldı, depolar yağmalandı, ${fmt(loss)} liralık malına çöktüler.`, 'olay');
+  return { ok: false, msg: `${b.ad} savaşı kazandı. Ağır bir darbe; bu yaraları sarmak yıllar alır.` };
 }
 
 function seizeThrone(w: World, how: string, b: CityFamily): { ok: boolean; msg: string } {
@@ -210,10 +222,11 @@ export function monthlyAile(w: World) {
 
   // Bağlar yavaşça nötre kayar; huya göre aileler güçlenir/zayıflar
   for (const f of F) {
-    f.bond = clamp(f.bond + (f.bond > 0 ? -0.3 : f.bond < 0 ? 0.2 : 0), -100, 100);
+    f.bond = clamp(f.bond + (f.bond > 0 ? -0.5 : f.bond < 0 ? 0.15 : 0), -100, 100); // dostluk bakımsız kalınca söner
     // Mahallesini sen tuttuysan aile küser: turfu bedelsiz büyütmek husumet doğurur
-    if (f.dist && w.city.dist.find((d) => d.id === f.dist)?.o === 'biz') f.bond = clamp(f.bond - 0.6, -100, 100);
-    if (chance(w, 0.03)) f.men = clamp(f.men + (f.trait === 'hirs' ? rint(w, 0, 2) : rint(w, -1, 1)), 0, 45);
+    if (f.dist && w.city.dist.find((d) => d.id === f.dist)?.o === 'biz') f.bond = clamp(f.bond - 0.8, -100, 100);
+    // Köklü aileler yavaşça güçlenir: beklersen karşındaki büyür
+    if (chance(w, 0.05)) f.men = clamp(f.men + (f.trait === 'hirs' ? rint(w, 1, 2) : rint(w, 0, 1)), 0, 55);
   }
 
   if (isBaba(w)) {
@@ -261,7 +274,7 @@ export function aileCards(w: World): boolean {
 
   // Büyük Baba isen: taht savunması
   if (isBaba(w)) {
-    if (w.m - Number(w.city.throneM || 0) > 10 && chance(w, 0.02)) {
+    if (w.m - Number(w.city.throneM || 0) > 8 && chance(w, 0.045)) {
       // En güçlü/en düşman aile ya da hırslı bir aile meydan okur
       const ch = [...F].sort((a, b) => (b.men - b.bond) - (a.men - a.bond))[0];
       if (ch && (ch.men >= 14 || ch.bond < -20 || ch.trait === 'hirs')) {
@@ -289,7 +302,7 @@ export function aileCards(w: World): boolean {
     const v = votes(w);
     pushCard(w, {
       id: 'it_baba_firsat',
-      text: `${b.reis} yaşlandı, masada sesi eskisi gibi çıkmıyor. Senin ${w.gang} adamın, ${allies(w).length} dost ailen var. Sağ kolun kulağına fısıldadı: "Ağabey, vakit bu vakit. O koltuk seni bekliyor." Nasıl oynarsın?`,
+      text: `${b.reis} yaşlandı, masada sesi eskisi gibi çıkmıyor. Arkanda ${w.gang} maaşlı adam ve ailenin silah tutan erkekleriyle ${force(w)} kişilik bir güç, ${allies(w).length} dost ailen var. Sağ kolun kulağına fısıldadı: "Ağabey, vakit bu vakit. O koltuk seni bekliyor." Nasıl oynarsın?`,
       opts: [
         { t: `Masayı topla, seni oylasınlar (oy ${v.mine.toFixed(1)}/${v.need.toFixed(1)})`, k: 'oylama' },
         { t: `Bir gece ${b.reis}'i hallet (suikast)`, k: 'suikast' },
@@ -368,9 +381,9 @@ export function resolveAile(w: World, id: string, k: string, data?: Record<strin
         log(w, `${ch.reis}'in isyanı bastırıldı; adamları kırıldı, kendisi sindi. Taht yerinde.`, 'olay');
         if (ch.men <= 0) famFalls(w, ch, 'savun');
       } else {
-        w.gang = Math.max(0, w.gang - rint(w, 2, 4));
-        if (chance(w, 0.4)) loseThrone(w, ch.id);
-        else log(w, `${ch.reis} sert çıktı; adamların kırıldı ama tahtı zor tuttun.`, 'olay');
+        w.gang = Math.max(0, w.gang - rint(w, 3, 6));
+        if (chance(w, 0.55)) loseThrone(w, ch.id);
+        else log(w, `${ch.reis} sert çıktı; adamların kırıldı ama tahtı kıl payı tuttun.`, 'olay');
       }
     } else if (k === 'satin') {
       if (canPay(w, L(w, 40000))) {
@@ -384,11 +397,11 @@ export function resolveAile(w: World, id: string, k: string, data?: Record<strin
     } else {
       // masa: dostlarla sustur
       const al = allies(w).length;
-      if (chance(w, clamp(0.4 + al * 0.15, 0.4, 0.9))) {
+      if (chance(w, clamp(0.3 + al * 0.14, 0.3, 0.85))) {
         ch.bond = clamp(ch.bond - 10, -100, 100);
         log(w, `Dost aileler ${ch.reis}'e "otur yerine" dedi; isyan masada bastırıldı. Dostların arkanda.`, 'olay');
       } else {
-        if (chance(w, 0.3)) loseThrone(w, ch.id);
+        if (chance(w, 0.45)) loseThrone(w, ch.id);
         else log(w, `Masada istediğin desteği bulamadın; ${ch.reis} daha da cüretlendi.`, 'olay');
       }
     }

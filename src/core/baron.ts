@@ -395,13 +395,14 @@ export function facIncome(w: World, f: FacId): number {
 export function buyFac(w: World, f: FacId): { ok: boolean; msg: string } {
   if (!w.city.open) return { ok: false, msg: 'Şehir henüz sana kapılarını açmadı.' };
   if (year(w.m) < FACS[f].from) return { ok: false, msg: `${FACS[f].ad} ancak ${FACS[f].from}'den sonra kurulur.` };
+  if (facN(w, f) >= 1) return { ok: false, msg: `Zaten bir ${FACS[f].ad.toLowerCase()}n var. Aynısından ikinci kurulmaz; "Büyüt" ile kademe kademe büyüt. Daha fazla kazanç için başka tür fabrika kur.` };
   const p = facPrice(w, f);
   if (w.hh.cash < p) return { ok: false, msg: `Temiz parada ${fmt(p - w.hh.cash)} lira eksik. Kara para tapuya geçmez; önce akla.` };
   w.hh.cash -= p;
-  const had = facN(w, f);
-  w.city.facs[f] = { ...(w.city.facs[f] || { since: w.m }), n: had + 1 };
-  log(w, `${CITY}'te ${had ? `${had + 1}. ${FACS[f].ad.toLowerCase()}` : FACS[f].ad.toLowerCase()} ${fmt(p)} liraya ${had ? 'açıldı' : 'kuruldu'}.`, 'tapu');
-  return { ok: true, msg: had ? `${had + 1}. ${FACS[f].ad.toLowerCase()} senin.` : `${FACS[f].ad} senin.` };
+  // Her fabrika en küçük kademeden (atölye) başlar; kademe kademe büyütülür
+  w.city.facs[f] = { ...(w.city.facs[f] || { since: w.m }), n: 1, lvl: 1 };
+  log(w, `${CITY}'te ${FACS[f].ad.toLowerCase()} ${fmt(p)} liraya kuruldu: küçük bir atölye olarak başladı, büyütmek sana kalmış.`, 'tapu');
+  return { ok: true, msg: `${FACS[f].ad} (atölye) senin.` };
 }
 
 export function setFacMgr(w: World, f: FacId, pid: string | null) {

@@ -25,15 +25,20 @@ describe('endgame: Konsey aileleri ve taht', () => {
     expect(F.every((f) => typeof f.men === 'number' && f.reis.length > 0)).toBe(true);
     expect(babaFam(w)).toBeTruthy();
     expect(isBaba(w)).toBe(false);
+    // Zorlaştırılmış endgame: tahta oynamak için ≥16 adam + en az iki dost aile gerekir
+    aliveFams(w).filter((f) => f.id !== w.city.baba).slice(0, 2).forEach((f) => (f.bond = 80));
+    w.gang = 18;
     expect(canChallenge(w).ok).toBe(true);
   });
 
   it('zayıf babaya suikastla taht alınır', () => {
     const w = lateGame(11);
     ensureFams(w);
+    // iki dost aile + güçlü kadro: devirme koşulları sağlanır
+    aliveFams(w).filter((f) => f.id !== w.city.baba).slice(0, 2).forEach((f) => (f.bond = 80));
     babaFam(w)!.men = 2;
     let took = false;
-    for (let i = 0; i < 60 && !took; i++) { w.gang = 18; if (tahtHamle(w, 'suikast').ok) took = true; }
+    for (let i = 0; i < 80 && !took; i++) { w.gang = 20; if (tahtHamle(w, 'suikast').ok) took = true; }
     expect(took).toBe(true);
     expect(isBaba(w)).toBe(true);
     expect(w.flags.konsey).toBe('baba');
@@ -53,8 +58,9 @@ describe('endgame: Konsey aileleri ve taht', () => {
   it('taht alındıktan sonra aylık döngü çökmeden işler ve plain JSON kalır', () => {
     const w = lateGame(33);
     ensureFams(w);
+    aliveFams(w).filter((f) => f.id !== w.city.baba).slice(0, 2).forEach((f) => (f.bond = 80));
     babaFam(w)!.men = 1;
-    for (let i = 0; i < 60 && !isBaba(w); i++) { w.gang = 20; tahtHamle(w, 'suikast'); }
+    for (let i = 0; i < 80 && !isBaba(w); i++) { w.gang = 20; tahtHamle(w, 'suikast'); }
     for (let i = 0; i < 36; i++) monthlyAile(w);
     expect(Number.isFinite(w.hh.cash)).toBe(true);
     expect(w.hh.cash).toBeGreaterThanOrEqual(0);

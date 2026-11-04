@@ -6,9 +6,10 @@ import { chance, clamp, pick, rint } from './rng';
 import { age, alive, fullName, hhMembers, log, P } from './people';
 import { infl } from './calendar';
 import { pushCard } from './cards';
-import { die } from './life';
+import { die, jailPlayer } from './life';
 import { jailYears } from './events';
 import { rP } from './feud';
+import { hhHasJob } from './people';
 
 const fmt = (n: number) => Math.round(n).toLocaleString('tr-TR');
 
@@ -102,6 +103,12 @@ export function resolveTeklif(w: World, id: string, k: string, data: Record<stri
 
   // Başarısız: iş ters gitti
   w.heat = clamp(w.heat + (hit ? 24 : 14), 0, 100);
+  // Soruşturma sana kadar uzanabilir: büyük işte yakalanan ağzını açarsa sen de içeri girersin
+  {
+    const shield = (hhHasJob(w, 'avukat') ? 0.22 : 0) + (w.pol.seat === 'vekil' ? 0.18 : 0) + (Number(w.flags.kmtBizim || 0) > w.m ? 0.15 : 0) + (w.flags.kasa ? 0.05 : 0);
+    const catchP = clamp((hit ? 0.3 : 0.12) - shield, 0.03, 0.5);
+    if (chance(w, catchP)) jailPlayer(w, jailYears(w, rint(w, hit ? 3 : 2, hit ? 7 : 4)));
+  }
   if (useMan) {
     w.gang = Math.max(0, w.gang - 1);
     const dead = hit && chance(w, 0.5);

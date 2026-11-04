@@ -146,6 +146,61 @@ export function resolveSuccession(w: World, chosenId: string) {
   if (angry.length && chance(w, 0.6)) splitBranch(w, angry[0], 'mirastan küsüp');
 }
 
+/** Oyuncu suçüstü yakalanır: içeri girer, aileyi çıkana kadar bir vekil yürütür.
+ *  Yetişkin bir vekil yoksa oyuncu avukat/rüşvetle yatmaktan kurtulur ama servetine mal olur. */
+export function jailPlayer(w: World, years: number) {
+  const pl = P(w, w.playerId);
+  if (!alive(pl)) return;
+  const heir = P(w, w.heirId);
+  const standIn = (alive(heir) && heir!.id !== pl.id && age(w, heir!) >= 16)
+    ? heir!
+    : successionCandidates(w, pl).find((c) => c.id !== pl.id && alive(c) && age(w, c) >= 16);
+  if (standIn) {
+    const until = w.m + 12 * years;
+    pl.away = 'hapis'; pl.awayUntil = until; pl.job = 'yok'; pl.parcel = undefined;
+    w.flags.hapisPid = pl.id;
+    w.flags.hapisUntil = until;
+    w.heirId = null;
+    w.playerId = standIn.id;
+    if (!standIn.inHH) addToHH(w, standIn);
+    log(w, `${fullName(pl)} suçüstü yakalandı; ${years} yıl hapis yedi. Çıkana kadar aileyi ${fullName(standIn)} vekâleten yürütecek — sen içerideyken işler sarpa sarabilir.`, 'miras');
+  } else {
+    // Vekil yok: ocak sönmesin diye hapisten dönülür ama ağır bedelle
+    const fine = Math.round((Math.max(0, w.hh.cash) * 0.5) + (w.dirty * 0.5));
+    w.hh.cash = Math.max(0, w.hh.cash - Math.round(w.hh.cash * 0.5));
+    w.dirty = Math.round(w.dirty * 0.5);
+    w.gang = Math.floor(w.gang / 2);
+    w.heat = clamp(w.heat + 30, 0, 100);
+    w.flags.namBonus = Number(w.flags.namBonus || 0) - 10;
+    log(w, `${fullName(pl)} suçüstü yakalandı. Ardında aileyi tutacak yetişkin yoktu; avukatlar, rüşvetler ve kefaletlerle hapisten döndün ama bu iş servetinin yarısına, ${fmt(fine)} liraya mal oldu.`, 'para');
+  }
+}
+
+/** Her ay: hapisteki oyuncu çıkar mı, içerideyken imparatorluk zarar görür mü? */
+export function monthlyJustice(w: World) {
+  const until = Number(w.flags.hapisUntil || 0);
+  if (!until) return;
+  if (w.m >= until) {
+    w.flags.hapisUntil = 0;
+    const orig = P(w, String(w.flags.hapisPid || ''));
+    w.flags.hapisPid = '';
+    if (orig && alive(orig)) {
+      orig.away = undefined; orig.awayUntil = undefined;
+      w.playerId = orig.id;
+      log(w, `${fullName(orig)} cezasını tamamlayıp tahliye oldu ve ailenin başına yeniden geçti. İçeride geçen yıllar çok şeyi değiştirmişti.`, 'miras');
+    }
+    return;
+  }
+  // İçerideyken boşluktan faydalananlar olur
+  if (chance(w, 0.07)) {
+    const loss = Math.round(Math.max(0, w.hh.cash) * 0.05);
+    if (loss > 0) { w.hh.cash -= loss; log(w, `Sen içerideyken birileri boşluktan faydalandı: ${fmt(loss)} liralık işine çökküler.`, 'olay'); }
+    w.heat = clamp(w.heat - 1, 0, 100);
+  }
+}
+
+const fmt = (n: number) => Math.round(n).toLocaleString('tr-TR');
+
 /** Bir aile üyesi kendi evini açar: eşi ve küçük çocuklarıyla haneden ayrılır. */
 export function splitBranch(w: World, p: Person, why: string) {
   const take = Math.round(Math.max(0, w.hh.cash) * 0.1);

@@ -37,7 +37,7 @@ function check(w: World) {
   if (w.lab) {
     expect(w.lab.raw).toBeGreaterThanOrEqual(0);
     expect(w.lab.lvl).toBeGreaterThanOrEqual(1);
-    expect(w.lab.lvl).toBeLessThanOrEqual(3);
+    expect(w.lab.lvl).toBeLessThanOrEqual(4);
   }
   expect(w.rival.feud).toBeGreaterThanOrEqual(0);
   expect(w.rival.feud).toBeLessThanOrEqual(100);

@@ -12,10 +12,11 @@ import { offerChance, offerPrice, PLOTS, plotOwnerName, plotPrice } from '../cor
 import type { BizId, VehicleId } from '../core/types';
 import type { Pick } from './map';
 import { BASE_CAP, buildRoom, canBuild, capacity, crowded, residents, roomPrice, ROOMS, SLOTS } from '../core/home';
-import { AGIL_PRICE, buildLab, buyAgil, buyRaw, cevdetPay, hamPrice, hapPrice, hireCevdet, LAB_LEVELS, labCapacity, labPrice, labSkill, labWorkers, moveStash, paketPrice, sellProduct, siteOk, SITES, unlocked } from '../core/lab';
-import { attackRival, doRivalMove, feudLabel, gangPay, lockedOut, rivalMoves, rP, scuffle, targets, setLock } from '../core/feud';
+import { AGIL_PRICE, buildLab, buyAgil, buyRaw, cevdetPay, hamPrice, hapPrice, hireCevdet, LAB_LEVELS, labCapacity, labPrice, labSkill, labWorkers, moveStash, paketPrice, sellProduct, siteOk, SITES, unlocked, MODES, labMode, setLabMode, demandLabel, labDemand } from '../core/lab';
+import { attackRival, doRivalMove, feudLabel, gangPay, lockedOut, rivalMoves, rP, scuffle, targets, setLock, fightForce, famFighters } from '../core/feud';
 import { HUY_AD, kmtAd, kmtDost, kmtFactor, kmtFollow, kmtGift, kmtHuy, kmtKnown, kmtOurs, ozelTim } from '../core/jandarma';
 import { buyGemi, denizOpen, facDown, facN, facTotal, gemiPrice, rebuildFac, setFacGuard, buyCityHome, buyFac, CITY, FACS, facIncome, facPrice, hire, HOMES, homePrice, launderCap, launderFee, moveToCity, setFacMgr, takeTurf, underTitle, facLevel, FAC_LVL, facUpgrade, facUpgradePrice, setFirm } from '../core/baron';
+import { CARS, LUX, carLabel, carsAvailable, carPrice, ownsCar, luxOwned, buyCar, doLux } from '../core/lux';
 import { fams, aliveFams, babaLabel, isBaba, babaFam, canChallenge, votes, allies, TRAIT_AD, aileGift, ailePress, ailePeace, tahtHamle } from '../core/aile';
 import type { DInv, DistId, FacId, TechId } from '../core/types';
 import { buyTech, eraOf, TECHS, techPrice } from '../core/era';
@@ -52,8 +53,15 @@ import { agaOlu, konakBizim } from '../core/aga';
 const SAVE_KEY = 'ilktapu_v1';
 const NEWS_KEY = 'ilktapu_haber';
 export const NEWS = {
-  v: '3.4',
+  v: '3.5',
   items: [
+    ['Oyun artık daha zorlu', 'Konsey aileleri daha kalabalık ve sana baştan soğuk; Büyük Baba\'yı devirmek ciddi bir kadro ve en az iki dost aile ister. Her şey hep yukarı gitmiyor artık.'],
+    ['Büyük düşüşler', 'Servetin büyüdükçe arada sarsıcı felaketler gelir: güvendiğin adamın kara kasayı boşaltıp kaçar, devlet baskınında malına el konur, bir devalüasyon paranı eritir, fabrikan yanar. Yanlış bir karar seni dibe çekebilir.'],
+    ['Yakalanırsan sen de içeri', 'Adamını büyük bir sözleşmeli işe gönderip yakalanırsa iş bitmez — kapı bu kez sana çalınır. İçeri girersen yerine aileden biri geçer, sen çıkana kadar imparatorluğu o çevirir. Avukat ve torpil riski azaltır.'],
+    ['Her fabrika sıfırdan büyür', 'Aynı türden tek fabrika kurulur; küçük bir atölye olarak başlar, "Büyüt" ile atölye → imalathane → fabrika → büyük fabrika → dev tesis diye kademe kademe büyür. Daha çok kazanç için fabrika çeşitlendir.'],
+    ['Parayı yaşamaya da harca', 'Mülk sekmesinde araba ve eğlence: hangi markayı alacağını sen seçersin (Ford\'dan Mercedes, BMW, Jaguar\'a). Ziyafet, görkemli düğün, yarış atı, kulüp başkanlığı, yat — para emer, nam ve saygı getirir.'],
+    ['Kan davasında aileyi de say', 'Artık sadece maaşlı adamların değil, ailenin silah tutan erkekleri de vuruş gücüne katılıyor. Hem kan davasında hem de taht kavgasında bu güç belirleyici.'],
+    ['Laboratuvar derinleşti', 'Gizli atölyeye üretim temposu (temkinli/dengeli/riskli), dalgalanan piyasa talebi (yüksekken sat, düşükken bekle), büyük sipariş teklifleri ve dördüncü kademe "gizli tesis" geldi. Hepsi soyut yönetim; gerçek bir yöntem yok.'],
     ['Konsey ve Büyük Baba tahtı', 'Şehrin tepesinde artık beş gerçek mafya ailesi var: her birinin reisi, mahallesi, adamları ve sana bir bağı. Dost edin, pusu kur ya da masanın başına sen otur — ittifakla oylat, suikast düzenle ya da açık savaşa gir. Şehir sekmesinde "Konsey".'],
     ['Tahtı korumak ayrı iş', 'Büyük Baba olduktan sonra rahat yok: hırslı aileler ve eski düşmanlar ayağa kalkar, koltuğun için meydan okur. Ez, satın al ya da dostlarınla sustur; başaramazsan taht elinden gider.'],
     ['Fabrika kademeleri ve holding', 'Fabrikalar artık ~10 işçilik atölyeden ~50 işçilik dev tesise büyütülebiliyor — her kademe gelir ve aklamayı artırır, biriken parayı emer. İki fabrikan olunca hepsini tek bir holding adı altında toplayıp nam kazanırsın.'],
@@ -638,7 +646,32 @@ export class App {
       <div class="group">Teknoloji: ${esc(eraOf(w).ad)}</div>
       <p class="note">${esc(eraOf(w).desc)}</p>
       ${this.techHTML()}
-      <div class="group">Köy işletmeleri</div>${biz}`;
+      <div class="group">Köy işletmeleri</div>${biz}
+      ${this.luxHTML()}`;
+  }
+
+  // ---------- Lüks ve eğlence ----------
+  private luxHTML(): string {
+    const w = this.w!;
+    const avail = carsAvailable(w);
+    if (!avail.length) return '';
+    const cars = avail.map((c) => {
+      const have = ownsCar(w, c.id);
+      const p = carPrice(w, c);
+      return `<div class="asset"><div class="prow"><span class="pname">${esc(carLabel(c))}</span>${have ? '<span class="badge sen">Garajda</span>' : ''}</div>
+        <p class="note">${c.from} model. Caddede görünür bir servet işareti; adını büyütür.</p>
+        ${have ? '' : `<button class="small" data-car="${c.id}"${w.hh.cash < p ? ' disabled' : ''}>Al (${lira(p)})</button>`}</div>`;
+    }).join('');
+    const lux = LUX.filter((d) => year(w.m) >= d.from).map((d) => {
+      const has = d.once && luxOwned(w, d.id);
+      const p = Math.round(d.price * infl(w.m));
+      return `<div class="asset"><div class="prow"><span class="pname">${esc(d.ad)}</span>${has ? '<span class="badge sen">Var</span>' : ''}</div>
+        <p class="note">${esc(d.desc)}</p>
+        ${has ? '' : `<button class="small" data-lux="${d.id}"${w.hh.cash < p ? ' disabled' : ''}>${d.once ? 'Al' : 'Yap'} (${lira(p)})</button>`}</div>`;
+    }).join('');
+    return `<div class="group">Araba — hangi markayı alacağını sen seçersin</div>
+      <p class="note">Biriken para sadece büyümek için değil; yaşamak için de. Markalı bir araba, görkemli bir düğün, bir yarış atı... Para emer ama nam, saygı ve ailenin keyfini büyütür.</p>${cars}
+      <div class="group">Eğlence ve itibar</div>${lux}`;
   }
 
   // ---------- Yeraltı işletmeleri ----------
@@ -951,15 +984,15 @@ export class App {
       const n = facN(w, f);
       const down = facDown(w, f);
       const soon = y < d.from;
-      return `<div class="asset${down ? ' burnt' : ''}"><div class="prow"><span class="pname">${esc(d.ad)}</span>${n ? `<span class="badge sen">${n} tane</span>` : ''}${down ? '<span class="badge hasta">Yanık, kapalı</span>' : ''}</div><p class="note">${esc(d.desc)}</p>
+      return `<div class="asset${down ? ' burnt' : ''}"><div class="prow"><span class="pname">${esc(d.ad)}</span>${n ? `<span class="badge sen">${esc(FAC_LVL[facLevel(w, f)].ad)}</span>` : ''}${down ? '<span class="badge hasta">Yanık, kapalı</span>' : ''}</div><p class="note">${esc(d.desc)}</p>
         ${st && n ? `<p class="note">${FAC_LVL[facLevel(w, f)].ad} (≈${FAC_LVL[facLevel(w, f)].isci} işçi). ${down ? 'Üretim durdu; onarılmadıkça para getirmez.' : `Bu ay kazancı ${lira(facIncome(w, f))}.`} Koruma: ${Number(st.guard || 0)} adam.</p>
           <select data-facmgr="${f}" aria-label="${esc(d.ad)} müdürü"><option value="">Müdür yok (kazanç düşük)</option>${cand.map((q) => `<option value="${q.id}"${st.mgr === q.id ? ' selected' : ''}>${esc(q.first)}, ticaret ${Math.round(q.sk.ticaret)}</option>`).join('')}</select>
           <div class="btnrow"><button class="small" data-guard="${f}:1"${w.gang ? '' : ' disabled'}>Koruma ekle</button><button class="small" data-guard="${f}:-1"${Number(st.guard || 0) ? '' : ' disabled'}>Koruma çek</button>${!down && facLevel(w, f) < 5 ? `<button class="small" data-facup="${f}"${w.hh.cash < facUpgradePrice(w, f) ? ' disabled' : ''}>Büyüt → ${FAC_LVL[facLevel(w, f) + 1].ad.toLowerCase()} (${lira(facUpgradePrice(w, f))})</button>` : ''}${down ? `<button class="small danger" data-rebuild="${f}">Onar (${lira(Math.round(facPrice(w, f) * 0.3))})</button>` : ''}</div>` : ''}
-        ${soon ? `<p class="note">${d.from}'de kurulabilir.</p>` : `<button class="small" data-fac="${f}"${w.hh.cash < facPrice(w, f) ? ' disabled' : ''}>${n ? `Bir tane daha kur` : 'Satın al'} (${lira(facPrice(w, f))})</button>`}</div>`;
+        ${soon ? `<p class="note">${d.from}'de kurulabilir.</p>` : n ? '' : `<button class="small" data-fac="${f}"${w.hh.cash < facPrice(w, f) ? ' disabled' : ''}>Kur — atölye olarak başlar (${lira(facPrice(w, f))})</button>`}</div>`;
     }).join('');
     const nextLvl = Math.min(3, (w.city.homes || 0) + 1);
     const dz = w.city.deniz;
-    return `<div class="rank"><div class="pname">${CITY}</div><p class="note">Fabrikalar temiz parayla alınır; kara parayı da aklarlar. Aynı fabrikadan istediğin kadar kurabilirsin, her yenisi daha pahalı. Rakip çete fabrikalarını ateşe vermeye çalışır: önlerine koruma koy, yanarsa onar.</p></div>
+    return `<div class="rank"><div class="pname">${CITY}</div><p class="note">Fabrikalar temiz parayla alınır; kara parayı da aklarlar. Her fabrika küçük bir atölye olarak başlar; "Büyüt" ile kademe kademe (atölye → imalathane → fabrika → büyük fabrika → dev tesis) büyür. Her türden bir tane; daha çok kazanç için fabrika çeşitlendir. Rakip çete fabrikalarını ateşe vermeye çalışır: önlerine koruma koy, yanarsa onar.</p></div>
       <div class="group">Konutlar: ${w.city.homes || 0}</div>
       <p class="note">${w.city.home ? `En iyisi: ${esc(HOMES[w.city.home].ad)}. ${w.city.moved ? 'Aile şehirde yaşıyor.' : 'Aile hâlâ köyde.'} Fazla konutlar kiraya verilir, her ay kira getirir.` : 'Şehirde evin yok.'}</p>
       <div class="btnrow"><button class="small" data-chome="1"${w.hh.cash < homePrice(w, nextLvl) ? ' disabled' : ''}>${esc(HOMES[nextLvl].ad)} satın al (${lira(homePrice(w, nextLvl))})</button>
@@ -999,10 +1032,10 @@ export class App {
       const b = babaFam(w);
       taht = `<p class="note">${b ? `Masanın başında <b>${esc(b.reis)}</b> (${esc(b.ad)}) oturuyor — Büyük Baba o.` : 'Taht şu an boş.'} Dost ailelerin: ${allies(w).length}. Masadaki oyun: ${v.mine.toFixed(1)} / ${v.need.toFixed(1)}.</p>`;
       if (c.ok && b) {
-        taht += `<div class="btnrow"><button class="small" data-taht="oylama"${v.mine < v.need ? ' disabled' : ''}>Oylama ile geç (oy ${v.mine.toFixed(1)}/${v.need.toFixed(1)})</button><button class="small danger" data-taht="suikast">Suikast (${w.gang} adam)</button>${w.gang >= 14 ? `<button class="small danger" data-taht="savas">Açık savaş</button>` : ''}</div>
-        <p class="note">Oylama için aileleri yanına çek; suikast kanlı ama hızlı; açık savaş en riskli.</p>`;
+        taht += `<div class="btnrow"><button class="small" data-taht="oylama"${v.mine < v.need ? ' disabled' : ''}>Oylama ile geç (oy ${v.mine.toFixed(1)}/${v.need.toFixed(1)})</button><button class="small danger" data-taht="suikast"${w.gang >= 16 ? '' : ' disabled'}>Suikast (${w.gang} adam)</button>${w.gang >= 18 ? `<button class="small danger" data-taht="savas">Açık savaş</button>` : ''}</div>
+        <p class="note">Oylama için neredeyse bütün aileleri yanına çek; suikast kanlı ve zor; açık savaş en riskli, kaybedersen ağır bedel ödersin. Bu aileler köklü ve güçlü — kolay devrilmezler.</p>`;
       } else if (b) {
-        taht += `<p class="note">Tahta oynamak için: şehirde Baba seviyesine çık ve en az on adam topla. (${esc(c.why)})</p>`;
+        taht += `<p class="note">Tahta oynamak için: şehirde Baba seviyesine çık, en az on altı adam topla ve ailelerden en az ikisini yanına al. (${esc(c.why)})</p>`;
       }
     }
     return `<div class="group">Konsey — ${esc(babaLabel(w))}</div>
@@ -1033,7 +1066,11 @@ export class App {
             <tr><td>Hazır ürün</td><td>${lab.prod} paket${lab.hap ? `, ${lab.hap} koli hap` : ''}</td></tr>
             <tr><td>Son partinin kalitesi</td><td>%${Math.round(lab.q * 100)}</td></tr>
             <tr><td>Ustalık</td><td>${Math.round(labSkill(w))}</td></tr>
+            <tr><td>Piyasa talebi</td><td>${demandLabel(w)}${demandLabel(w).includes('yüksek') ? ' — satış için iyi zaman' : demandLabel(w).includes('düşük') ? ' — beklesen fiyat toparlar' : ''}</td></tr>
           </table>
+          <div class="group">Üretim temposu</div>
+          <p class="note">${esc(MODES[labMode(w)].desc)}</p>
+          <div class="btnrow">${(['temkin', 'denge', 'risk'] as const).map((m) => `<button class="small${labMode(w) === m ? ' on' : ''}" data-labmode="${m}"${labMode(w) === m ? ' disabled' : ''}>${esc(MODES[m].ad)}</button>`).join('')}</div>
           <div class="group">Atölyede çalışanlar</div>
           <div class="chips">${workers.map((q) => `<span class="chip">${esc(q.first)}, zanaat ${Math.round(q.sk.zanaat)} <button class="x" data-labout="${q.id}">Çıkar</button></span>`).join('') || '<span class="note">Aileden kimse yok.</span>'}
           ${lab.chem ? `<span class="chip">Kimyager Cevdet <button class="x" data-cevdet="0">Kov</button></span>` : ''}</div>
@@ -1042,7 +1079,7 @@ export class App {
           <div class="btnrow">
             ${w.hh.stash ? `<button class="small" data-labact="stash">Zuladaki ${w.hh.stash} çuvalı atölyeye taşı</button>` : ''}
             <button class="small" data-labact="buy3"${w.hh.cash < hamPrice(w) * 3 ? ' disabled' : ''}>${w.city.net ? 'Şebekeden' : "Rıza'dan"} 3 çuval ham mal al (${lira(hamPrice(w) * 3)})</button>
-            ${lab.prod + lab.hap ? `<button class="small danger" data-labact="sell">Ürünü ${w.city.net ? 'şebekeye' : "Rıza'ya"} teslim et (~${lira((lab.prod * paketPrice(w) + lab.hap * hapPrice(w)) * (0.7 + lab.q * 0.6))})</button>` : ''}
+            ${lab.prod + lab.hap ? `<button class="small danger" data-labact="sell">Ürünü ${w.city.net ? 'şebekeye' : "Rıza'ya"} teslim et (~${lira((lab.prod * paketPrice(w) + lab.hap * hapPrice(w)) * (0.7 + lab.q * 0.6) * labDemand(w))})</button>` : ''}
           </div>
           <p class="note">Paket ${lira(paketPrice(w))}, hap kolisi ${lira(hapPrice(w))} civarı; kalite fiyatı oynatır. Ustalık düşükse kaza riski artar.</p></div>` : ''}
         ${nextL ? `<div class="group">${lab ? 'Büyüt: ' : 'Kur: '}${esc(nextL.ad)} (${lira(labPrice(w, nextL.lvl))}${year(w.m) < nextL.from ? `, ${nextL.from}'den sonra` : ''})</div><p class="note">${esc(nextL.desc)}</p><div class="sowgrid">${sitesHtml}</div>` : ''}
@@ -1086,11 +1123,11 @@ export class App {
       <div class="group">${esc(rP(w))} ile ne yapılır?</div>
       ${rivalMoves(w, nam(w)).map((m) => `<div class="asset"><div class="prow"><span class="pname">${esc(m.ad)}</span>${m.cost ? `<span class="prel">${lira(m.cost)}</span>` : ''}</div><p class="note">${esc(m.desc)}</p>${m.ok ? `<p class="note">${esc(m.ok)}</p>` : `<button class="small" data-rk="${m.id}"${w.hh.cash < m.cost ? ' disabled' : ''}>Yap</button>`}</div>`).join('')}
       <div class="btnrow">
-        <button class="small danger" data-attack="1"${w.gang >= 2 ? '' : ' disabled'}>Silahlı baskın (${w.gang} adam)</button>
+        <button class="small danger" data-attack="1"${fightForce(w) >= 3 ? '' : ' disabled'}>Silahlı baskın (${fightForce(w)} kişi)</button>
         <button class="small" data-clash="0"${targets(w).length ? '' : ' disabled'}>Sopayla hadlerini bildir</button>
         <button class="small" data-surgun="1">Köyü arkana al, aileyi sürdür</button>
       </div>
-      <p class="note">Sopalı kavgada kimse ölmez; silahlı baskın kan davasını büyütür ve jandarmayı üstüne çeker. Köyü sürdürmek için köyde sözün geçmeli (nam ve saygı).</p>`}
+      <p class="note">Baskın gücün: ${w.gang} maaşlı adam${famFighters(w) ? ` + ${famFighters(w)} aile erkeği (sen dâhil)` : ''} = <b>${fightForce(w)} kişi</b>. Sopalı kavgada kimse ölmez; silahlı baskın kan davasını büyütür ve jandarmayı üstüne çeker. Köyü sürdürmek için köyde sözün geçmeli (nam ve saygı).</p>`}
       ${konseyLabel(w) ? `<div class="group">Konsey</div><p class="note">${esc(konseyLabel(w))}.${w.flags.konsey === 'dusman' ? ` Beş aile sana karşı; husumet ${Math.round(Number(w.flags.konseyFeud || 0))}. Güçlü adam kadrosuyla hamlelerini püskürttükçe masa dağılır.` : ''}</p>` : ''}
       ${w.crew && !w.crew.gone ? `<div class="group">${esc(w.crew.name)}</div><div class="labor"><span>Husumet</span><div class="meter heat"><i style="width:${Math.round(w.crew.feud)}%"></i></div></div><p class="note">${CITY}'te ${w.crew.men} silahlı adamları ve ${w.crew.turf} mahalleleri var.</p>` : ''}`;
   }
@@ -1206,6 +1243,8 @@ export class App {
       this.toast(`Satıldı: ${lira(v)}`);
     })));
     panel.querySelectorAll<HTMLButtonElement>('[data-biz]').forEach((b) => (b.onclick = act(() => this.toast(buyBiz(w, b.dataset.biz as BizId).msg))));
+    panel.querySelectorAll<HTMLButtonElement>('[data-car]').forEach((b) => (b.onclick = act(() => this.toast(buyCar(w, b.dataset.car!).msg))));
+    panel.querySelectorAll<HTMLButtonElement>('[data-lux]').forEach((b) => (b.onclick = act(() => this.toast(doLux(w, b.dataset.lux!).msg))));
     panel.querySelectorAll<HTMLButtonElement>('[data-house]').forEach((b) => (b.onclick = act(() => this.toast(buyHouse(w).msg))));
     panel.querySelectorAll<HTMLSelectElement>('[data-mgr]').forEach((sel) => {
       sel.onchange = act(() => setManager(w, sel.dataset.mgr as BizId, sel.value || null));
@@ -1228,6 +1267,7 @@ export class App {
     panel.querySelectorAll<HTMLButtonElement>('[data-lab]').forEach((b) => (b.onclick = act(() => this.toast(buildLab(w, b.dataset.lab as LabSite).msg))));
     panel.querySelectorAll<HTMLButtonElement>('[data-agil]').forEach((b) => (b.onclick = act(() => this.toast(buyAgil(w).msg))));
     panel.querySelectorAll<HTMLButtonElement>('[data-cevdet]').forEach((b) => (b.onclick = act(() => hireCevdet(w, b.dataset.cevdet === '1'))));
+    panel.querySelectorAll<HTMLButtonElement>('[data-labmode]').forEach((b) => (b.onclick = act(() => this.toast(setLabMode(w, b.dataset.labmode as 'temkin' | 'denge' | 'risk').msg))));
     panel.querySelectorAll<HTMLButtonElement>('[data-labout]').forEach((b) => (b.onclick = act(() => setJob(w, b.dataset.labout!, 'tarla'))));
     panel.querySelectorAll<HTMLSelectElement>('[data-labin]').forEach((sel) => {
       sel.onchange = act(() => {
