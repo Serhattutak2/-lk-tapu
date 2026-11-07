@@ -1,0 +1,45 @@
+# Android test APK'sı: elle çalıştırılır (Actions > Android APK > Run workflow).
+# Kendi telefonunda denemek içindir: Google'ın TEST reklam kimliğiyle derlenir,
+# Google Play satın alma çalışmaz. Play Store sürümü için ayrı imzalı derleme gerekir.
+name: Android APK
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - name: Oyunu derle (index.html)
+        run: |
+          npm ci
+          node tools/build.mjs
+          mkdir -p mobile/www && cp dist/index.html mobile/www/index.html
+      - name: Android projesi oluştur
+        working-directory: mobile
+        run: |
+          npm install
+          npm i --no-save @capacitor/android@8.5.3
+          npx cap add android
+          npx cap sync android
+          # AdMob eklentisi uygulama kimliği ister; test için Google'ın örnek kimliği
+          M=android/app/src/main/AndroidManifest.xml
+          sed -i 's#</application>#    <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713"/>\n    </application>#' $M
+          grep -n "APPLICATION_ID" $M
+      - name: APK derle
+        working-directory: mobile/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon -q
+          cp app/build/outputs/apk/debug/app-debug.apk $GITHUB_WORKSPACE/IlkTapu-test.apk
+          ls -la $GITHUB_WORKSPACE/IlkTapu-test.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: IlkTapu-test-apk
+          path: IlkTapu-test.apk
