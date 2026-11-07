@@ -17,7 +17,9 @@ function drain(w: World, frac: number): number {
   let hit = Math.round(total * frac);
   const d = Math.min(w.dirty, hit); w.dirty -= d; hit -= d;
   w.hh.cash = Math.max(0, w.hh.cash - hit);
-  return Math.round(total * frac);
+  const loss = Math.round(total * frac);
+  w.flags.krizLoss = Number(w.flags.krizLoss || 0) + loss; // reklamla "toparlanma" bunun bir kısmını geri verir
+  return loss;
 }
 
 export function krizCards(w: World): boolean {

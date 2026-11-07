@@ -17,6 +17,8 @@ import { attackRival, doRivalMove, feudLabel, gangPay, lockedOut, rivalMoves, rP
 import { HUY_AD, kmtAd, kmtDost, kmtFactor, kmtFollow, kmtGift, kmtHuy, kmtKnown, kmtOurs, ozelTim } from '../core/jandarma';
 import { buyGemi, denizOpen, facDown, facN, facTotal, gemiPrice, rebuildFac, setFacGuard, buyCityHome, buyFac, CITY, FACS, facIncome, facPrice, hire, HOMES, homePrice, launderCap, launderFee, moveToCity, setFacMgr, takeTurf, underTitle, facLevel, FAC_LVL, facUpgrade, facUpgradePrice, setFirm } from '../core/baron';
 import { CARS, LUX, carLabel, carsAvailable, carPrice, ownsCar, luxOwned, buyCar, doLux } from '../core/lux';
+import { bereket, bereketVar, toparlan, toparlanmaVar } from '../core/reklam';
+import { adsInit, adsAvailable, showRewarded, showInterstitial } from './ads';
 import { fams, aliveFams, babaLabel, isBaba, babaFam, canChallenge, votes, allies, TRAIT_AD, aileGift, ailePress, ailePeace, tahtHamle } from '../core/aile';
 import type { DInv, DistId, FacId, TechId } from '../core/types';
 import { buyTech, eraOf, TECHS, techPrice } from '../core/era';
@@ -118,6 +120,7 @@ function wipe() {
 export class App {
   private w: World | null = null;
   private tab: 'aile' | 'tarla' | 'mulk' | 'yeralti' | 'sehir' | 'hane' | 'gorev' | 'kronik' = 'aile';
+  private lastNesil = 0;
   private pick: Pick | null = null;
   private speed = 0;
   private timer = 0;
@@ -181,6 +184,8 @@ export class App {
   // ---------- Oyun ekranı ----------
   private enter(w: World) {
     this.w = w;
+    this.lastNesil = Number(w.flags.nesil || 1);
+    void adsInit();
     if (w.over) return this.showEnd();
     this.root.innerHTML = `
       <div class="game">
@@ -360,6 +365,12 @@ export class App {
     this.renderOverlay();
     this.renderSheet();
     if (this.w && this.muzik.playing) this.muzik.setMood(this.moodFor(this.w));
+    // Nesil değişince (devir) tam ekran reklam — doğal sahne arası, nadiren gelir.
+    if (this.w) {
+      const n = Number(this.w.flags.nesil || 1);
+      if (this.lastNesil && n > this.lastNesil && !this.w.over) void showInterstitial();
+      this.lastNesil = n;
+    }
   }
 
   private renderTop() {
@@ -929,6 +940,9 @@ export class App {
         <tr><td>Ev kirası</td><td>${w.hh.house ? 'Yok, ev bizim' : lira(Math.min(w.hh.rent, RENT_CAP) * infl(w.m))}</td></tr>
         <tr><td>Haşhaş ruhsatı</td><td>${hasRuhsat(w) ? year(w.m) + ' için var' : isBanYear(year(w.m)) ? 'Yasak' : 'Yok'}</td></tr>
       </table>
+      ${adsAvailable() && bereketVar(w) ? `<div class="group">Bereket</div>
+        <p class="note">Kısa bir tanıtım izle, hane bir nebze bollaşsın — yılda bir.</p>
+        <div class="btnrow"><button class="small" data-reward="bereket">📺 Reklam izle → bereket</button></div>` : ''}
       ${bankaAcik(w) ? `<div class="group">Banka hesabı</div>
         <p class="note">Parayı bankaya koy: göz önünde olmaz (jandarmanın gözüne batmaz, baskında güvende), küçük faiz işler. Zengin etmez ama servetini korur.</p>
         <div class="btnrow">
@@ -1409,6 +1423,22 @@ export class App {
       const r = d === 'y1000' ? bankaYatir(w, 1000) : d === 'y10000' ? bankaYatir(w, 10000) : d === 'yall' ? bankaYatir(w, w.hh.cash) : d === 'c10000' ? bankaCek(w, 10000) : bankaCek(w, bankaBal(w));
       this.toast(r.msg);
     })));
+    panel.querySelectorAll<HTMLButtonElement>('[data-reward]').forEach((b) => (b.onclick = () => this.playReward(b, b.dataset.reward!)));
+  }
+
+  // Ödüllü reklam: izlenirse ödül verilir, aksi halde verilmez.
+  private async playReward(btn: HTMLButtonElement, kind: string) {
+    const w = this.w!;
+    btn.disabled = true;
+    const ok = await showRewarded();
+    if (ok) {
+      const r = kind === 'bereket' ? bereket(w) : toparlan(w);
+      this.toast(r.msg);
+      save(w);
+    } else {
+      this.toast('Reklam şu an gösterilemedi.');
+    }
+    this.refresh();
   }
 
   // ---------- Harita kartı ----------
@@ -1590,9 +1620,10 @@ export class App {
       ${per && alive(per) ? `<div class="cardface">${portraitSVG(per, w, 44)}<span>${esc(fullName(per))}</span></div>` : ''}
       <p id="ct">${esc(c.text)}</p>
       ${delta.length ? `<div class="delta">${delta.map((x) => `<span class="${x.up ? 'up' : 'down'}">${esc(x.t)}</span>`).join('')}</div>` : ''}
-      <div class="opts">${c.opts.map((o) => `<button data-opt="${esc(o.k)}">${esc(o.t)}</button>`).join('')}</div>
+      <div class="opts">${c.opts.map((o) => `<button data-opt="${esc(o.k)}">${esc(o.t)}</button>`).join('')}${c.id.startsWith('kriz_') && adsAvailable() && toparlanmaVar(w) ? `<button data-reward="toparlan">📺 Reklam izle → yaranı sar (zararın bir kısmı geri gelsin)</button>` : ''}</div>
     </article></div>`;
     ov.querySelectorAll<HTMLButtonElement>('[data-opt]').forEach((b) => (b.onclick = () => this.choose(c, b.dataset.opt!)));
+    ov.querySelectorAll<HTMLButtonElement>('[data-reward]').forEach((b) => (b.onclick = () => this.playReward(b, b.dataset.reward!)));
     (ov.querySelector('button') as HTMLButtonElement | null)?.focus();
   }
 
