@@ -327,12 +327,18 @@ export const FACS: Record<FacId, FacDef> = {
 // Fabrika büyüklük kademeleri: ~10 işçilik atölyeden ~50 işçilik dev tesise.
 export const FAC_LVL = [
   { ad: '', isci: 0, mult: 1 },
-  { ad: 'Atölye', isci: 10, mult: 1 },
-  { ad: 'Fabrika', isci: 20, mult: 1.6 },
-  { ad: 'Büyük fabrika', isci: 30, mult: 2.2 },
-  { ad: 'Tesis', isci: 40, mult: 2.9 },
-  { ad: 'Dev tesis', isci: 50, mult: 3.7 },
+  { ad: 'Atölye', isci: 12, mult: 1 },
+  { ad: 'Fabrika', isci: 35, mult: 1.6 },
+  { ad: 'Büyük fabrika', isci: 70, mult: 2.2 },
+  { ad: 'Tesis', isci: 140, mult: 2.9 },
+  { ad: 'Dev tesis', isci: 260, mult: 3.7 },
 ];
+// Gelir-gider dökümü (para akışını DEĞİŞTİRMEZ: facIncome net kazançtır, aşağısı gösterim içindir).
+export const facWorkers = (w: World, f: FacId) => FAC_LVL[facLevel(w, f)].isci * facN(w, f);
+/** Net kazancın üstüne, gösterim için maaş/gider payı (netin ~%45'i). */
+export const facWage = (w: World, f: FacId) => Math.round(Math.max(0, facIncome(w, f)) * 0.45);
+/** Brüt ciro (net + gider): gerçekçi bir gelir-gider tablosu için. */
+export const facGross = (w: World, f: FacId) => facIncome(w, f) + facWage(w, f);
 export const facLevel = (w: World, f: FacId) => clamp(w.city.facs[f]?.lvl ?? 1, 1, 5);
 export const facLvlMult = (w: World, f: FacId) => FAC_LVL[facLevel(w, f)].mult;
 export const facUpgradePrice = (w: World, f: FacId) => Math.round((FACS[f].price * 0.6 * facLevel(w, f) * infl(w.m)) / 1000) * 1000;

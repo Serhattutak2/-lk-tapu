@@ -37,6 +37,7 @@ import { aileCards, resolveAile } from './aile';
 import { krizCards, resolveKriz } from './kriz';
 import { intikamCards, resolveIntikam } from './intikam';
 import { luxCards, resolveLux } from './lux';
+import { isletmeCards, resolveIsletme } from './isletme';
 
 export function pushCard(w: World, c: Omit<Card, 'uid' | 'm'>) {
   w.flags.kartSay = Number(w.flags.kartSay || 0) + 1;
@@ -142,7 +143,7 @@ const RESOLVE: Record<string, Resolver> = {
 function snap(w: World) {
   return { cash: w.hh.cash, dirty: w.dirty, nam: namOf(w), heat: w.heat, feud: w.rival.gone ? 0 : w.rival.feud, gang: w.gang, kork: Number(w.flags.korku || 0), sayg: Number(w.flags.saygi || 0), kisi: bloodLiving(w).length, logN: w.chronicle.length };
 }
-const DECISION = /^(kan|baris|sinir|kacirma|baskin|teklif_|harac_|yer_borc|rk_|ce_|cete|riza_taht|kmt_|aga_kiz|ag_|q:|km_|kv_|fa_|nw_|hashas_hasat|gorucu|hastalik|plan_hashas|ruhsat_red|it_|sk_|sg_|kriz_|lux_|intikam_)/;
+const DECISION = /^(kan|baris|sinir|kacirma|baskin|teklif_|harac_|yer_borc|rk_|ce_|cete|riza_taht|kmt_|aga_kiz|ag_|q:|km_|kv_|fa_|nw_|hashas_hasat|gorucu|hastalik|plan_hashas|ruhsat_red|it_|sk_|sg_|kriz_|lux_|intikam_|isl_)/;
 
 export function resolveCard(w: World, uid: number, k: string) {
   const i = w.cards.findIndex((c) => c.uid === uid);
@@ -155,7 +156,7 @@ export function resolveCard(w: World, uid: number, k: string) {
     resolveJobCard(w, c.id, k);
     if (!w.cards.length) jobCards(w); // sıradaki kişiyi hemen sor
   }
-  else if (!resolveYeralti(w, c.id, k, c.data) && !resolveHarac(w, c.id, k) && !resolveTeklif(w, c.id, k, c.data) && !resolveCrime(w, c, k) && !resolveLab(w, c.id, k, c.data) && !resolveFeud(w, c.id, c.pid, k, c.data) && !resolveBaron(w, c.id, k) && !resolveDeniz(w, c.id, k) && !resolveEvent(w, c.id, k, c.pid, c.data) && !resolveJobCard(w, c.id, k) && !resolveHistory(w, c.id, k, c.pid, c.data) && !resolveKomutan(w, c.id, k) && !resolveYear(w, c.id, k) && !resolveQuest(w, c.id, k, c.pid, c.data) && !resolveKomsu(w, c.id, k) && !resolveKoy(w, c.id, k, c.pid) && !resolveKonsey(w, c.id, k) && !resolveAile(w, c.id, k, c.data) && !resolveKriz(w, c.id, k, c.data) && !resolveIntikam(w, c.id, k, c.data) && !resolveLux(w, c.id, k, c.data) && !resolveSagkol(w, c.id, k, c.pid) && !resolveNews(w, c.id, k) && !resolveAga(w, c.id, k) && !resolveRivalCard(w, c.id, k, c.pid) && !resolveFamily(w, c.id, k, c.pid, c.data) && !resolveDistrict(w, c.id, k, c.data)) resolveHome(w, c.id, c.pid, k, c.data);
+  else if (!resolveYeralti(w, c.id, k, c.data) && !resolveHarac(w, c.id, k) && !resolveTeklif(w, c.id, k, c.data) && !resolveCrime(w, c, k) && !resolveLab(w, c.id, k, c.data) && !resolveFeud(w, c.id, c.pid, k, c.data) && !resolveBaron(w, c.id, k) && !resolveDeniz(w, c.id, k) && !resolveEvent(w, c.id, k, c.pid, c.data) && !resolveJobCard(w, c.id, k) && !resolveHistory(w, c.id, k, c.pid, c.data) && !resolveKomutan(w, c.id, k) && !resolveYear(w, c.id, k) && !resolveQuest(w, c.id, k, c.pid, c.data) && !resolveKomsu(w, c.id, k) && !resolveKoy(w, c.id, k, c.pid) && !resolveKonsey(w, c.id, k) && !resolveAile(w, c.id, k, c.data) && !resolveKriz(w, c.id, k, c.data) && !resolveIntikam(w, c.id, k, c.data) && !resolveLux(w, c.id, k, c.data) && !resolveIsletme(w, c.id, k, c.data) && !resolveSagkol(w, c.id, k, c.pid) && !resolveNews(w, c.id, k) && !resolveAga(w, c.id, k) && !resolveRivalCard(w, c.id, k, c.pid) && !resolveFamily(w, c.id, k, c.pid, c.data) && !resolveDistrict(w, c.id, k, c.data)) resolveHome(w, c.id, c.pid, k, c.data);
   if (w.hh.cash < 0) {
     // Kasada olmayan para ağadan borç alınır
     w.hh.debt += -w.hh.cash;
@@ -209,6 +210,7 @@ export function generateCards(w: World) {
   if (teklifCards(w)) return;
   if (krizCards(w)) return;
   if (luxCards(w)) return;
+  if (isletmeCards(w)) return;
   if (intikamCards(w)) return;
   if (jobCards(w)) return;
   if (homeCards(w)) return;
