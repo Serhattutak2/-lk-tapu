@@ -4,6 +4,7 @@ import type { World } from './types';
 import { clamp, chance, rint } from './rng';
 import { infl, year } from './calendar';
 import { log } from './people';
+import { pushCard } from './cards';
 
 const fmt = (n: number) => Math.round(n).toLocaleString('tr-TR');
 
@@ -48,6 +49,23 @@ export function buyCar(w: World, id: string): { ok: boolean; msg: string } {
   return { ok: true, msg: `${carLabel(c)} senin.` };
 }
 
+/** Arabayı sat: ikinci el, değerinin bir kısmına (klasikleşmişler daha az kaybeder). */
+export function sellCar(w: World, id: string): { ok: boolean; msg: string } {
+  const c = CARS.find((x) => x.id === id);
+  if (!c || !ownsCar(w, id)) return { ok: false, msg: 'Böyle bir araban yok.' };
+  const age = Math.max(0, year(w.m) - c.from);
+  const klasik = age >= 30; // eskidikçe klasik olur, değer kaybı azalır
+  const back = Math.round(carPrice(w, c) * (klasik ? 0.85 : 0.6));
+  w.flags.luxCars = carsOwned(w).filter((x) => x !== id).join(',');
+  w.flags.namBonus = Math.max(0, Number(w.flags.namBonus || 0) - Math.round(c.nam * 0.6));
+  w.hh.cash += back;
+  log(w, `${carLabel(c)} ${fmt(back)} liraya elden çıkarıldı${klasik ? ' — klasik oldu, iyi para getirdi' : ''}.`, 'para');
+  return { ok: true, msg: `${carLabel(c)} satıldı: ${fmt(back)} lira.` };
+}
+
+/** Garajdaki arabaların bugünkü toplam değeri (koleksiyon). */
+export const carsValue = (w: World) => carsOwned(w).reduce((a, id) => { const c = CARS.find((x) => x.id === id); return a + (c ? carPrice(w, c) : 0); }, 0);
+
 export interface LuxDef { id: string; ad: string; from: number; price: number; desc: string; once?: boolean; }
 /** Tek seferlik eğlence/lüks harcamaları. */
 export const LUX: LuxDef[] = [
@@ -88,4 +106,76 @@ export function monthlyLux(w: World) {
     w.hh.cash += win;
     log(w, `Yarış atın ${['koşuyu', 'derbiyi', 'kupayı'][rint(w, 0, 2)]} kazandı: ${fmt(win)} lira ikramiye ve bir dolu alkış.`, 'para');
   }
+}
+
+// ---------- Yarış atı: bahisle yarıştırma ----------
+export const ownsHorse = (w: World) => luxOwned(w, 'at');
+export const horseQ = (w: World) => clamp(Number(w.flags.atKalite ?? 40), 0, 100);
+/** Atı bir koşuya sok, üstüne bahis koy. Kazanırsan katlanır; at iyi koştukça formu (kalite) yükselir. */
+export function horseRace(w: World, stake: number): { ok: boolean; msg: string } {
+  if (!ownsHorse(w)) return { ok: false, msg: 'Önce bir yarış atın olmalı.' };
+  stake = Math.round(stake);
+  if (stake < 1) return { ok: false, msg: 'Bahsi gir.' };
+  if (w.hh.cash < stake) return { ok: false, msg: `${fmt(stake - w.hh.cash)} lira eksik.` };
+  w.hh.cash -= stake;
+  const p = clamp(0.38 + horseQ(w) / 320, 0.38, 0.64);
+  if (chance(w, p)) {
+    const mult = 1.6 + rint(w, 0, 9) / 10; // 1.6–2.5x
+    const win = Math.round(stake * mult);
+    w.hh.cash += win;
+    w.flags.atKalite = clamp(horseQ(w) + rint(w, 2, 5), 0, 100);
+    w.flags.namBonus = Number(w.flags.namBonus || 0) + 1;
+    log(w, `Atın hipodromda birinci geldi! Bahsin ${fmt(win)} lira olarak döndü; form giderek açılıyor.`, 'para');
+    return { ok: true, msg: `Kazandın: ${fmt(win)} lira.` };
+  }
+  w.flags.atKalite = clamp(horseQ(w) - rint(w, 0, 3), 0, 100);
+  log(w, `At bu koşuda geride kaldı; ${fmt(stake)} liralık bahis gitti. Olur böyle, sonraki koşuya.`, 'para');
+  return { ok: true, msg: `Kaybettin: ${fmt(stake)} lira.` };
+}
+
+// ---------- At çalma olayı ----------
+export function luxCards(w: World): boolean {
+  if (w.over || !ownsHorse(w)) return false;
+  if (Number(w.flags.atCalNext || 0) > w.m) return false;
+  if (!chance(w, 0.02)) return false;
+  w.flags.atCalNext = w.m + rint(w, 30, 60);
+  const fidye = Math.round(rint(w, 10, 25) * 1000 * infl(w.m));
+  pushCard(w, {
+    id: 'lux_at_calindi',
+    text: `Bir gece ahır boş kaldı: safkan yarış atın çalındı. Sabaha karşı haber geldi, bir fidye isteniyor. Ne yaparsın?`,
+    opts: [
+      { t: `Fidyeyi öde, atı geri al (${fmt(fidye)} lira)`, k: 'fidye' },
+      { t: 'Adamlarınla izini sür, zorla geri al', k: 'ara' },
+      { t: 'Boş ver, bir at için uğraşmam', k: 'bosver' },
+    ],
+    data: { fidye },
+  });
+  return true;
+}
+
+function loseHorse(w: World) {
+  w.flags.luxHas = String(w.flags.luxHas || '').split(',').filter((x) => x && x !== 'at').join(',');
+}
+
+export function resolveLux(w: World, id: string, k: string, data?: Record<string, unknown>): boolean {
+  if (id !== 'lux_at_calindi') return false;
+  const fidye = Number(data?.fidye || 0);
+  if (k === 'fidye') {
+    if (w.hh.cash < fidye) { log(w, `Fidyeyi denkleştiremedin; atı bir daha göremedin.`, 'olay'); loseHorse(w); return true; }
+    w.hh.cash -= fidye;
+    log(w, `Fidye ödendi, at ahıra geri döndü. Bu işin arkasında kim var diye de not aldın.`, 'para');
+  } else if (k === 'ara') {
+    w.heat = clamp(w.heat + 8, 0, 100);
+    if (w.gang >= 2 && chance(w, clamp(0.3 + w.gang * 0.05, 0.3, 0.8))) {
+      log(w, `Adamların izi buldu; atı çalanı bir samanlıkta kıstırdılar. At geri geldi, haber köye yayıldı: bu ailenin malına el uzatılmaz.`, 'olay');
+      w.flags.namBonus = Number(w.flags.namBonus || 0) + 4;
+    } else {
+      log(w, `İz sürdün ama at çoktan elden çıkarılmıştı; boşa yoruldun, atı kaybettin.`, 'olay');
+      loseHorse(w);
+    }
+  } else {
+    log(w, `Bir at için uğraşmadın; ahır boş kaldı.`, 'olay');
+    loseHorse(w);
+  }
+  return true;
 }

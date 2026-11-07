@@ -24,8 +24,13 @@ const TEST = {
   interstitial: 'ca-app-pub-3940256099942544/4411468910',
 };
 
-// Gerçek kimlikler buraya; boşken test kimlikleri kullanılır.
-const REAL: { rewarded?: string; interstitial?: string } = {};
+// Gerçek kimlikler (İlk Tapu AdMob uygulaması). iOS Info.plist'teki GADApplicationIdentifier:
+//   ca-app-pub-4873666267587702~6214552881
+export const ADMOB_APP_ID = 'ca-app-pub-4873666267587702~6214552881';
+const REAL: { rewarded?: string; interstitial?: string } = {
+  rewarded: 'ca-app-pub-4873666267587702/5677310929',
+  interstitial: 'ca-app-pub-4873666267587702/2254080391',
+};
 
 const unit = (k: 'rewarded' | 'interstitial') => REAL[k] || TEST[k];
 

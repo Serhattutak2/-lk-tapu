@@ -16,7 +16,7 @@ import { AGIL_PRICE, buildLab, buyAgil, buyRaw, cevdetPay, hamPrice, hapPrice, h
 import { attackRival, doRivalMove, feudLabel, gangPay, lockedOut, rivalMoves, rP, scuffle, targets, setLock, fightForce, famFighters } from '../core/feud';
 import { HUY_AD, kmtAd, kmtDost, kmtFactor, kmtFollow, kmtGift, kmtHuy, kmtKnown, kmtOurs, ozelTim } from '../core/jandarma';
 import { buyGemi, denizOpen, facDown, facN, facTotal, gemiPrice, rebuildFac, setFacGuard, buyCityHome, buyFac, CITY, FACS, facIncome, facPrice, hire, HOMES, homePrice, launderCap, launderFee, moveToCity, setFacMgr, takeTurf, underTitle, facLevel, FAC_LVL, facUpgrade, facUpgradePrice, setFirm } from '../core/baron';
-import { CARS, LUX, carLabel, carsAvailable, carPrice, ownsCar, luxOwned, buyCar, doLux } from '../core/lux';
+import { CARS, LUX, carLabel, carsAvailable, carPrice, ownsCar, luxOwned, buyCar, doLux, sellCar, carsValue, horseRace, ownsHorse, horseQ } from '../core/lux';
 import { bereket, bereketVar, toparlan, toparlanmaVar } from '../core/reklam';
 import { adsInit, adsAvailable, showRewarded, showInterstitial } from './ads';
 import { fams, aliveFams, babaLabel, isBaba, babaFam, canChallenge, votes, allies, TRAIT_AD, aileGift, ailePress, ailePeace, tahtHamle } from '../core/aile';
@@ -669,10 +669,12 @@ export class App {
     const cars = avail.map((c) => {
       const have = ownsCar(w, c.id);
       const p = carPrice(w, c);
-      return `<div class="asset"><div class="prow"><span class="pname">${esc(carLabel(c))}</span>${have ? '<span class="badge sen">Garajda</span>' : ''}</div>
-        <p class="note">${c.from} model. Caddede görünür bir servet işareti; adını büyütür.</p>
-        ${have ? '' : `<button class="small" data-car="${c.id}"${w.hh.cash < p ? ' disabled' : ''}>Al (${lira(p)})</button>`}</div>`;
+      const klasik = year(w.m) - c.from >= 30;
+      return `<div class="asset"><div class="prow"><span class="pname">${esc(carLabel(c))}</span>${have ? `<span class="badge sen">Garajda${klasik ? ' · klasik' : ''}</span>` : ''}</div>
+        <p class="note">${c.from} model. Caddede görünür bir servet işareti; adını büyütür.${have && klasik ? ' Artık bir klasik — satılırsa değer kaybı az.' : ''}</p>
+        ${have ? `<button class="small" data-carsell="${c.id}">Sat (${lira(Math.round(p * (klasik ? 0.85 : 0.6)))})</button>` : `<button class="small" data-car="${c.id}"${w.hh.cash < p ? ' disabled' : ''}>Al (${lira(p)})</button>`}</div>`;
     }).join('');
+    const garaj = carsValue(w);
     const lux = LUX.filter((d) => year(w.m) >= d.from).map((d) => {
       const has = d.once && luxOwned(w, d.id);
       const p = Math.round(d.price * infl(w.m));
@@ -680,9 +682,16 @@ export class App {
         <p class="note">${esc(d.desc)}</p>
         ${has ? '' : `<button class="small" data-lux="${d.id}"${w.hh.cash < p ? ' disabled' : ''}>${d.once ? 'Al' : 'Yap'} (${lira(p)})</button>`}</div>`;
     }).join('');
-    return `<div class="group">Araba — hangi markayı alacağını sen seçersin</div>
-      <p class="note">Biriken para sadece büyümek için değil; yaşamak için de. Markalı bir araba, görkemli bir düğün, bir yarış atı... Para emer ama nam, saygı ve ailenin keyfini büyütür.</p>${cars}
-      <div class="group">Eğlence ve itibar</div>${lux}`;
+    const atPanel = ownsHorse(w) ? `<div class="group">Hipodrom — atını yarıştır</div>
+      <p class="note">Safkan atın hazır (form: ${horseQ(w)}/100). Üstüne bahis koy; kazanırsa katlanır, at iyi koştukça formu açılır. Dikkat: değerli bir at hırsızların da gözündedir.</p>
+      <div class="btnrow">
+        <button class="small" data-horse="2000"${w.hh.cash < 2000 ? ' disabled' : ''}>2.000 ile koş</button>
+        <button class="small" data-horse="10000"${w.hh.cash < 10000 ? ' disabled' : ''}>10.000 ile koş</button>
+        <button class="small" data-horse="50000"${w.hh.cash < 50000 ? ' disabled' : ''}>50.000 ile koş</button>
+      </div>` : '';
+    return `<div class="group">Araba — hangi markayı alacağını sen seçersin${garaj ? ` · garaj değeri ${lira(garaj)}` : ''}</div>
+      <p class="note">Biriken para sadece büyümek için değil; yaşamak için de. Markalı bir araba, görkemli bir düğün, bir yarış atı... Para emer ama nam, saygı ve ailenin keyfini büyütür. Aldığın arabayı satabilir, koleksiyon yapabilirsin.</p>${cars}
+      <div class="group">Eğlence ve itibar</div>${lux}${atPanel}`;
   }
 
   // ---------- Yeraltı işletmeleri ----------
@@ -1258,6 +1267,8 @@ export class App {
     })));
     panel.querySelectorAll<HTMLButtonElement>('[data-biz]').forEach((b) => (b.onclick = act(() => this.toast(buyBiz(w, b.dataset.biz as BizId).msg))));
     panel.querySelectorAll<HTMLButtonElement>('[data-car]').forEach((b) => (b.onclick = act(() => this.toast(buyCar(w, b.dataset.car!).msg))));
+    panel.querySelectorAll<HTMLButtonElement>('[data-carsell]').forEach((b) => (b.onclick = act(() => this.toast(sellCar(w, b.dataset.carsell!).msg))));
+    panel.querySelectorAll<HTMLButtonElement>('[data-horse]').forEach((b) => (b.onclick = act(() => this.toast(horseRace(w, Number(b.dataset.horse)).msg))));
     panel.querySelectorAll<HTMLButtonElement>('[data-lux]').forEach((b) => (b.onclick = act(() => this.toast(doLux(w, b.dataset.lux!).msg))));
     panel.querySelectorAll<HTMLButtonElement>('[data-house]').forEach((b) => (b.onclick = act(() => this.toast(buyHouse(w).msg))));
     panel.querySelectorAll<HTMLSelectElement>('[data-mgr]').forEach((sel) => {
@@ -1621,8 +1632,11 @@ export class App {
       <p id="ct">${esc(c.text)}</p>
       ${delta.length ? `<div class="delta">${delta.map((x) => `<span class="${x.up ? 'up' : 'down'}">${esc(x.t)}</span>`).join('')}</div>` : ''}
       <div class="opts">${c.opts.map((o) => `<button data-opt="${esc(o.k)}">${esc(o.t)}</button>`).join('')}${c.id.startsWith('kriz_') && adsAvailable() && toparlanmaVar(w) ? `<button data-reward="toparlan">📺 Reklam izle → yaranı sar (zararın bir kısmı geri gelsin)</button>` : ''}</div>
+      ${c.id === 'soyadi' ? `<div class="opts" style="margin-top:4px"><input id="soyadInput" maxlength="20" placeholder="…ya da kendi soyadını yaz" autocomplete="off" style="padding:11px;border:1.5px solid var(--ink);border-radius:4px;font:inherit"><button data-soyad="1">Bu soyadla yazıl</button></div>` : ''}
     </article></div>`;
     ov.querySelectorAll<HTMLButtonElement>('[data-opt]').forEach((b) => (b.onclick = () => this.choose(c, b.dataset.opt!)));
+    const sb = ov.querySelector<HTMLButtonElement>('[data-soyad]');
+    if (sb) sb.onclick = () => { const v = ov.querySelector<HTMLInputElement>('#soyadInput')!.value.trim(); if (v) this.choose(c, 'yaz:' + v); };
     ov.querySelectorAll<HTMLButtonElement>('[data-reward]').forEach((b) => (b.onclick = () => this.playReward(b, b.dataset.reward!)));
     (ov.querySelector('button') as HTMLButtonElement | null)?.focus();
   }

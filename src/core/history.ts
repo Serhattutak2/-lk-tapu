@@ -75,12 +75,18 @@ const HIST: Hi[] = [
     },
     res: (w, k, _pid, d) => {
       const names = (d?.names as string[]) || [w.surname];
-      const i = k === 'n1' ? 1 : k === 'n2' ? 2 : k === 'n3' ? 3 : 0;
-      const yeni = names[i] || w.surname;
+      let yeni: string;
+      if (k.startsWith('yaz:')) {
+        const raw = k.slice(4).replace(/[^\p{L} ]/gu, '').trim().slice(0, 20);
+        yeni = raw ? raw.charAt(0).toLocaleUpperCase('tr-TR') + raw.slice(1) : w.surname;
+      } else {
+        const i = k === 'n1' ? 1 : k === 'n2' ? 2 : k === 'n3' ? 3 : 0;
+        yeni = names[i] || w.surname;
+      }
       const eski = w.surname;
       w.surname = yeni;
       for (const p of Object.values(w.people)) if (p.blood) p.last = yeni;
-      if (i === 0) for (const id of w.hh.members) w.people[id].rel = clamp(w.people[id].rel + 6, -100, 100);
+      if (yeni === eski) for (const id of w.hh.members) w.people[id].rel = clamp(w.people[id].rel + 6, -100, 100);
       else bonus(w, 2);
       log(w, eski === yeni ? `Aile nüfus kütüğüne ${yeni} soyadıyla yazıldı.` : `Aile artık ${yeni} soyadıyla anılacak; eski "${eski}" adı aşiret lakabı olarak kaldı.`, 'miras');
     },

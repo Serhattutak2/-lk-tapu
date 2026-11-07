@@ -89,9 +89,8 @@ export function labCapacity(w: World): number {
 
 export function unlocked(w: World): string | null {
   if (!w.flags.kacakci) return 'Önce Kara Rıza ile tanışmalısın.';
-  if (year(w.m) < LAB_LEVELS[1].from) return `${LAB_LEVELS[1].from}'den önce böyle bir iş kurulmaz.`;
   if (!w.flags.cevdetTanis) return 'Rıza, işi bilen biriyle tanıştırmadan atölye kurulmaz.';
-  return null;
+  return null; // yıl beklenmez: Rıza + kimyagerle tanışma ve para yeter
 }
 
 export function buildLab(w: World, site: LabSite): { ok: boolean; msg: string } {
@@ -101,7 +100,6 @@ export function buildLab(w: World, site: LabSite): { ok: boolean; msg: string } 
   const next = (w.lab?.lvl || 0) + 1;
   if (next > LAB_MAX) return { ok: false, msg: 'Daha büyüğü yok.' };
   const L = LAB_LEVELS[next];
-  if (year(w.m) < L.from) return { ok: false, msg: `${L.ad} ancak ${L.from}'den sonra kurulabilir.` };
   const price = labPrice(w, next);
   if (!canPay(w, price)) return { ok: false, msg: `${(price - w.hh.cash - w.dirty).toLocaleString('tr-TR')} lira eksik.` };
   payDirtyFirst(w, price);
