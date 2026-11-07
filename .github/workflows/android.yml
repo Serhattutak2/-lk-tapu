@@ -5,7 +5,7 @@ name: Android APK
 on:
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -43,3 +43,8 @@ jobs:
         with:
           name: IlkTapu-test-apk
           path: IlkTapu-test.apk
+      - name: Releases sayfasına yükle (telefondan indirmek için)
+        env: { GH_TOKEN: ${{ github.token }} }
+        run: |
+          gh release view android-test >/dev/null 2>&1 || gh release create android-test --prerelease --title "Android test APK" --notes "Kendi telefonunda denemek için test sürümü (Google Play sürümü değildir)."
+          gh release upload android-test IlkTapu-test.apk --clobber
