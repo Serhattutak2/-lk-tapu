@@ -2,7 +2,7 @@
 import type { Person, World } from './types';
 import { chance, clamp, gauss, pick, rint } from './rng';
 import { FEMALE, MALE, SURNAMES } from './names';
-import { addToHH, age, alive, bloodLiving, fullName, hhHasJob, hhMembers, log, makePerson, P, removeFromHH } from './people';
+import { addToHH, age, alive, bloodLiving, fullName, hhHasJob, hhMembers, log, makePerson, P, removeFromHH, relationTo } from './people';
 import { defaultJob, JOBS } from './jobs';
 import { year } from './calendar';
 import { pushCard } from './cards';
@@ -84,10 +84,7 @@ export function succeed(w: World, dead: Person) {
 }
 
 function heirLabel(w: World, dead: Person, c: Person): string {
-  if (dead.kids.includes(c.id)) return c.sex === 'E' ? 'oğlu' : 'kızı';
-  if ((dead.fa && dead.fa === c.fa) || (dead.mo && dead.mo === c.mo)) return 'kardeşi';
-  if (dead.kids.some((k) => w.people[k]?.kids.includes(c.id))) return 'torunu';
-  return 'akrabası';
+  return relationTo(w, dead, c).toLocaleLowerCase('tr-TR');
 }
 
 export function successionCandidates(w: World, dead: Person): Person[] {

@@ -320,7 +320,7 @@ export function botTurn(w: World) {
       const want = defaultJob(w, P(w, c.pid)!);
       k = (c.opts.find((o) => o.k === want) ?? c.opts[0]).k;
     }
-    if (c.id.startsWith('ev:') || c.id.startsWith('hi:') || c.id.startsWith('q:') || c.id.startsWith('kv_') || c.id.startsWith('km_') || c.id.startsWith('nw_') || c.id.startsWith('fa_') || c.id.startsWith('kmt') || c.id.startsWith('rk_') || c.id.startsWith('ce_') || c.id.startsWith('it_') || c.id.startsWith('sg_') || c.id.startsWith('kriz_') || c.id.startsWith('lux_') || c.id === 'sonuc' || c.id === 'plan_hashas' || c.id === 'ruhsat_red') {
+    if (c.id.startsWith('ev:') || c.id.startsWith('hi:') || c.id.startsWith('q:') || c.id.startsWith('kv_') || c.id.startsWith('km_') || c.id.startsWith('nw_') || c.id.startsWith('fa_') || c.id.startsWith('kmt') || c.id.startsWith('rk_') || c.id.startsWith('ce_') || c.id.startsWith('it_') || c.id.startsWith('sg_') || c.id.startsWith('kriz_') || c.id.startsWith('lux_') || c.id.startsWith('intikam_') || c.id === 'sonuc' || c.id === 'plan_hashas' || c.id === 'ruhsat_red') {
       const cheap = c.opts.filter((o) => !/\(\d/.test(o.t) && !/lira\)/.test(o.t));
       const pool = w.hh.cash > 20000 * infl(w.m) ? c.opts : cheap.length ? cheap : c.opts;
       k = pool[Math.floor(rint(w, 0, pool.length - 1))].k;

@@ -93,23 +93,48 @@ export function bloodLiving(w: World): Person[] {
 
 export function relationTo(w: World, from: Person, to: Person): string {
   if (from.id === to.id) return 'Kendisi';
-  if (from.sp === to.id) return to.sex === 'E' ? 'Eşi' : 'Eşi';
-  if (from.fa === to.id) return 'Babası';
-  if (from.mo === to.id) return 'Annesi';
+  const pp = (id?: string | null) => (id ? w.people[id] : undefined);
+  const parentsOf = (x: Person) => [pp(x.fa), pp(x.mo)].filter(Boolean) as Person[];
+  const sibsOf = (x: Person) => Object.values(w.people).filter((s) => s.id !== x.id && ((x.fa && s.fa === x.fa) || (x.mo && s.mo === x.mo)));
+
+  // Birinci derece
+  if (from.sp === to.id) return 'Eşi';
+  if (from.fa === to.id || from.mo === to.id) return to.sex === 'E' ? 'Babası' : 'Annesi';
   if (from.kids.includes(to.id)) return to.sex === 'E' ? 'Oğlu' : 'Kızı';
-  const sameParent = (from.fa && from.fa === to.fa) || (from.mo && from.mo === to.mo);
-  if (sameParent) return to.sex === 'E' ? 'Erkek kardeşi' : 'Kız kardeşi';
-  const grand = [P(w, from.fa), P(w, from.mo)].filter(Boolean) as Person[];
-  if (grand.some((g) => g.fa === to.id || g.mo === to.id)) return to.sex === 'E' ? 'Dedesi' : 'Ninesi';
-  if (from.kids.some((k) => w.people[k]?.kids.includes(to.id))) return 'Torunu';
-  if (from.kids.some((k) => w.people[k]?.sp === to.id)) return to.sex === 'E' ? 'Damadı' : 'Gelini';
-  const sib = Object.values(w.people).filter(
-    (s) => s.id !== from.id && ((from.fa && s.fa === from.fa) || (from.mo && s.mo === from.mo)),
-  );
-  if (sib.some((s) => s.kids.includes(to.id))) return 'Yeğeni';
-  if (sib.some((s) => s.sp === to.id)) return to.sex === 'E' ? 'Eniştesi' : 'Yengesi';
-  const sp = P(w, from.sp);
-  if (sp && (sp.fa === to.id || sp.mo === to.id)) return to.sex === 'E' ? 'Kayınpederi' : 'Kayınvalidesi';
+  const mySibs = sibsOf(from);
+  if (mySibs.some((s) => s.id === to.id)) return to.sex === 'E' ? 'Erkek kardeşi' : 'Kız kardeşi';
+
+  // Dede/nine ve büyükleri
+  const gps = parentsOf(from).flatMap(parentsOf);
+  if (gps.some((g) => g.id === to.id)) return to.sex === 'E' ? 'Dedesi' : 'Ninesi';
+  if (gps.flatMap(parentsOf).some((g) => g.id === to.id)) return to.sex === 'E' ? 'Büyük dedesi' : 'Büyük ninesi';
+
+  // Torun ve altı
+  if (from.kids.some((k) => pp(k)?.kids.includes(to.id))) return 'Torunu';
+  if (from.kids.some((k) => (pp(k)?.kids || []).some((gk) => pp(gk)?.kids.includes(to.id)))) return 'Torununun çocuğu';
+  if (from.kids.some((k) => pp(k)?.sp === to.id)) return to.sex === 'E' ? 'Damadı' : 'Gelini';
+
+  // Kardeş tarafı: yeğen, yeğen torunu, kardeş eşi
+  if (mySibs.some((s) => s.kids.includes(to.id))) return 'Yeğeni';
+  if (mySibs.some((s) => s.kids.some((k) => pp(k)?.kids.includes(to.id)))) return 'Yeğeninin çocuğu';
+  if (mySibs.some((s) => s.sp === to.id)) return to.sex === 'E' ? 'Eniştesi' : 'Yengesi';
+
+  // Amca/dayı/hala/teyze ve onların eşi/çocuğu (kuzen)
+  const fa = pp(from.fa), mo = pp(from.mo);
+  const faSibs = fa ? sibsOf(fa) : [];
+  const moSibs = mo ? sibsOf(mo) : [];
+  if (faSibs.some((s) => s.id === to.id)) return to.sex === 'E' ? 'Amcası' : 'Halası';
+  if (moSibs.some((s) => s.id === to.id)) return to.sex === 'E' ? 'Dayısı' : 'Teyzesi';
+  const unclesAunts = [...faSibs, ...moSibs];
+  if (unclesAunts.some((s) => s.sp === to.id)) return to.sex === 'E' ? 'Eniştesi' : 'Yengesi';
+  if (unclesAunts.some((s) => s.kids.includes(to.id))) return 'Kuzeni';
+
+  // Eş tarafı (kayın hısımları)
+  const sp = pp(from.sp);
+  if (sp) {
+    if (sp.fa === to.id || sp.mo === to.id) return to.sex === 'E' ? 'Kayınpederi' : 'Kayınvalidesi';
+    if (sibsOf(sp).some((s) => s.id === to.id)) return to.sex === 'E' ? 'Kayını' : from.sex === 'E' ? 'Baldızı' : 'Görümcesi';
+  }
   return to.blood ? 'Akrabası' : 'Hısımı';
 }
 
