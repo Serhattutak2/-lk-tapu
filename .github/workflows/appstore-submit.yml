@@ -1,0 +1,59 @@
+# App Store'a herkese açık gönderim (Apple incelemesine).
+# - TestFlight'a yüklenmiş build'i kullanır (yeniden derlemez).
+# - Yalnızca elle tetiklenir (workflow_dispatch).
+# - ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 gizli anahtarlarını kullanır.
+name: App Store Submit
+on:
+  workflow_dispatch:
+    inputs:
+      app_version:
+        description: "Sürüm (MARKETING_VERSION)"
+        required: true
+        default: "1.0"
+permissions:
+  contents: write
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      KID: ${{ secrets.ASC_KEY_ID }}
+      ISS: ${{ secrets.ASC_ISSUER_ID }}
+      P8: ${{ secrets.ASC_KEY_P8 }}
+      APP_ID: com.serhattutak.ilktapu
+      VER: ${{ github.event.inputs.app_version }}
+      AUTO_RELEASE: "1"
+      TR_NOTES: |
+        İlk Tapu — yoksul bir köy ailesinden bir hanedan kur.
+        • Nesiller boyu süren hayat ve iş simülasyonu: tarla, işletme, şehir, güç.
+        • Tapular, kan davaları, Konsey aileleri ve şehrin babalığı için mücadele.
+        • Her işletmeye özel kararlar, felaketler, lüks ve daha fazlası.
+      EN_NOTES: |
+        İlk Tapu — build a dynasty from a poor village family.
+        • A life and business sim across generations: land, enterprise, city, power.
+        • Deeds, blood feuds, council families, and the struggle to rule the city.
+        • Business-specific decisions, disasters, luxury and much more.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Bağımlılıklar
+        run: pip install --quiet pyjwt cryptography
+      - name: App Store'a gönder
+        run: |
+          set -o pipefail
+          python3 tools/asc_submit.py 2>&1 | tee "$RUNNER_TEMP/asc.log"
+      - name: Günlüğü yayınla (gizli bilgiler silinmiş)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          f="$RUNNER_TEMP/asc.log"; [ -f "$f" ] || { echo "günlük yok"; exit 0; }
+          KID2=$(printf '%s' "$KID" | LC_ALL=C tr -cd 'A-Za-z0-9')
+          ISS2=$(printf '%s' "$ISS" | LC_ALL=C tr -cd 'A-Za-z0-9-')
+          sed -i -e "s/$KID2/[KEYID]/g" -e "s/$ISS2/[ISSUER]/g" -e '/PRIVATE KEY/d' "$f" || true
+          cp "$f" appstore-log.txt
+          gh release view ci-logs >/dev/null 2>&1 || gh release create ci-logs --prerelease --title "CI günlükleri" --notes "Günlükler"
+          gh release upload ci-logs appstore-log.txt --clobber
+          echo "Günlük: ci-logs/appstore-log.txt"

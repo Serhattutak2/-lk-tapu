@@ -1,0 +1,16 @@
+{
+  "name": "ilk-tapu-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "İlk Tapu iOS sarmalayıcı (Capacitor)",
+  "scripts": {
+    "www": "cd .. && node tools/build.mjs && mkdir -p mobile/www && cp dist/index.html mobile/www/index.html",
+    "sync": "npm run www && npx cap sync ios"
+  },
+  "dependencies": {
+    "@capacitor-community/admob": "8.2.1",
+    "@capacitor/cli": "8.5.3",
+    "@capacitor/core": "8.5.3",
+    "@capacitor/ios": "8.5.3"
+  }
+}

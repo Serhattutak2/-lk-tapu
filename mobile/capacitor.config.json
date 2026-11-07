@@ -1,0 +1,7 @@
+{
+  "appId": "com.serhattutak.ilktapu",
+  "appName": "İlk Tapu",
+  "webDir": "www",
+  "backgroundColor": "#1b1a1f",
+  "ios": { "contentInset": "never", "backgroundColor": "#1b1a1f", "scrollEnabled": true }
+}

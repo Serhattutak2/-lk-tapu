@@ -1,0 +1,34 @@
+# App Store kaydındaki Pazarlama/Destek URL'lerini okur (salt okunur). Elle tetiklenir.
+name: App Store Info
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  info:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      KID: ${{ secrets.ASC_KEY_ID }}
+      ISS: ${{ secrets.ASC_ISSUER_ID }}
+      P8: ${{ secrets.ASC_KEY_P8 }}
+      APP_ID: com.serhattutak.ilktapu
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install --quiet pyjwt cryptography
+      - name: URL'leri oku
+        run: |
+          set -o pipefail
+          python3 tools/asc_read.py 2>&1 | tee "$RUNNER_TEMP/info.log"
+      - name: Günlüğü yayınla
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          f="$RUNNER_TEMP/info.log"; [ -f "$f" ] || exit 0
+          cp "$f" appstore-info.txt
+          gh release view ci-logs >/dev/null 2>&1 || gh release create ci-logs --prerelease --title "CI günlükleri" --notes "Günlükler"
+          gh release upload ci-logs appstore-info.txt --clobber

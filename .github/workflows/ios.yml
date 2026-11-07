@@ -1,0 +1,145 @@
+# iOS derlemesi: her push'ta (ve elle) macOS'ta Xcode ile derler.
+# - İmzasız IPA her zaman üretilir (Sideloadly / AltStore ile kendi Apple kimliğinle kurulur).
+# - Aşağıdaki gizli anahtarlar eklenirse ayrıca İMZALI ad-hoc IPA üretilir (Diawi / TestFlight için):
+#   IOS_P12_BASE64, IOS_P12_PASSWORD, IOS_PROFILE_BASE64 (ad-hoc provisioning profile), IOS_TEAM_ID
+# - TestFlight'a otomatik yükleme için gerekenler:
+#   ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 (App Store Connect API anahtarı, .p8 içeriği), IOS_TEAM_ID
+#   Sertifika ve profil gerekmez: xcodebuild API anahtarıyla otomatik imzalar (Admin yetkili anahtar).
+# Çıktılar "ios-latest" sürümüne (Releases) ve iş artefaktlarına yüklenir.
+name: iOS IPA
+on:
+  push:
+    branches: [main]
+    paths: ['src/**', 'tools/build.mjs', 'mobile/**', '.github/workflows/ios.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 40
+    env:
+      HAS_SIGN: ${{ secrets.IOS_P12_BASE64 != '' }}
+      HAS_ASC: ${{ secrets.ASC_KEY_P8 != '' && secrets.IOS_TEAM_ID != '' && contains(github.event.head_commit.message, '[testflight]') }}
+      HAS_ADHOC: ${{ secrets.IOS_PROFILE_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Xcode seç
+        run: |
+          ls /Applications | grep Xcode || true
+          X=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | grep -v -i beta | sort -V | tail -1); [ -n "$X" ] || X=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          sudo xcode-select -s "$X"
+          xcodebuild -version
+      - name: Oyunu derle (index.html)
+        run: |
+          node tools/build.mjs
+          mkdir -p mobile/www && cp dist/index.html mobile/www/index.html
+      - name: Capacitor eşitle
+        working-directory: mobile
+        run: |
+          npm ci
+          npx cap sync ios
+      - name: İmzasız derleme
+        working-directory: mobile/ios/App
+        run: |
+          xcodebuild -project App.xcodeproj -scheme App -configuration Release -sdk iphoneos \
+            -destination 'generic/platform=iOS' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            CURRENT_PROJECT_VERSION=$((GITHUB_RUN_NUMBER+100)) build | tail -40
+          APP=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' | head -1)
+          mkdir -p out/Payload && cp -R "$APP" out/Payload/
+          cd out && zip -qr ../IlkTapu-unsigned.ipa Payload && cd ..
+          ls -la IlkTapu-unsigned.ipa
+      - name: Dağıtım sertifikasını yükle (anahtarlar varsa)
+        if: env.HAS_SIGN == 'true'
+        env:
+          P12: ${{ secrets.IOS_P12_BASE64 }}
+          P12_PW: ${{ secrets.IOS_P12_PASSWORD }}
+        run: |
+          KC=$RUNNER_TEMP/b.keychain-db; echo "$P12" | base64 --decode > $RUNNER_TEMP/c.p12
+          security create-keychain -p x $KC && security set-keychain-settings -lut 21600 $KC && security unlock-keychain -p x $KC
+          security import $RUNNER_TEMP/c.p12 -P "$P12_PW" -A -t cert -f pkcs12 -k $KC
+          security set-key-partition-list -S apple-tool:,apple: -s -k x $KC >/dev/null
+          security list-keychain -d user -s $KC login.keychain-db
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+      - name: İmzalı ad-hoc derleme (Diawi için, profil varsa)
+        if: env.HAS_SIGN == 'true' && env.HAS_ADHOC == 'true'
+        working-directory: mobile/ios/App
+        env:
+          PROF: ${{ secrets.IOS_PROFILE_BASE64 }}
+          TEAM: ${{ secrets.IOS_TEAM_ID }}
+        run: |
+          set -o pipefail
+          echo "$PROF" | base64 --decode > $RUNNER_TEMP/p.mobileprovision
+          UUID=$(security cms -D -i $RUNNER_TEMP/p.mobileprovision | plutil -extract UUID raw -)
+          NAME=$(security cms -D -i $RUNNER_TEMP/p.mobileprovision | plutil -extract Name raw -)
+          cp $RUNNER_TEMP/p.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$UUID.mobileprovision
+          xcodebuild -project App.xcodeproj -scheme App -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
+            -archivePath build/App.xcarchive archive DEVELOPMENT_TEAM=$TEAM CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" PROVISIONING_PROFILE_SPECIFIER="$NAME" CURRENT_PROJECT_VERSION=$((GITHUB_RUN_NUMBER+100)) | tail -30
+          cat > eo.plist <<PL
+          <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict><key>method</key><string>release-testing</string><key>teamID</key><string>$TEAM</string>
+          <key>signingStyle</key><string>manual</string><key>provisioningProfiles</key><dict><key>com.serhattutak.ilktapu</key><string>$NAME</string></dict></dict></plist>
+          PL
+          xcodebuild -exportArchive -archivePath build/App.xcarchive -exportOptionsPlist eo.plist -exportPath signed
+          cp signed/*.ipa IlkTapu-adhoc.ipa
+      - name: TestFlight'a yükle (App Store Connect API anahtarıyla otomatik imza)
+        if: env.HAS_ASC == 'true'
+        working-directory: mobile/ios/App
+        env:
+          TEAM: ${{ secrets.IOS_TEAM_ID }}
+          KID: ${{ secrets.ASC_KEY_ID }}
+          ISS: ${{ secrets.ASC_ISSUER_ID }}
+          P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          set -o pipefail
+          exec > >(tee $RUNNER_TEMP/tf.log) 2>&1
+          # telefondan yapıştırırken gelen boşlukları/satır sonlarını temizle
+          TEAM=$(printf '%s' "$TEAM" | LC_ALL=C tr -cd 'A-Za-z0-9'); KID=$(printf '%s' "$KID" | LC_ALL=C tr -cd 'A-Za-z0-9'); ISS=$(printf '%s' "$ISS" | LC_ALL=C tr -cd 'A-Za-z0-9-')
+          P8=$(printf '%s\n' "$P8" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | grep -v '^$')
+          echo "Kontrol: TEAM=${#TEAM} karakter, KEY_ID=${#KID} karakter, ISSUER=${#ISS} karakter, P8 satır=$(printf '%s\n' "$P8" | wc -l), ilk satır: $(printf '%s\n' "$P8" | head -1)"
+          mkdir -p ~/.appstoreconnect/private_keys
+          KP=~/.appstoreconnect/private_keys/AuthKey_$KID.p8
+          printf '%s\n' "$P8" > $KP
+          AUTH="-allowProvisioningUpdates -authenticationKeyPath $KP -authenticationKeyID $KID -authenticationKeyIssuerID $ISS"
+          xcodebuild -project App.xcodeproj -scheme App -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
+            -archivePath build/AS.xcarchive archive $AUTH DEVELOPMENT_TEAM=$TEAM CODE_SIGN_STYLE=Automatic \
+            CURRENT_PROJECT_VERSION=$((GITHUB_RUN_NUMBER+100)) > $RUNNER_TEMP/arch.log 2>&1 || { grep -E 'error|Error|warning: .*sign' $RUNNER_TEMP/arch.log | tail -40; tail -60 $RUNNER_TEMP/arch.log; exit 1; }
+          tail -15 $RUNNER_TEMP/arch.log
+          cat > as.plist <<PL
+          <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict><key>method</key><string>app-store-connect</string><key>teamID</key><string>$TEAM</string>
+          <key>signingStyle</key><string>automatic</string><key>uploadSymbols</key><true/></dict></plist>
+          PL
+          xcodebuild -exportArchive -archivePath build/AS.xcarchive -exportOptionsPlist as.plist -exportPath asout $AUTH | tail -30
+          ls -la asout
+          xcrun altool --upload-app -f asout/*.ipa -t ios --apiKey "$KID" --apiIssuer "$ISS"
+      - name: TestFlight günlüğünü yayınla (gizli bilgiler silinmiş)
+        if: always() && env.HAS_ASC == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KID: ${{ secrets.ASC_KEY_ID }}
+          ISS: ${{ secrets.ASC_ISSUER_ID }}
+          TEAM: ${{ secrets.IOS_TEAM_ID }}
+        run: |
+          f=$RUNNER_TEMP/tf.log; [ -f "$f" ] || exit 0
+          ISS=$(printf '%s' "$ISS" | LC_ALL=C tr -cd 'A-Za-z0-9-'); KID=$(printf '%s' "$KID" | LC_ALL=C tr -cd 'A-Za-z0-9')
+          sed -i '' -e "s/$ISS/[ISSUER]/g" -e "s/$KID/[KEYID]/g" -e '/PRIVATE KEY/d' "$f" || true
+          cp "$f" testflight-log.txt
+          gh release view ci-logs >/dev/null 2>&1 || gh release create ci-logs --prerelease --title "CI günlükleri" --notes "Derleme günlükleri"
+          gh release upload ci-logs testflight-log.txt --clobber
+      - uses: actions/upload-artifact@v4
+        with:
+          name: IlkTapu-ios
+          path: mobile/ios/App/*.ipa
+      - name: Sürüme yükle (ios-latest)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ios-latest
+          name: iOS son derleme
+          prerelease: true
+          body: "Otomatik iOS derlemesi (${{ github.sha }}). IlkTapu-unsigned.ipa: Sideloadly/AltStore ile kurulur. IlkTapu-adhoc.ipa (varsa): Diawi ile kurulur."
+          files: mobile/ios/App/*.ipa
