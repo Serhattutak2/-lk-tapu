@@ -96,6 +96,34 @@ for l in locs:
                   {"data": {"type": "appStoreVersionLocalizations", "id": lid, "attributes": attrs}})
     print("  not+URL", loc, "->", st2 if st2 == 200 else errtxt(r2))
 
+# 4b) Yaş derecesi (ageRatingDeclaration) — mafya/şiddet hafif, benzetim kumar var -> 17+
+AGE = {
+    "violenceCartoonOrFantasy": "NONE",
+    "violenceRealistic": "INFREQUENT_OR_MILD",
+    "violenceRealisticProlongedGraphicOrSadistic": "NONE",
+    "profanityOrCrudeHumor": "NONE",
+    "matureOrSuggestiveThemes": "INFREQUENT_OR_MILD",
+    "horrorOrFearThemes": "NONE",
+    "medicalOrTreatmentInformation": "NONE",
+    "alcoholTobaccoOrDrugUseOrReferences": "INFREQUENT_OR_MILD",
+    "gamblingSimulated": "INFREQUENT_OR_MILD",
+    "sexualContentOrNudity": "NONE",
+    "sexualContentGraphicAndNudity": "NONE",
+    "contests": "NONE",
+    "gambling": False,
+    "unrestrictedWebAccess": False,
+    "kidsAgeBand": None,
+}
+ard_id = None
+st, r = api("GET", f"/v1/appStoreVersions/{ver_id}/ageRatingDeclaration")
+if st == 200 and r.get("data"): ard_id = r["data"]["id"]
+if ard_id:
+    st, r = api("PATCH", f"/v1/ageRatingDeclarations/{ard_id}",
+                {"data": {"type": "ageRatingDeclarations", "id": ard_id, "attributes": AGE}})
+    print("Yaş derecesi ->", st if st == 200 else errtxt(r))
+else:
+    print("Yaş derecesi bildirimi bulunamadı (UI'dan işaretlenebilir).")
+
 # 5) 4.3 build'ini bul ve sürüme bağla
 st, r = api("GET", f"/v1/builds?filter[app]={app_id}&filter[preReleaseVersion.version]={VER}&sort=-uploadedDate&limit=10")
 builds = [b for b in r.get("data", []) if b["attributes"].get("processingState") == "VALID"] or r.get("data", [])
