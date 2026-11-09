@@ -113,6 +113,16 @@ AGE = {
     "gambling": False,
     "unrestrictedWebAccess": False,
     "kidsAgeBand": None,
+    # 2025'te eklenen zorunlu alanlar
+    "advertising": True,            # AdMob reklamları var
+    "socialMedia": False,
+    "messagingAndChat": False,
+    "userGeneratedContent": False,
+    "parentalControls": False,
+    "ageAssurance": False,
+    "healthOrWellnessTopics": False,
+    "lootBox": False,
+    "gunsOrOtherWeapons": "INFREQUENT_OR_MILD",
 }
 ard_id = None
 sti, ri = api("GET", f"/v1/apps/{app_id}/appInfos?limit=1")
