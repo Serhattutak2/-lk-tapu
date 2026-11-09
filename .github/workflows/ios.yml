@@ -34,12 +34,13 @@ jobs:
           xcodebuild -version
       - name: Oyunu derle (index.html)
         run: |
+          npm ci
           node tools/build.mjs
           mkdir -p mobile/www && cp dist/index.html mobile/www/index.html
       - name: Capacitor eşitle
         working-directory: mobile
         run: |
-          npm ci
+          npm install --no-audit --no-fund
           npx cap sync ios
       - name: İmzasız derleme
         working-directory: mobile/ios/App
