@@ -115,8 +115,13 @@ AGE = {
     "kidsAgeBand": None,
 }
 ard_id = None
-st, r = api("GET", f"/v1/appStoreVersions/{ver_id}/ageRatingDeclaration")
-if st == 200 and r.get("data"): ard_id = r["data"]["id"]
+sti, ri = api("GET", f"/v1/apps/{app_id}/appInfos?limit=1")
+if sti == 200 and ri.get("data"):
+    sta, ra = api("GET", f"/v1/appInfos/{ri['data'][0]['id']}/ageRatingDeclaration")
+    if sta == 200 and ra.get("data"): ard_id = ra["data"]["id"]
+if not ard_id:
+    sta, ra = api("GET", f"/v1/appStoreVersions/{ver_id}/ageRatingDeclaration")
+    if sta == 200 and ra.get("data"): ard_id = ra["data"]["id"]
 if ard_id:
     st, r = api("PATCH", f"/v1/ageRatingDeclarations/{ard_id}",
                 {"data": {"type": "ageRatingDeclarations", "id": ard_id, "attributes": AGE}})
