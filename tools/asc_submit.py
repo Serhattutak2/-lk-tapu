@@ -184,9 +184,12 @@ print("Build bağlandı.")
 # 6) İncelemeye gönder (reviewSubmissions akışı)
 st, r = api("GET", f"/v1/reviewSubmissions?filter[app]={app_id}&limit=20")
 sub_id = None
+# Eski/yarım taslak gönderimleri sil (sürümü kilitlerler)
 for s in r.get("data", []):
-    if s["attributes"].get("state") in ("READY_FOR_REVIEW", "UNRESOLVED_ISSUES"):
-        sub_id = s["id"]; print("Mevcut gönderim kullanılıyor:", sub_id, s["attributes"].get("state")); break
+    stt = s["attributes"].get("state")
+    if stt in ("READY_FOR_REVIEW", "UNRESOLVED_ISSUES", "COMPLETING"):
+        dst, _ = api("DELETE", f"/v1/reviewSubmissions/{s['id']}")
+        print("Eski taslak gönderim silindi:", s["id"], stt, "->", dst)
 if not sub_id:
     st, r = api("POST", "/v1/reviewSubmissions", {"data": {"type": "reviewSubmissions",
         "attributes": {"platform": "IOS"},
