@@ -139,6 +139,38 @@ if ard_id:
 else:
     print("Yaş derecesi bildirimi bulunamadı (UI'dan işaretlenebilir).")
 
+# 4c) İçerik hakları beyanı
+st, r = api("PATCH", f"/v1/apps/{app_id}",
+            {"data": {"type": "apps", "id": app_id, "attributes": {"contentRightsDeclaration": "DOES_NOT_USE_THIRD_PARTY_CONTENT"}}})
+print("İçerik hakları ->", st if st == 200 else errtxt(r))
+
+# 4d) Kategori (Oyun / Simülasyon + Strateji)
+sti, ri = api("GET", f"/v1/apps/{app_id}/appInfos?limit=1")
+if ri.get("data"):
+    info_id = ri["data"][0]["id"]
+    rel = {
+        "primaryCategory": {"data": {"type": "appCategories", "id": "GAMES"}},
+        "primarySubcategoryOne": {"data": {"type": "appCategories", "id": "GAMES_SIMULATION"}},
+        "primarySubcategoryTwo": {"data": {"type": "appCategories", "id": "GAMES_STRATEGY"}},
+    }
+    st, r = api("PATCH", f"/v1/appInfos/{info_id}", {"data": {"type": "appInfos", "id": info_id, "relationships": rel}})
+    print("Kategori ->", st if st == 200 else errtxt(r))
+
+# 4e) App Review iletişim + giriş gerekmiyor
+CONTACT = {"contactFirstName": "Serhat", "contactLastName": "Tutak", "contactPhone": "+905059954165",
+           "contactEmail": "serhattutak2@gmail.com", "demoAccountRequired": False,
+           "demoAccountName": "", "demoAccountPassword": "", "notes": ""}
+st, r = api("GET", f"/v1/appStoreVersions/{ver_id}/appStoreReviewDetail")
+if st == 200 and r.get("data"):
+    rid = r["data"]["id"]
+    st, r = api("PATCH", f"/v1/appStoreReviewDetails/{rid}",
+                {"data": {"type": "appStoreReviewDetails", "id": rid, "attributes": CONTACT}})
+else:
+    st, r = api("POST", "/v1/appStoreReviewDetails",
+                {"data": {"type": "appStoreReviewDetails", "attributes": CONTACT,
+                          "relationships": {"appStoreVersion": {"data": {"type": "appStoreVersions", "id": ver_id}}}}})
+print("Review iletişim ->", st if st in (200, 201) else errtxt(r))
+
 # 5) 4.3 build'ini bul ve sürüme bağla
 st, r = api("GET", f"/v1/builds?filter[app]={app_id}&filter[preReleaseVersion.version]={VER}&sort=-uploadedDate&limit=10")
 builds = [b for b in r.get("data", []) if b["attributes"].get("processingState") == "VALID"] or r.get("data", [])
