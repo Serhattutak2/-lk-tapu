@@ -171,6 +171,11 @@ else:
                           "relationships": {"appStoreVersion": {"data": {"type": "appStoreVersions", "id": ver_id}}}}})
 print("Review iletişim ->", st if st in (200, 201) else errtxt(r))
 
+# 4f) Telif hakkı (zorunlu alan)
+st, r = api("PATCH", f"/v1/appStoreVersions/{ver_id}",
+            {"data": {"type": "appStoreVersions", "id": ver_id, "attributes": {"copyright": "2026 Serhat Tutak"}}})
+print("Telif hakkı ->", st if st == 200 else errtxt(r))
+
 # 5) 4.3 build'ini bul ve sürüme bağla
 st, r = api("GET", f"/v1/builds?filter[app]={app_id}&filter[preReleaseVersion.version]={VER}&sort=-uploadedDate&limit=10")
 builds = [b for b in r.get("data", []) if b["attributes"].get("processingState") == "VALID"] or r.get("data", [])
