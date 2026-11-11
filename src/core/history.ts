@@ -536,28 +536,6 @@ const HIST: Hi[] = [
     },
   },
   {
-    id: 'piyango',
-    from: 1939,
-    to: 2100,
-    p: 0.004,
-    make: (w) => ({
-      text: `Kasabadan dönen ${pick(w, ['Berber Sami', 'Bekçi Nuri', 'Topal Osman'])} yılbaşı piyangosundan bilet getirmiş, "bir tane de siz alın" diyor. Bilet ${fmt(L(w, 25))} lira.`,
-      opts: [{ t: 'Bir bilet al', k: 'al' }, { t: 'Kumar haram', k: 'hayir' }],
-    }),
-    res: (w, k) => {
-      if (k !== 'al') return;
-      w.hh.cash -= L(w, 25);
-      if (chance(w, 0.03)) {
-        const v = L(w, 12000);
-        w.hh.cash += v;
-        log(w, `Piyango çıktı! ${fmt(v)} lira. Bütün köy kapıda.`, 'para');
-      } else if (chance(w, 0.15)) {
-        w.hh.cash += L(w, 100);
-        log(w, `Piyangodan amorti çıktı.`, 'para');
-      }
-    },
-  },
-  {
     id: 'muhtar_yardim',
     from: 1925,
     to: 2100,

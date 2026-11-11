@@ -138,7 +138,7 @@ export function resolveKriz(w: World, id: string, k: string, data?: Record<strin
       if (w.hh.cash < bet && w.dirty < bet) { log(w, `Fırsata atlayacak nakdin yoktu.`, 'para'); return true; }
       (w.hh.cash >= bet ? (w.hh.cash -= bet) : (w.dirty -= bet));
       if (chance(w, 0.5)) { const win = Math.round(bet * (1.5 + rint(w, 0, 10) / 10)); w.hh.cash += win; log(w, `Dipten kaptığın mallar toparlandı; ${fmt(win)} lira kazandın. Kriz cesur olana yarar.`, 'para'); }
-      else log(w, `Dip sandığın yer daha da dibe gitti; koyduğun ${fmt(bet)} lira da buhar oldu. Kumar bu.`, 'para');
+      else log(w, `Dip sandığın yer daha da dibe gitti; koyduğun ${fmt(bet)} lira da buhar oldu. Risk işte.`, 'para');
     } else log(w, `Fırtınayı kenardan izledin; batmadın ama fırsat da kaçtı.`, 'olay');
     return true;
   }

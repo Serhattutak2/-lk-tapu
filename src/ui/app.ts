@@ -16,7 +16,7 @@ import { AGIL_PRICE, buildLab, buyAgil, buyRaw, cevdetPay, hamPrice, hapPrice, h
 import { attackRival, doRivalMove, feudLabel, gangPay, lockedOut, rivalMoves, rP, scuffle, targets, setLock, fightForce, famFighters } from '../core/feud';
 import { HUY_AD, kmtAd, kmtDost, kmtFactor, kmtFollow, kmtGift, kmtHuy, kmtKnown, kmtOurs, ozelTim } from '../core/jandarma';
 import { buyGemi, denizOpen, facDown, facN, facTotal, gemiPrice, rebuildFac, setFacGuard, buyCityHome, buyFac, CITY, FACS, facIncome, facPrice, hire, HOMES, homePrice, launderCap, launderFee, moveToCity, setFacMgr, takeTurf, underTitle, facLevel, FAC_LVL, facUpgrade, facUpgradePrice, setFirm, facWorkers, facWage, facGross } from '../core/baron';
-import { CARS, LUX, carLabel, carsAvailable, carPrice, ownsCar, luxOwned, buyCar, doLux, sellCar, carsValue, horseRace, ownsHorse, horseQ } from '../core/lux';
+import { CARS, LUX, carLabel, carsAvailable, carPrice, ownsCar, luxOwned, buyCar, doLux, sellCar, carsValue, ownsHorse } from '../core/lux';
 import { bereket, bereketVar, toparlan, toparlanmaVar } from '../core/reklam';
 import { adsInit, adsAvailable, showRewarded, showInterstitial } from './ads';
 import { fams, aliveFams, babaLabel, isBaba, babaFam, canChallenge, votes, allies, TRAIT_AD, aileGift, ailePress, ailePeace, tahtHamle } from '../core/aile';
@@ -682,13 +682,8 @@ export class App {
         <p class="note">${esc(d.desc)}</p>
         ${has ? '' : `<button class="small" data-lux="${d.id}"${w.hh.cash < p ? ' disabled' : ''}>${d.once ? 'Al' : 'Yap'} (${lira(p)})</button>`}</div>`;
     }).join('');
-    const atPanel = ownsHorse(w) ? `<div class="group">Hipodrom — atını yarıştır</div>
-      <p class="note">Safkan atın hazır (form: ${horseQ(w)}/100). Üstüne bahis koy; kazanırsa katlanır, at iyi koştukça formu açılır. Dikkat: değerli bir at hırsızların da gözündedir.</p>
-      <div class="btnrow">
-        <button class="small" data-horse="2000"${w.hh.cash < 2000 ? ' disabled' : ''}>2.000 ile koş</button>
-        <button class="small" data-horse="10000"${w.hh.cash < 10000 ? ' disabled' : ''}>10.000 ile koş</button>
-        <button class="small" data-horse="50000"${w.hh.cash < 50000 ? ' disabled' : ''}>50.000 ile koş</button>
-      </div>` : '';
+    const atPanel = ownsHorse(w) ? `<div class="group">Hipodrom</div>
+      <p class="note">Safkan atın ${w.surname} ailesinin renkleriyle koşuyor; kupa kazandıkça ikramiye ve itibar getiriyor. Dikkat: değerli bir at hırsızların da gözündedir.</p>` : '';
     return `<div class="group">Araba — hangi markayı alacağını sen seçersin${garaj ? ` · garaj değeri ${lira(garaj)}` : ''}</div>
       <p class="note">Biriken para sadece büyümek için değil; yaşamak için de. Markalı bir araba, görkemli bir düğün, bir yarış atı... Para emer ama nam, saygı ve ailenin keyfini büyütür. Aldığın arabayı satabilir, koleksiyon yapabilirsin.</p>${cars}
       <div class="group">Eğlence ve itibar</div>${lux}${atPanel}`;
@@ -1268,7 +1263,6 @@ export class App {
     panel.querySelectorAll<HTMLButtonElement>('[data-biz]').forEach((b) => (b.onclick = act(() => this.toast(buyBiz(w, b.dataset.biz as BizId).msg))));
     panel.querySelectorAll<HTMLButtonElement>('[data-car]').forEach((b) => (b.onclick = act(() => this.toast(buyCar(w, b.dataset.car!).msg))));
     panel.querySelectorAll<HTMLButtonElement>('[data-carsell]').forEach((b) => (b.onclick = act(() => this.toast(sellCar(w, b.dataset.carsell!).msg))));
-    panel.querySelectorAll<HTMLButtonElement>('[data-horse]').forEach((b) => (b.onclick = act(() => this.toast(horseRace(w, Number(b.dataset.horse)).msg))));
     panel.querySelectorAll<HTMLButtonElement>('[data-lux]').forEach((b) => (b.onclick = act(() => this.toast(doLux(w, b.dataset.lux!).msg))));
     panel.querySelectorAll<HTMLButtonElement>('[data-house]').forEach((b) => (b.onclick = act(() => this.toast(buyHouse(w).msg))));
     panel.querySelectorAll<HTMLSelectElement>('[data-mgr]').forEach((sel) => {

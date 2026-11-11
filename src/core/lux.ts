@@ -108,30 +108,8 @@ export function monthlyLux(w: World) {
   }
 }
 
-// ---------- Yarış atı: bahisle yarıştırma ----------
+// Yarış atı: sahip olunan bir prestij varlığı; koşulara katılıp ikramiye kazanır (pasif, bkz. monthlyLux).
 export const ownsHorse = (w: World) => luxOwned(w, 'at');
-export const horseQ = (w: World) => clamp(Number(w.flags.atKalite ?? 40), 0, 100);
-/** Atı bir koşuya sok, üstüne bahis koy. Kazanırsan katlanır; at iyi koştukça formu (kalite) yükselir. */
-export function horseRace(w: World, stake: number): { ok: boolean; msg: string } {
-  if (!ownsHorse(w)) return { ok: false, msg: 'Önce bir yarış atın olmalı.' };
-  stake = Math.round(stake);
-  if (stake < 1) return { ok: false, msg: 'Bahsi gir.' };
-  if (w.hh.cash < stake) return { ok: false, msg: `${fmt(stake - w.hh.cash)} lira eksik.` };
-  w.hh.cash -= stake;
-  const p = clamp(0.38 + horseQ(w) / 320, 0.38, 0.64);
-  if (chance(w, p)) {
-    const mult = 1.6 + rint(w, 0, 9) / 10; // 1.6–2.5x
-    const win = Math.round(stake * mult);
-    w.hh.cash += win;
-    w.flags.atKalite = clamp(horseQ(w) + rint(w, 2, 5), 0, 100);
-    w.flags.namBonus = Number(w.flags.namBonus || 0) + 1;
-    log(w, `Atın hipodromda birinci geldi! Bahsin ${fmt(win)} lira olarak döndü; form giderek açılıyor.`, 'para');
-    return { ok: true, msg: `Kazandın: ${fmt(win)} lira.` };
-  }
-  w.flags.atKalite = clamp(horseQ(w) - rint(w, 0, 3), 0, 100);
-  log(w, `At bu koşuda geride kaldı; ${fmt(stake)} liralık bahis gitti. Olur böyle, sonraki koşuya.`, 'para');
-  return { ok: true, msg: `Kaybettin: ${fmt(stake)} lira.` };
-}
 
 // ---------- At çalma olayı ----------
 export function luxCards(w: World): boolean {

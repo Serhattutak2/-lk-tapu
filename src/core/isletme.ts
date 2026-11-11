@@ -59,8 +59,8 @@ export function isletmeCards(w: World): boolean {
     `${ad}nde yaz sezonu kapıda. Stratejin ne olsun?`,
     [{ t: 'Her şey dahil, kitle turizmi (çok ciro)', k: 'kitle' }, { t: 'Butik lüks otel (az ama itibar)', k: 'butik' }]);
   else if (g === 'gazino') mk(
-    `${ad}nda bu akşam için büyük bir kumar gecesi öneriliyor: şehrin zenginleri, tomarla para... ama polis de burayı bilir.`,
-    [{ t: 'Büyük geceyi düzenle (çok nakit)', k: 'buyuk' }, { t: 'Sakin işlet, dikkat çekme', k: 'sakin' }]);
+    `${ad}na ünlü bir ses sanatçısı için büyük bir gece öneriliyor: dolu masalar, pahalı içki, şehrin zenginleri... ama böyle geceler polisin de dikkatini çeker.`,
+    [{ t: 'Büyük şov gecesini düzenle (çok nakit)', k: 'buyuk' }, { t: 'Sakin işlet, dikkat çekme', k: 'sakin' }]);
   else if (g === 'tekstil') mk(
     `${ad}na büyük bir ihracat siparişi geldi. Yetiştirmek için işçiyi fazla mesaiye zorlaman gerek.`,
     [{ t: 'Fazla mesaiyle yetiştir (büyük sipariş)', k: 'mesai' }, { t: 'İşçiyi zorlama, normal çalış', k: 'normal' }]);
@@ -96,7 +96,7 @@ export function resolveIsletme(w: World, id: string, k: string, data?: Record<st
     if (k === 'kitle') { addCash(w, Math.round(birim * 1.9)); heat(w, 3); log(w, `${ad} tıklım tıklım doldu; ciro ${fmt(Math.round(birim * 1.9))} lira, ama tesis yıprandı.`, 'para'); }
     else { addCash(w, Math.round(birim * 0.9)); addNam(w, 6); log(w, `${ad} butik lüks çizgisine geçti; az misafir, çok itibar.`, 'para'); }
   } else if (g === 'gazino') {
-    if (k === 'buyuk') { addDirty(w, Math.round(birim * 1.6)); heat(w, 12); log(w, `${ad}nda büyük gece: masalarda tomarla para döndü, kara kasa şişti; polis de not aldı.`, 'para'); }
+    if (k === 'buyuk') { addDirty(w, Math.round(birim * 1.6)); heat(w, 12); log(w, `${ad}nda büyük şov gecesi: sanatçı sahnedeydi, masalar doldu taştı, kara kasa şişti; polis de not aldı.`, 'para'); }
     else { addCash(w, Math.round(birim * 0.5)); log(w, `${ad} sakin bir gece geçirdi; az kazanç, sıfır dikkat.`, 'para'); }
   } else if (g === 'tekstil') {
     if (k === 'mesai') {

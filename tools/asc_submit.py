@@ -106,7 +106,7 @@ AGE = {
     "horrorOrFearThemes": "NONE",
     "medicalOrTreatmentInformation": "NONE",
     "alcoholTobaccoOrDrugUseOrReferences": "INFREQUENT_OR_MILD",
-    "gamblingSimulated": "INFREQUENT_OR_MILD",
+    "gamblingSimulated": "NONE",
     "sexualContentOrNudity": "NONE",
     "sexualContentGraphicAndNudity": "NONE",
     "contests": "NONE",
