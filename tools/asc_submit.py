@@ -194,12 +194,15 @@ print("Build bağlandı.")
 # 6) İncelemeye gönder (reviewSubmissions akışı)
 st, r = api("GET", f"/v1/reviewSubmissions?filter[app]={app_id}&limit=20")
 sub_id = None
-# Eski/yarım taslak gönderimleri sil (sürümü kilitlerler)
+# Eski/reddedilmiş gönderimleri İPTAL et (sürümü kilitten kurtarmak için; DELETE 403 veriyor)
 for s in r.get("data", []):
     stt = s["attributes"].get("state")
     if stt in ("READY_FOR_REVIEW", "UNRESOLVED_ISSUES", "COMPLETING"):
-        dst, _ = api("DELETE", f"/v1/reviewSubmissions/{s['id']}")
-        print("Eski taslak gönderim silindi:", s["id"], stt, "->", dst)
+        cst, cr = api("PATCH", f"/v1/reviewSubmissions/{s['id']}",
+                      {"data": {"type": "reviewSubmissions", "id": s["id"], "attributes": {"canceled": True}}})
+        print("Eski gönderim iptal:", s["id"], stt, "->", cst if cst == 200 else errtxt(cr))
+        if cst != 200:
+            api("DELETE", f"/v1/reviewSubmissions/{s['id']}")  # yedek deneme
 if not sub_id:
     st, r = api("POST", "/v1/reviewSubmissions", {"data": {"type": "reviewSubmissions",
         "attributes": {"platform": "IOS"},
