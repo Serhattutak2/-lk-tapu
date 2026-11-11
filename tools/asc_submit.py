@@ -182,6 +182,11 @@ builds = [b for b in r.get("data", []) if b["attributes"].get("processingState")
 if not builds: die("4.3 build bulunamadı (hâlâ işleniyor olabilir)", r)
 build_id = builds[0]["id"]
 print("Build:", builds[0]["attributes"].get("version"), builds[0]["attributes"].get("processingState"), build_id)
+MIN_BUILD = int(os.environ.get("MIN_BUILD", "0"))
+try: _bn = int(builds[0]["attributes"].get("version") or "0")
+except Exception: _bn = 0
+if MIN_BUILD and _bn <= MIN_BUILD:
+    die(f"En yeni VALID build ({_bn}); yeni build ({MIN_BUILD} üstü) henüz işlenmedi. Birazdan tekrar.")
 st, r = api("PATCH", f"/v1/appStoreVersions/{ver_id}/relationships/build", {"data": {"type": "builds", "id": build_id}})
 if st not in (200, 204): die("Build sürüme bağlanamadı", r)
 print("Build bağlandı.")

@@ -23,6 +23,7 @@ jobs:
       APP_ID: com.serhattutak.ilktapu
       VER: ${{ github.event.inputs.app_version }}
       AUTO_RELEASE: "1"
+      MIN_BUILD: "106"
       TR_NOTES: |
         İlk Tapu — yoksul bir köy ailesinden bir hanedan kur.
         • Nesiller boyu süren hayat ve iş simülasyonu: tarla, işletme, şehir, güç.
