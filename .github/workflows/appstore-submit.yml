@@ -9,7 +9,7 @@ on:
       app_version:
         description: "Sürüm (MARKETING_VERSION)"
         required: true
-        default: "1.0"
+        default: "1.1"
 permissions:
   contents: write
 jobs:
@@ -23,17 +23,23 @@ jobs:
       APP_ID: com.serhattutak.ilktapu
       VER: ${{ github.event.inputs.app_version }}
       AUTO_RELEASE: "1"
-      MIN_BUILD: "106"
+      MIN_BUILD: "107"
       TR_NOTES: |
-        İlk Tapu — yoksul bir köy ailesinden bir hanedan kur.
-        • Nesiller boyu süren hayat ve iş simülasyonu: tarla, işletme, şehir, güç.
-        • Tapular, kan davaları, Konsey aileleri ve şehrin babalığı için mücadele.
-        • Her işletmeye özel kararlar, felaketler, lüks ve daha fazlası.
+        Sürüm 1.1 — daha derin bir hanedan:
+        • Köyden şehre işçi göçü ve yeni köy işleri.
+        • Konsey aileleri artık senden pay istiyor; boyun eğ ya da karşı dur.
+        • Yeraltında kabadayılar, daha sert kararlar.
+        • Stratejik evlilikle kan davasını durdur.
+        • İtibarını seç: cömert ve sevilen mi, korkulan bir baba mı?
+        • Çeşitli denge ve akıcılık iyileştirmeleri.
       EN_NOTES: |
-        İlk Tapu — build a dynasty from a poor village family.
-        • A life and business sim across generations: land, enterprise, city, power.
-        • Deeds, blood feuds, council families, and the struggle to rule the city.
-        • Business-specific decisions, disasters, luxury and much more.
+        Version 1.1 — a deeper dynasty:
+        • Village-to-city labor migration and new village jobs.
+        • Council families now demand their cut — submit or defy them.
+        • Tougher underground: enforcers and sharper choices.
+        • End a blood feud through a strategic marriage.
+        • Choose your reputation: generous and beloved, or a feared boss.
+        • Various balance and polish improvements.
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
