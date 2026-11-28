@@ -18,7 +18,7 @@ import { HUY_AD, kmtAd, kmtDost, kmtFactor, kmtFollow, kmtGift, kmtHuy, kmtKnown
 import { buyGemi, denizOpen, facDown, facN, facTotal, gemiPrice, rebuildFac, setFacGuard, buyCityHome, buyFac, CITY, FACS, facIncome, facPrice, hire, HOMES, homePrice, launderCap, launderFee, moveToCity, setFacMgr, takeTurf, underTitle, facLevel, FAC_LVL, facUpgrade, facUpgradePrice, setFirm, facWorkers, facWage, facGross } from '../core/baron';
 import { CARS, LUX, carLabel, carsAvailable, carPrice, ownsCar, luxOwned, buyCar, doLux, sellCar, carsValue, ownsHorse } from '../core/lux';
 import { bereket, bereketVar, toparlan, toparlanmaVar } from '../core/reklam';
-import { adsInit, adsAvailable, showRewarded, showInterstitial } from './ads';
+import { adsInit, adsAvailable, showRewarded, maybeInterstitial, adsResetSession } from './ads';
 import { fams, aliveFams, babaLabel, isBaba, babaFam, canChallenge, votes, allies, TRAIT_AD, aileGift, ailePress, ailePeace, tahtHamle } from '../core/aile';
 import type { DInv, DistId, FacId, TechId } from '../core/types';
 import { buyTech, eraOf, TECHS, techPrice } from '../core/era';
@@ -121,6 +121,7 @@ export class App {
   private w: World | null = null;
   private tab: 'aile' | 'tarla' | 'mulk' | 'yeralti' | 'sehir' | 'hane' | 'gorev' | 'kronik' = 'aile';
   private lastNesil = 0;
+  private lastAdMonth: number | undefined;
   private pick: Pick | null = null;
   private speed = 0;
   private timer = 0;
@@ -185,6 +186,8 @@ export class App {
   private enter(w: World) {
     this.w = w;
     this.lastNesil = Number(w.flags.nesil || 1);
+    this.lastAdMonth = w.m;
+    adsResetSession();
     void adsInit();
     if (w.over) return this.showEnd();
     this.root.innerHTML = `
@@ -365,10 +368,18 @@ export class App {
     this.renderOverlay();
     this.renderSheet();
     if (this.w && this.muzik.playing) this.muzik.setMood(this.moodFor(this.w));
-    // Nesil değişince (devir) tam ekran reklam — doğal sahne arası, nadiren gelir.
+    // Geçiş reklamı (Dengeli): devir anında VE her ~6 oyun yılında (72 ay) bir denenir.
+    // Gerçek sıklık/ısınma kuralları maybeInterstitial() içinde; burada sadece "an geldi" denir.
     if (this.w) {
+      const over = this.w.over;
       const n = Number(this.w.flags.nesil || 1);
-      if (this.lastNesil && n > this.lastNesil && !this.w.over) void showInterstitial();
+      if (this.lastAdMonth === undefined) this.lastAdMonth = this.w.m;
+      const devir = !!this.lastNesil && n > this.lastNesil && !over;
+      const periyodik = !over && this.w.m - this.lastAdMonth >= 72;
+      if (devir || periyodik) {
+        this.lastAdMonth = this.w.m; // 6 yıllık sayaç her denemede sıfırlanır
+        void maybeInterstitial();
+      }
       this.lastNesil = n;
     }
   }

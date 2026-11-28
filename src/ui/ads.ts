@@ -1,14 +1,13 @@
-// Reklam katmanı — AdMob.
-// İlk Tapu yavaş, düşündüren bir sim: bannersız, az ve DEĞERLİ reklam. Reklam yalnızca
-// native (Capacitor) kabuğun içinde çalışır; web derlemesinde ve testlerde sessizce devre dışıdır.
+// Reklam katmanı — AdMob (İlk Tapu).
+// Bannersız, oyunu bloklamayan reklam. Reklam yalnızca native (Capacitor) kabuğun içinde
+// çalışır; web derlemesinde ve testlerde sessizce devre dışıdır. Eklenti
+// window.Capacitor.Plugins.AdMob olarak RUNTIME'da yoklanır, böylece web derlemesi hiçbir
+// pakete bağımlı olmadan kurulabilir.
 //
-// Native kabuk @capacitor-community/admob eklentisiyle kurulduğunda eklenti
-// window.Capacitor.Plugins.AdMob olarak görünür; burada onu RUNTIME'da yokluyoruz,
-// böylece web derlemesi hiçbir pakete bağımlı olmadan kurulabiliyor.
-//
-// TODO (Serhat'tan gelince): İlk Tapu için ayrı bir AdMob uygulaması aç ve gerçek
-// reklam birimi kimliklerini aşağıya yaz. Şu an Google'ın resmî TEST kimlikleri kullanılıyor
-// (yayına çıkmadan önce mutlaka gerçekleriyle değiştirilecek, yoksa Google hesabı askıya alır).
+// SIKLIK (Dengeli): geçiş reklamı devir anında + her ~6 oyun yılında bir denenir; ama
+// iki reklam arası en az MIN_GAP_MS, oturumun ilk WARMUP_MS'inde hiç. Bu kurallar
+// maybeInterstitial() içinde; çağıran taraf sadece "uygun an geldi" der. Ödüllü reklamlar
+// her zaman isteğe bağlıdır (oyuncu butona basar).
 
 interface AdMobPlugin {
   initialize(opts?: unknown): Promise<void>;
@@ -83,4 +82,31 @@ export async function showInterstitial(): Promise<void> {
   } catch {
     /* sessiz */
   }
+}
+
+// ---- Geçiş reklamı sıklık kapısı (Dengeli) ----
+const MIN_GAP_MS = 90_000; // iki geçiş reklamı arası en az 90 sn
+const WARMUP_MS = 60_000; // oturumun ilk 60 sn'sinde geçiş reklamı yok
+let adSessionStart = Date.now();
+let lastInterAt = 0;
+
+/** Yeni oyun/oturum başında sıklık sayaçlarını sıfırla. */
+export function adsResetSession(): void {
+  adSessionStart = Date.now();
+  lastInterAt = 0;
+}
+
+/**
+ * Sıklık kurallarına uyarak geçiş reklamı DENER. Gösterdiyse (ya da göstermeyi denediyse)
+ * true, kural gereği atladıysa false döner. Reklam dolmazsa sessizce geçer, oyun bloklanmaz.
+ */
+export async function maybeInterstitial(): Promise<boolean> {
+  const ad = plugin();
+  if (!ad) return false;
+  const now = Date.now();
+  if (now - adSessionStart < WARMUP_MS) return false; // oturum ısınması
+  if (now - lastInterAt < MIN_GAP_MS) return false; // çok sık olmasın
+  lastInterAt = now;
+  await showInterstitial();
+  return true;
 }
